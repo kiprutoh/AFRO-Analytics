@@ -311,18 +311,6 @@ def initialize_system():
         return False
 
 
-def render_header():
-    """Render the main header"""
-    st.markdown("""
-    <div class="main-header">
-        <div class="who-logo">🌍</div>
-        <h1>WHO AFRO Data Hub</h1>
-        <h2>Mortality Analytics Platform</h2>
-        <p>Comprehensive data analysis and insights for maternal and child mortality in Africa</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-
 def render_home_page():
     """Render the home page"""
     st.markdown("""
@@ -1038,8 +1026,6 @@ def main():
     """Main application"""
     
     # Render header
-    render_header()
-    
     # Sidebar navigation
     with st.sidebar:
         st.markdown("### 🌍 WHO AFRO")
