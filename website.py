@@ -325,42 +325,11 @@ def render_header():
 
 def render_home_page():
     """Render the home page"""
-    # Header with logos
     st.markdown("""
     <div class="main-header">
-        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 1rem 2rem;">
-            <!-- Left: Regional Health Data Hub Logo -->
-            <div style="flex: 1; text-align: left; display: flex; align-items: center;">
-                <div style="color: white; font-family: Arial, sans-serif;">
-                    <div style="font-size: 1.6rem; font-weight: bold; line-height: 1.2; margin-bottom: 0.3rem;">
-                        REGIONAL<br>HEALTH<br><span style="border-bottom: 2px solid white; padding-bottom: 2px;">DATA HUB</span>
-                    </div>
-                    <div style="font-size: 0.85rem; font-weight: normal; margin-top: 0.3rem; opacity: 0.9;">
-                        AFRICA'S HEALTH<br>INTELLIGENCE<br>CENTER
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Center: Title -->
-            <div style="flex: 1; text-align: center;">
-                <h1 style="margin: 0; font-size: 2.5rem; color: white;">WHO AFRO Data Hub</h1>
-                <p style="font-size: 1.2rem; opacity: 0.95; margin: 0.5rem 0; color: white;">Mortality Analytics Platform</p>
-            </div>
-            
-            <!-- Right: WHO Logo -->
-            <div style="flex: 1; text-align: right; display: flex; align-items: center; justify-content: flex-end;">
-                <div style="color: white; font-family: Arial, sans-serif; text-align: right;">
-                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚕️</div>
-                    <div style="font-size: 0.85rem; font-weight: bold; line-height: 1.3; margin-bottom: 0.2rem;">
-                        World Health<br>Organization
-                    </div>
-                    <div style="width: 100%; height: 1px; background: white; margin: 0.3rem 0;"></div>
-                    <div style="font-size: 0.75rem; margin-top: 0.2rem;">
-                        African Region
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div class="who-logo">🌍</div>
+        <h1>WHO AFRO Data Hub</h1>
+        <p style="font-size: 1.2rem; opacity: 0.95;">Mortality Analytics Platform</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -858,7 +827,12 @@ def render_visualizer_page():
         return
     
     visualizer = st.session_state.visualizer
+    analytics = st.session_state.analytics
     pipeline = st.session_state.pipeline
+    
+    if visualizer is None or analytics is None or pipeline is None:
+        st.error("System not properly initialized. Please initialize from the sidebar.")
+        return
     
     st.markdown("""
     Create customized visualizations with full control over:

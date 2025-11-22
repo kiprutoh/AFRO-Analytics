@@ -123,8 +123,19 @@ class InteractiveVisualizer:
         Returns:
             Plotly figure
         """
+        # Try mortality data first
         country_data = self.pipeline.filter_by_country(country, self.analytics.mortality_df)
         ind_data = country_data[country_data['indicator'] == indicator]
+        
+        # If no data found and indicator is MMR, try MMR data
+        if len(ind_data) == 0 and (indicator == "MMR" or "Maternal" in indicator):
+            # Try MMR data
+            mmr_data = self.analytics.mmr_df[self.analytics.mmr_df['country'] == country]
+            if len(mmr_data) > 0:
+                # Convert MMR data to match expected format
+                ind_data = mmr_data.copy()
+                ind_data['indicator'] = indicator
+                ind_data['value'] = mmr_data['value']
         
         if len(ind_data) == 0:
             return None
@@ -277,15 +288,15 @@ class InteractiveVisualizer:
         # Get data for all countries
         all_data = []
         
-        for country in self.pipeline.get_countries():
-            country_data = self.pipeline.filter_by_country(country, self.analytics.mortality_df)
-            ind_data = country_data[country_data['indicator'] == indicator]
-            
-            if len(ind_data) > 0:
-                # Get data for specified year or closest year
-                year_data = ind_data[ind_data['year'] <= year]
-                if len(year_data) > 0:
-                    latest = year_data.sort_values('year').iloc[-1]
+        # Handle MMR separately
+        if indicator == "MMR" or "Maternal" in indicator:
+            for country in self.pipeline.get_countries():
+                mmr_data = self.analytics.mmr_df[
+                    (self.analytics.mmr_df['country'] == country) & 
+                    (self.analytics.mmr_df['year'] <= year)
+                ]
+                if len(mmr_data) > 0:
+                    latest = mmr_data.sort_values('year').iloc[-1]
                     iso_code = self.country_iso_map.get(country, '')
                     if iso_code:
                         all_data.append({
@@ -294,6 +305,25 @@ class InteractiveVisualizer:
                             'value': latest['value'],
                             'year': latest['year']
                         })
+        else:
+            # Handle other indicators
+            for country in self.pipeline.get_countries():
+                country_data = self.pipeline.filter_by_country(country, self.analytics.mortality_df)
+                ind_data = country_data[country_data['indicator'] == indicator]
+                
+                if len(ind_data) > 0:
+                    # Get data for specified year or closest year
+                    year_data = ind_data[ind_data['year'] <= year]
+                    if len(year_data) > 0:
+                        latest = year_data.sort_values('year').iloc[-1]
+                        iso_code = self.country_iso_map.get(country, '')
+                        if iso_code:
+                            all_data.append({
+                                'country': country,
+                                'iso': iso_code,
+                                'value': latest['value'],
+                                'year': latest['year']
+                            })
         
         if len(all_data) == 0:
             return None
