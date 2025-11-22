@@ -1,12 +1,13 @@
 """
 Chatbot Module for Mortality Analytics
-Handles natural language queries and generates responses
+Handles natural language queries and generates responses with charts
 """
 
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any
 from analytics import MortalityAnalytics
 from data_pipeline import MortalityDataPipeline
+from chart_generator import ChartGenerator
 
 
 class MortalityChatbot:
@@ -21,6 +22,7 @@ class MortalityChatbot:
         """
         self.analytics = analytics
         self.pipeline = analytics.pipeline
+        self.chart_generator = ChartGenerator(analytics)
         
         # Common patterns for intent recognition
         self.patterns = {
@@ -65,15 +67,15 @@ class MortalityChatbot:
             ]
         }
     
-    def process_query(self, query: str) -> str:
+    def process_query(self, query: str) -> Dict[str, Any]:
         """
-        Process user query and generate response
+        Process user query and generate response with charts
         
         Args:
             query: User's natural language query
         
         Returns:
-            Response string
+            Dictionary with 'text' and 'chart' keys
         """
         query_lower = query.lower().strip()
         
@@ -98,7 +100,10 @@ class MortalityChatbot:
             else:
                 return self._handle_general_query(query_lower)
         except Exception as e:
-            return f"I encountered an error processing your query: {str(e)}\n\nPlease try rephrasing your question or ask for help."
+            return {
+                "text": f"I encountered an error processing your query: {str(e)}\n\nPlease try rephrasing your question or ask for help.",
+                "chart": None
+            }
     
     def _detect_intent(self, query: str) -> str:
         """Detect user intent from query"""
@@ -156,19 +161,27 @@ class MortalityChatbot:
         
         return None
     
-    def _handle_country_stats(self, query: str) -> str:
+    def _handle_country_stats(self, query: str) -> Dict[str, Any]:
         """Handle country statistics queries"""
         country = self._extract_country(query)
         
         if not country:
-            return "I couldn't identify which country you're asking about. Please specify a country name, for example: 'What are the statistics for Kenya?'"
+            return {
+                "text": "I couldn't identify which country you're asking about. Please specify a country name, for example: 'What are the statistics for Kenya?'",
+                "chart": None
+            }
         
         stats = self.analytics.get_country_statistics(country)
         
         response = [f"📊 Statistics for {country}:\n"]
         
+        # Generate chart for first indicator if available
+        chart = None
         if stats["indicators"]:
             response.append("Mortality Indicators:")
+            first_indicator = list(stats["indicators"].keys())[0]
+            chart = self.chart_generator.create_trend_chart(country, first_indicator)
+            
             for indicator, data in list(stats["indicators"].items())[:5]:
                 response.append(f"\n• {indicator}:")
                 response.append(f"  Latest Value: {data['latest_value']:.2f}")
@@ -181,9 +194,12 @@ class MortalityChatbot:
             response.append(f"  Average: {stats['mmr_trend']['mean_mmr']:.2f}")
             response.append(f"  Trend: {stats['mmr_trend']['trend']}")
         
-        return "\n".join(response)
+        return {
+            "text": "\n".join(response),
+            "chart": chart
+        }
     
-    def _handle_compare(self, query: str) -> str:
+    def _handle_compare(self, query: str) -> Dict[str, Any]:
         """Handle comparison queries"""
         # Try to extract countries - look for "compare X and Y" or "X vs Y" patterns
         countries = self.pipeline.get_countries()
@@ -205,13 +221,19 @@ class MortalityChatbot:
                             found_countries.append(country)
         
         if len(found_countries) < 2:
-            return "Please specify at least two countries to compare, for example: 'Compare Kenya and Uganda' or 'Kenya vs Uganda'"
+            return {
+                "text": "Please specify at least two countries to compare, for example: 'Compare Kenya and Uganda' or 'Kenya vs Uganda'",
+                "chart": None
+            }
         
         indicator = self._extract_indicator(query)
         if not indicator:
             indicator = "Under-five mortality rate"  # Default
         
         comparison = self.analytics.compare_countries(found_countries[:5], indicator)
+        
+        # Generate comparison chart
+        chart = self.chart_generator.create_country_comparison_chart(found_countries[:5], indicator)
         
         response = [f"📈 Comparison of {indicator}:\n"]
         
@@ -229,15 +251,21 @@ class MortalityChatbot:
             else:
                 response.append("No comparison data available for the selected countries and indicator.")
         
-        return "\n".join(response)
+        return {
+            "text": "\n".join(response),
+            "chart": chart
+        }
     
-    def _handle_trend(self, query: str) -> str:
+    def _handle_trend(self, query: str) -> Dict[str, Any]:
         """Handle trend analysis queries"""
         country = self._extract_country(query)
         indicator = self._extract_indicator(query)
         
         if not country:
-            return "Please specify a country for trend analysis, for example: 'What is the trend for Kenya?'"
+            return {
+                "text": "Please specify a country for trend analysis, for example: 'What is the trend for Kenya?'",
+                "chart": None
+            }
         
         if not indicator:
             # Get trend for all indicators
@@ -247,12 +275,21 @@ class MortalityChatbot:
             for ind, data in list(stats["indicators"].items())[:5]:
                 response.append(f"• {ind}: {data['trend']}")
             
-            return "\n".join(response)
+            return {
+                "text": "\n".join(response),
+                "chart": None
+            }
         else:
             trend_analysis = self.analytics.get_trend_analysis(country, indicator)
             
             if "error" in trend_analysis:
-                return f"Sorry, I couldn't find trend data for {indicator} in {country}."
+                return {
+                    "text": f"Sorry, I couldn't find trend data for {indicator} in {country}.",
+                    "chart": None
+                }
+            
+            # Generate trend chart
+            chart = self.chart_generator.create_trend_chart(country, indicator)
             
             response = [
                 f"📉 Trend Analysis: {indicator} in {country}\n",
@@ -263,13 +300,27 @@ class MortalityChatbot:
                 f"Year Range: {trend_analysis['year_range'][0]} - {trend_analysis['year_range'][1]}"
             ]
             
-            return "\n".join(response)
+            return {
+                "text": "\n".join(response),
+                "chart": chart
+            }
     
-    def _handle_projections(self, query: str) -> str:
+    def _handle_projections(self, query: str) -> Dict[str, Any]:
         """Handle projection queries"""
         country = self._extract_country(query)
+        indicator = self._extract_indicator(query)
+        
+        if not indicator:
+            indicator = "MMR"  # Default to MMR
         
         analysis = self.analytics.analyze_projections(country)
+        
+        # Generate projection chart
+        chart = None
+        if country:
+            chart = self.chart_generator.create_projection_timeline(country, indicator)
+        else:
+            chart = self.chart_generator.create_projection_chart(None, indicator)
         
         response = ["🔮 Projections Analysis:\n"]
         
@@ -283,12 +334,18 @@ class MortalityChatbot:
             response.append(f"  Off Track: {mmr_proj['off_track_count']} indicator(s)")
             response.append(f"  Average Projected MMR 2030: {mmr_proj['avg_proj_2030']:.2f}")
             
+            if indicator == "MMR":
+                response.append(f"\n  SDG Target 2030: <70 per 100,000 live births")
+            
             if mmr_proj.get("countries_on_track"):
                 response.append(f"\n  Countries On Track: {', '.join(mmr_proj['countries_on_track'][:5])}")
         
-        return "\n".join(response)
+        return {
+            "text": "\n".join(response),
+            "chart": chart
+        }
     
-    def _handle_top_countries(self, query: str) -> str:
+    def _handle_top_countries(self, query: str) -> Dict[str, Any]:
         """Handle top countries queries"""
         indicator = self._extract_indicator(query)
         if not indicator:
@@ -304,29 +361,49 @@ class MortalityChatbot:
         top_df = self.analytics.get_top_countries_by_indicator(indicator, top_n, ascending)
         
         if len(top_df) == 0:
-            return f"Sorry, I couldn't find data for {indicator}."
+            return {
+                "text": f"Sorry, I couldn't find data for {indicator}.",
+                "chart": None
+            }
+        
+        # Generate chart
+        chart = self.chart_generator.create_top_countries_chart(indicator, top_n, ascending)
         
         response = [f"🏆 Top {top_n} Countries by {indicator}:\n"]
         
         for i, row in top_df.iterrows():
             response.append(f"{i+1}. {row['country']}: {row['value']:.2f} (Year: {int(row['year'])})")
         
-        return "\n".join(response)
+        return {
+            "text": "\n".join(response),
+            "chart": chart
+        }
     
-    def _handle_summary(self, query: str) -> str:
+    def _handle_summary(self, query: str) -> Dict[str, Any]:
         """Handle summary queries"""
         country = self._extract_country(query)
         
         report = self.analytics.generate_summary_report(country)
         
-        return report
+        # Generate on-track chart if no country specified
+        chart = None
+        if not country:
+            chart = self.chart_generator.create_on_track_chart()
+        
+        return {
+            "text": report,
+            "chart": chart
+        }
     
-    def _handle_indicator_info(self, query: str) -> str:
+    def _handle_indicator_info(self, query: str) -> Dict[str, Any]:
         """Handle indicator information queries"""
         indicator = self._extract_indicator(query)
         
         if not indicator:
-            return "Please specify an indicator, for example: 'Tell me about neonatal mortality rate'"
+            return {
+                "text": "Please specify an indicator, for example: 'Tell me about neonatal mortality rate'",
+                "chart": None
+            }
         
         # Get regional summary for this indicator
         summary = self.analytics.get_regional_summary()
@@ -340,20 +417,26 @@ class MortalityChatbot:
                 f"Range: {data['min_value']:.2f} - {data['max_value']:.2f}",
                 f"Standard Deviation: {data['std_dev']:.2f}"
             ]
-            return "\n".join(response)
+            return {
+                "text": "\n".join(response),
+                "chart": None
+            }
         
-        return f"Information about {indicator} is available. Try asking for specific country statistics."
+        return {
+            "text": f"Information about {indicator} is available. Try asking for specific country statistics.",
+            "chart": None
+        }
     
-    def _handle_general_query(self, query: str) -> str:
+    def _handle_general_query(self, query: str) -> Dict[str, Any]:
         """Handle general queries"""
         # Try to provide helpful response
         response = [
             "I can help you analyze mortality data for African countries. Here's what I can do:\n",
-            "• Provide statistics for specific countries",
-            "• Compare countries",
-            "• Analyze trends",
-            "• Show projections for 2030",
-            "• List top countries by indicators",
+            "• Provide statistics for specific countries (with charts)",
+            "• Compare countries (with charts)",
+            "• Analyze trends (with charts)",
+            "• Show projections for 2030 vs targets (with charts)",
+            "• List top countries by indicators (with charts)",
             "• Generate summary reports\n",
             "Try asking:",
             "- 'What are the statistics for Kenya?'",
@@ -363,7 +446,10 @@ class MortalityChatbot:
             "- 'Top 10 countries by under-five mortality rate'"
         ]
         
-        return "\n".join(response)
+        return {
+            "text": "\n".join(response),
+            "chart": None
+        }
     
     def get_help(self) -> str:
         """Get help message"""

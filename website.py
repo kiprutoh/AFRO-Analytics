@@ -9,6 +9,7 @@ import numpy as np
 from data_pipeline import MortalityDataPipeline
 from analytics import MortalityAnalytics
 from chatbot import MortalityChatbot
+from chart_generator import ChartGenerator
 from datetime import datetime
 import sys
 
@@ -334,7 +335,13 @@ def render_chatbot_page():
                 st.write(message["content"])
         else:
             with st.chat_message("assistant"):
-                st.write(message["content"])
+                # Handle both old format (string) and new format (dict with chart)
+                if isinstance(message["content"], dict):
+                    st.write(message["content"].get("text", ""))
+                    if message["content"].get("chart"):
+                        st.plotly_chart(message["content"]["chart"], use_container_width=True)
+                else:
+                    st.write(message["content"])
     
     # Chat input
     user_query = st.chat_input("Ask a question about mortality data...")
@@ -347,13 +354,20 @@ def render_chatbot_page():
         })
         
         # Get response from chatbot
-        with st.spinner("Analyzing..."):
+        with st.spinner("Analyzing and generating charts..."):
             response = chatbot.process_query(user_query)
+        
+        # Handle response format (dict with text and chart)
+        if isinstance(response, dict):
+            response_content = response
+        else:
+            # Backward compatibility: convert string to dict format
+            response_content = {"text": response, "chart": None}
         
         # Add assistant response to history
         st.session_state.chat_history.append({
             "role": "assistant",
-            "content": response
+            "content": response_content
         })
         
         st.rerun()
