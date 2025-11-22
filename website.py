@@ -642,12 +642,21 @@ def render_chatbot_page():
     
     chatbot = st.session_state.chatbot
     
+    # Link to Interactive Visualizer
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 1.5rem;">
+        <h4 style="color: #0066CC; margin-bottom: 0.5rem;">💡 Want More Control?</h4>
+        <p style="margin: 0;">For customizable charts with prediction methods, maps, and full control over visualizations, 
+        check out the <strong>📈 Interactive Charts</strong> page in the sidebar!</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown("""
     Ask questions about mortality data in natural language. The chatbot can help you:
-    - Get statistics for specific countries
-    - Compare countries
-    - Analyze trends
-    - View projections
+    - Get statistics for specific countries (with charts)
+    - Compare countries (with charts)
+    - Analyze trends (with charts)
+    - View projections (with charts)
     - Generate reports
     """)
     
@@ -661,8 +670,30 @@ def render_chatbot_page():
                 # Handle both old format (string) and new format (dict with chart)
                 if isinstance(message["content"], dict):
                     st.write(message["content"].get("text", ""))
+                    
+                    # Display single chart
                     if message["content"].get("chart"):
                         st.plotly_chart(message["content"]["chart"], use_container_width=True)
+                    
+                    # Display multiple charts if available
+                    if message["content"].get("charts"):
+                        for chart in message["content"]["charts"]:
+                            st.plotly_chart(chart, use_container_width=True)
+                    
+                    # Add link to interactive visualizer for country queries
+                    text_content = message["content"].get("text", "").lower()
+                    if any(keyword in text_content for keyword in ["statistics for", "country", "chart", "visualize"]):
+                        st.markdown("""
+                        <div style="margin-top: 1rem; padding: 1rem; background: #E8F4F8; border-radius: 10px; border-left: 4px solid #0066CC;">
+                            <strong>💡 Want more control?</strong> Visit <strong>📈 Interactive Charts</strong> in the sidebar for:
+                            <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+                                <li>Customizable prediction methods</li>
+                                <li>Map visualizations</li>
+                                <li>Year range controls (2000-2023 observed, 2024-2030 projected)</li>
+                                <li>Projection shading</li>
+                            </ul>
+                        </div>
+                        """, unsafe_allow_html=True)
                 else:
                     st.write(message["content"])
     
@@ -695,14 +726,46 @@ def render_chatbot_page():
         
         st.rerun()
     
+    # Quick Access to Interactive Visualizer
+    st.markdown("---")
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        if st.button("📈 Open Interactive Visualizer", use_container_width=True, help="Go to Interactive Charts page for full customization"):
+            st.session_state.current_page = 'Visualizer'
+            st.rerun()
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding: 0.5rem;">
+            <small style="color: #666;">For customizable charts<br>with full control</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
     # Example queries
     with st.expander("💡 Example Queries"):
         st.markdown("""
+        **Country Statistics (with charts):**
         - What are the statistics for Kenya?
+        - Show me charts for Angola
+        - Visualize data for Nigeria
+        
+        **Comparisons (with charts):**
         - Compare Kenya and Uganda
+        - Compare Kenya, Uganda, and Tanzania
+        
+        **Trends (with charts):**
         - What is the trend for neonatal mortality in Angola?
+        - Show trend chart for Kenya
+        
+        **Projections (with charts):**
         - Show me projections for 2030
+        - Projections for Kenya
+        
+        **Top Countries (with charts):**
         - Top 10 countries by under-five mortality rate
+        
+        **Reports:**
         - Generate a summary report for Nigeria
         """)
 

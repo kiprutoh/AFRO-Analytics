@@ -30,7 +30,10 @@ class MortalityChatbot:
                 r"statistics?.*\b(country|for|in)\s+([A-Za-z\s]+)",
                 r"([A-Za-z\s]+).*statistics?",
                 r"how.*\b([A-Za-z\s]+)\s+doing",
-                r"tell me about\s+([A-Za-z\s]+)"
+                r"tell me about\s+([A-Za-z\s]+)",
+                r"show.*chart.*\b([A-Za-z\s]+)",
+                r"visualize.*\b([A-Za-z\s]+)",
+                r"chart.*\b([A-Za-z\s]+)"
             ],
             "compare": [
                 r"compare\s+([A-Za-z\s,]+)",
@@ -175,12 +178,27 @@ class MortalityChatbot:
         
         response = [f"📊 Statistics for {country}:\n"]
         
-        # Generate chart for first indicator if available
-        chart = None
+        # Generate multiple charts for different indicators
+        charts = []
+        
         if stats["indicators"]:
             response.append("Mortality Indicators:")
-            first_indicator = list(stats["indicators"].keys())[0]
-            chart = self.chart_generator.create_trend_chart(country, first_indicator)
+            
+            # Generate charts for top indicators
+            key_indicators = ["Under-five mortality rate", "Infant mortality rate", "Neonatal mortality rate"]
+            for indicator in key_indicators:
+                if indicator in stats["indicators"]:
+                    chart = self.chart_generator.create_trend_chart(country, indicator)
+                    if chart:
+                        charts.append(chart)
+                    break  # Use first available key indicator
+            
+            # If no key indicator found, use first available
+            if not charts and stats["indicators"]:
+                first_indicator = list(stats["indicators"].keys())[0]
+                chart = self.chart_generator.create_trend_chart(country, first_indicator)
+                if chart:
+                    charts.append(chart)
             
             for indicator, data in list(stats["indicators"].items())[:5]:
                 response.append(f"\n• {indicator}:")
@@ -194,9 +212,13 @@ class MortalityChatbot:
             response.append(f"  Average: {stats['mmr_trend']['mean_mmr']:.2f}")
             response.append(f"  Trend: {stats['mmr_trend']['trend']}")
         
+        # Add link to interactive visualizer
+        response.append(f"\n\n💡 For customizable charts with projections (2000-2023 observed, 2024-2030 projected), prediction methods, and maps, visit the 📈 Interactive Charts page!")
+        
         return {
             "text": "\n".join(response),
-            "chart": chart
+            "chart": charts[0] if charts else None,
+            "charts": charts  # Multiple charts support
         }
     
     def _handle_compare(self, query: str) -> Dict[str, Any]:
