@@ -55,7 +55,17 @@ class MortalityChatbot:
                 r"2030",
                 r"on track",
                 r"future",
-                r"forecast"
+                r"forecast",
+                r"2000.*2023.*projection",
+                r"projection.*2023.*2030"
+            ],
+            "map": [
+                r"map",
+                r"world map",
+                r"geographic",
+                r"choropleth",
+                r"show.*map",
+                r"visualize.*map"
             ],
             "top_countries": [
                 r"top\s+(\d+)?.*countries?",
@@ -86,7 +96,9 @@ class MortalityChatbot:
         intent = self._detect_intent(query_lower)
         
         try:
-            if intent == "country_stats":
+            if intent == "map":
+                return self._handle_map(query_lower)
+            elif intent == "country_stats":
                 return self._handle_country_stats(query_lower)
             elif intent == "compare":
                 return self._handle_compare(query_lower)
@@ -280,12 +292,17 @@ class MortalityChatbot:
     
     def _handle_trend(self, query: str) -> Dict[str, Any]:
         """Handle trend analysis queries"""
+        # Check if it's a trend with projection request
+        if re.search(r"trend.*\d{4}.*\d{4}.*projection", query.lower()) or \
+           re.search(r"\d{4}.*\d{4}.*projection", query.lower()):
+            return self._handle_trend_with_projection(query)
+        
         country = self._extract_country(query)
         indicator = self._extract_indicator(query)
         
         if not country:
             return {
-                "text": "Please specify a country for trend analysis, for example: 'What is the trend for Kenya?'",
+                "text": "Please specify a country for trend analysis, for example: 'What is the trend for Kenya?' or 'Trend of MMR for Nigeria 2000-2023 with projection 2024-2030'",
                 "chart": None
             }
         
@@ -310,12 +327,25 @@ class MortalityChatbot:
                     "chart": None
                 }
             
-            # Generate trend chart
-            chart = self.chart_generator.create_trend_chart(country, indicator)
+            # Generate trend chart with projection if visualizer available
+            chart = None
+            if self.visualizer:
+                chart = self.visualizer.create_custom_trend_chart(
+                    country=country,
+                    indicator=indicator,
+                    prediction_method='linear',
+                    show_projection=True,
+                    start_year=2000,
+                    end_year=2030
+                )
+            else:
+                chart = self.chart_generator.create_trend_chart(country, indicator)
             
             response = [
                 f"📉 Trend Analysis: {indicator} in {country}\n",
-                f"Current Value: {trend_analysis['current_value']:.2f}",
+                f"Observed Period: 2000-2023",
+                f"Projected Period: 2024-2030 (shown in chart)",
+                f"\nCurrent Value: {trend_analysis['current_value']:.2f}",
                 f"Baseline Value: {trend_analysis['baseline_value']:.2f}",
                 f"Change: {trend_analysis['change']:.2f} ({trend_analysis['change_pct']:.1f}%)",
                 f"Trend: {trend_analysis['trend']}",
@@ -417,6 +447,46 @@ class MortalityChatbot:
             "chart": chart
         }
     
+    def _handle_map(self, query: str) -> Dict[str, Any]:
+        """Handle map visualization queries"""
+        indicator = self._extract_indicator(query)
+        if not indicator:
+            # Try to detect indicator from query
+            if "mmr" in query.lower() or "maternal" in query.lower():
+                indicator = "MMR"
+            elif "under-five" in query.lower() or "under five" in query.lower():
+                indicator = "Under-five mortality rate"
+            elif "infant" in query.lower():
+                indicator = "Infant mortality rate"
+            elif "neonatal" in query.lower():
+                indicator = "Neonatal mortality rate"
+            else:
+                indicator = "MMR"  # Default to MMR
+        
+        # Extract year if mentioned
+        year_match = re.search(r"20\d{2}", query)
+        year = int(year_match.group()) if year_match else 2023
+        
+        # Generate enhanced map
+        chart = self.chart_generator.create_enhanced_map(indicator, year)
+        
+        if not chart:
+            return {
+                "text": f"Sorry, I couldn't generate a map for {indicator}. Please try a different indicator.",
+                "chart": None
+            }
+        
+        response = [
+            f"🗺️ Map Visualization: {indicator} ({year})\n",
+            f"Showing all African countries with {indicator} values.",
+            "Hover over countries to see details. Country names are displayed on the map."
+        ]
+        
+        return {
+            "text": "\n".join(response),
+            "chart": chart
+        }
+    
     def _handle_indicator_info(self, query: str) -> Dict[str, Any]:
         """Handle indicator information queries"""
         indicator = self._extract_indicator(query)
@@ -449,22 +519,79 @@ class MortalityChatbot:
             "chart": None
         }
     
+    def _handle_trend_with_projection(self, query: str) -> Dict[str, Any]:
+        """Handle trend queries with specific projection requests like 'Trend of MMR for Nigeria 2000-2023 with projection 2024-2030'"""
+        country = self._extract_country(query)
+        indicator = self._extract_indicator(query)
+        
+        if not country:
+            return {
+                "text": "Please specify a country, for example: 'Trend of MMR for Nigeria 2000-2023 with projection 2024-2030'",
+                "chart": None
+            }
+        
+        if not indicator:
+            # Try to detect indicator from query
+            if "mmr" in query.lower() or "maternal" in query.lower():
+                indicator = "MMR"
+            elif "under-five" in query.lower() or "under five" in query.lower():
+                indicator = "Under-five mortality rate"
+            elif "infant" in query.lower():
+                indicator = "Infant mortality rate"
+            elif "neonatal" in query.lower():
+                indicator = "Neonatal mortality rate"
+            else:
+                indicator = "MMR"  # Default
+        
+        # Use interactive visualizer for better charts with projections
+        chart = None
+        if self.visualizer:
+            chart = self.visualizer.create_custom_trend_chart(
+                country=country,
+                indicator=indicator,
+                prediction_method='linear',
+                show_projection=True,
+                start_year=2000,
+                end_year=2030
+            )
+        else:
+            # Fallback to chart generator
+            chart = self.chart_generator.create_trend_chart(country, indicator)
+        
+        response = [
+            f"📈 Trend Analysis with Projections: {indicator} - {country}\n",
+            f"Observed Period: 2000-2023 (blue line)",
+            f"Projected Period: 2024-2030 (orange dashed line with light shading)",
+            f"\nThe chart shows historical data and future projections based on current trends."
+        ]
+        
+        return {
+            "text": "\n".join(response),
+            "chart": chart
+        }
+    
     def _handle_general_query(self, query: str) -> Dict[str, Any]:
         """Handle general queries"""
+        # Check if it's a trend with projection query
+        if re.search(r"trend.*\d{4}.*\d{4}.*projection", query.lower()) or \
+           re.search(r"projection.*\d{4}.*\d{4}", query.lower()):
+            return self._handle_trend_with_projection(query)
+        
         # Try to provide helpful response
         response = [
             "I can help you analyze mortality data for African countries. Here's what I can do:\n",
             "• Provide statistics for specific countries (with charts)",
             "• Compare countries (with charts)",
-            "• Analyze trends (with charts)",
+            "• Analyze trends with projections (2000-2023 observed, 2024-2030 projected)",
+            "• Show maps of Africa (with country names)",
             "• Show projections for 2030 vs targets (with charts)",
             "• List top countries by indicators (with charts)",
             "• Generate summary reports\n",
             "Try asking:",
+            "- 'Trend of MMR for Nigeria 2000-2023 with projection 2024-2030'",
+            "- 'Show me a map of MMR in Africa'",
             "- 'What are the statistics for Kenya?'",
             "- 'Compare Kenya and Uganda'",
-            "- 'What is the trend for neonatal mortality in Angola?'",
-            "- 'Show me projections for 2030'",
             "- 'Top 10 countries by under-five mortality rate'"
         ]
         

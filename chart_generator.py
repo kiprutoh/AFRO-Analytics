@@ -402,3 +402,161 @@ class ChartGenerator:
         
         return fig
 
+
+    def create_enhanced_map(self, indicator: str, year: int = 2023) -> go.Figure:
+        """
+        Create enhanced choropleth map for indicator across African countries with country names
+        
+        Args:
+            indicator: Indicator name
+            year: Year to display
+        
+        Returns:
+            Plotly figure
+        """
+        # Country ISO code mapping for maps
+        country_iso_map = {
+            'Angola': 'AGO', 'Algeria': 'DZA', 'Benin': 'BEN', 'Botswana': 'BWA',
+            'Burkina Faso': 'BFA', 'Burundi': 'BDI', 'Cabo Verde': 'CPV',
+            'Cameroon': 'CMR', 'Central African Republic': 'CAF', 'Chad': 'TCD',
+            'Comoros': 'COM', 'Congo': 'COG', "Côte d'Ivoire": 'CIV',
+            'Democratic Republic of the Congo': 'COD', 'Equatorial Guinea': 'GNQ',
+            'Eritrea': 'ERI', 'Ethiopia': 'ETH', 'Gabon': 'GAB', 'Gambia': 'GMB',
+            'Ghana': 'GHA', 'Guinea': 'GIN', 'Guinea-Bissau': 'GNB', 'Kenya': 'KEN',
+            'Lesotho': 'LSO', 'Liberia': 'LBR', 'Madagascar': 'MDG', 'Malawi': 'MWI',
+            'Mali': 'MLI', 'Mauritania': 'MRT', 'Mauritius': 'MUS', 'Mozambique': 'MOZ',
+            'Namibia': 'NAM', 'Niger': 'NER', 'Nigeria': 'NGA', 'Rwanda': 'RWA',
+            'Sao Tome and Principe': 'STP', 'Senegal': 'SEN', 'Seychelles': 'SYC',
+            'Sierra Leone': 'SLE', 'South Africa': 'ZAF', 'South Sudan': 'SSD',
+            'Eswatini': 'SWZ', 'United Republic of Tanzania': 'TZA', 'Togo': 'TGO',
+            'Uganda': 'UGA', 'Zambia': 'ZMB', 'Zimbabwe': 'ZWE'
+        }
+        
+        # Get data for all countries
+        all_data = []
+        
+        # Handle MMR separately
+        if indicator == "MMR" or "Maternal" in indicator:
+            for _, row in self.analytics.mmr_df.iterrows():
+                if row['year'] <= year:
+                    country = row['country']
+                    iso_code = country_iso_map.get(country, '')
+                    if iso_code:
+                        # Get latest value for this country up to the specified year
+                        country_data = self.analytics.mmr_df[
+                            (self.analytics.mmr_df['country'] == country) & 
+                            (self.analytics.mmr_df['year'] <= year)
+                        ]
+                        if len(country_data) > 0:
+                            latest = country_data.sort_values('year').iloc[-1]
+                            all_data.append({
+                                'country': country,
+                                'iso': iso_code,
+                                'value': latest['value'],
+                                'year': latest['year']
+                            })
+        else:
+            # Handle other indicators
+            for country in self.pipeline.get_countries():
+                country_data = self.pipeline.filter_by_country(country, self.analytics.mortality_df)
+                ind_data = country_data[country_data['indicator'] == indicator]
+                
+                if len(ind_data) > 0:
+                    year_data = ind_data[ind_data['year'] <= year]
+                    if len(year_data) > 0:
+                        latest = year_data.sort_values('year').iloc[-1]
+                        iso_code = country_iso_map.get(country, '')
+                        if iso_code:
+                            all_data.append({
+                                'country': country,
+                                'iso': iso_code,
+                                'value': latest['value'],
+                                'year': latest['year']
+                            })
+        
+        if len(all_data) == 0:
+            return None
+        
+        df = pd.DataFrame(all_data)
+        
+        # Create enhanced map with country names
+        fig = go.Figure(data=go.Choropleth(
+            locations=df['iso'],
+            z=df['value'],
+            text=df['country'],  # Country names for hover
+            customdata=df[['country', 'value', 'year']],
+            colorscale='Reds',
+            autocolorscale=False,
+            reversescale=False,
+            marker_line_color='white',
+            marker_line_width=1.5,
+            colorbar_title="Rate",
+            hovertemplate='<b>%{customdata[0]}</b><br>' +
+                         f'{indicator}: %{{z:.2f}}<br>' +
+                         'Year: %{customdata[2]}<extra></extra>'
+        ))
+        
+        # Add country name annotations (centered on each country)
+        country_centers = {
+            'AGO': (-12.5, -17.5), 'DZA': (28, 3), 'BEN': (9.5, 6.5), 'BWA': (-22, -24),
+            'BFA': (12, -2), 'BDI': (-3.5, 29.9), 'CPV': (16, -24), 'CMR': (7, 6),
+            'CAF': (7, 21), 'TCD': (15, 19), 'COM': (-12.2, 43.9), 'COG': (-1, -1),
+            'CIV': (8, -5), 'COD': (-4, 21), 'GNQ': (1.5, 10), 'ERI': (15, 15),
+            'ETH': (9, 38.5), 'GAB': (-1, 12), 'GMB': (13.5, -13.5), 'GHA': (8, -2),
+            'GIN': (10, -10), 'GNB': (12, -12), 'KEN': (1, 38), 'LSO': (-29.5, 28.5),
+            'LBR': (6.5, -9.5), 'MDG': (-20, 47), 'MWI': (-13.5, 34), 'MLI': (17, -4),
+            'MRT': (20, -10), 'MUS': (-20.3, 57.5), 'MOZ': (-18, 35), 'NAM': (-22, 17),
+            'NER': (17, 8), 'NGA': (10, 8), 'RWA': (-2, 30), 'STP': (1, 7),
+            'SEN': (14, -14), 'SYC': (-4.6, 55.5), 'SLE': (8.5, -11.5), 'ZAF': (-29, 24),
+            'SSD': (7, 30), 'SWZ': (-26.5, 31.5), 'TZA': (-6, 35), 'TGO': (8, 1),
+            'UGA': (1, 32), 'ZMB': (-15, 28), 'ZWE': (-19, 29.5)
+        }
+        
+        # Add country name annotations
+        for _, row in df.iterrows():
+            iso = row['iso']
+            country_name = row['country']
+            if iso in country_centers:
+                lat, lon = country_centers[iso]
+                fig.add_trace(go.Scattergeo(
+                    lon=[lon],
+                    lat=[lat],
+                    text=[country_name],
+                    mode='text',
+                    textfont=dict(size=11, color='black', family='Arial Black'),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+        
+        fig.update_geos(
+            visible=True,
+            resolution=50,
+            showcountries=True,
+            countrycolor="white",
+            showcoastlines=True,
+            coastlinecolor="white",
+            showland=True,
+            landcolor="lightgray",
+            showocean=True,
+            oceancolor="lightblue",
+            projection_type="natural earth",
+            lonaxis_range=[-20, 55],
+            lataxis_range=[-35, 38],
+            bgcolor='rgba(0,0,0,0)'
+        )
+        
+        fig.update_layout(
+            title=dict(
+                text=f'{indicator} by Country - Africa ({year})',
+                font=dict(size=20, color='#0066CC')
+            ),
+            height=900,  # Bigger map
+            geo=dict(
+                bgcolor='rgba(0,0,0,0)',
+                lakecolor='lightblue',
+                showlakes=True
+            ),
+            margin=dict(l=0, r=0, t=60, b=0)
+        )
+        
+        return fig

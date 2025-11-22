@@ -296,8 +296,8 @@ def initialize_system():
             pipeline.load_data()
             
             analytics = MortalityAnalytics(pipeline)
-            chatbot = MortalityChatbot(analytics)
             visualizer = InteractiveVisualizer(analytics)
+            chatbot = MortalityChatbot(analytics, visualizer)  # Pass visualizer to chatbot
             
             st.session_state.pipeline = pipeline
             st.session_state.analytics = analytics
