@@ -10,6 +10,7 @@ from data_pipeline import MortalityDataPipeline
 from analytics import MortalityAnalytics
 from chatbot import MortalityChatbot
 from chart_generator import ChartGenerator
+from interactive_visualizer import InteractiveVisualizer
 from datetime import datetime
 import sys
 
@@ -94,6 +95,8 @@ if 'data_loaded' not in st.session_state:
     st.session_state.data_loaded = False
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'Home'
+if 'visualizer' not in st.session_state:
+    st.session_state.visualizer = None
 
 
 def initialize_system():
@@ -105,10 +108,12 @@ def initialize_system():
             
             analytics = MortalityAnalytics(pipeline)
             chatbot = MortalityChatbot(analytics)
+            visualizer = InteractiveVisualizer(analytics)
             
             st.session_state.pipeline = pipeline
             st.session_state.analytics = analytics
             st.session_state.chatbot = chatbot
+            st.session_state.visualizer = visualizer
             st.session_state.data_loaded = True
             
         return True
@@ -426,6 +431,171 @@ def render_reports_page():
         )
 
 
+def render_visualizer_page():
+    """Render the interactive visualizer page"""
+    st.markdown('<h2 class="section-header">Interactive Chart Visualizer</h2>', unsafe_allow_html=True)
+    
+    if not st.session_state.data_loaded:
+        st.warning("Please initialize the system first from the sidebar.")
+        return
+    
+    visualizer = st.session_state.visualizer
+    pipeline = st.session_state.pipeline
+    
+    st.markdown("""
+    Create customized visualizations with full control over:
+    - Country selection
+    - Indicator selection
+    - Prediction methods
+    - Chart types (Chart or Map)
+    - Year ranges
+    """)
+    
+    # Control Panel
+    with st.expander("⚙️ Chart Controls", expanded=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Country selection
+            countries = pipeline.get_countries()
+            selected_country = st.selectbox(
+                "Select Country",
+                countries,
+                index=0 if countries else None
+            )
+            
+            # Indicator selection
+            indicators = pipeline.get_indicators()
+            selected_indicator = st.selectbox(
+                "Select Indicator",
+                indicators,
+                index=0 if indicators else None
+            )
+        
+        with col2:
+            # Visualization type
+            viz_type = st.radio(
+                "Visualization Type",
+                ["Chart", "Map"],
+                horizontal=True
+            )
+            
+            # Prediction method (for charts)
+            if viz_type == "Chart":
+                prediction_method = st.selectbox(
+                    "Prediction Method",
+                    ["linear", "exponential", "polynomial", "moving_average"],
+                    help="Choose how to predict future values"
+                )
+            else:
+                prediction_method = None
+        
+        # Additional options for charts
+        if viz_type == "Chart":
+            col3, col4 = st.columns(2)
+            
+            with col3:
+                show_projection = st.checkbox(
+                    "Show Projections (2024-2030)",
+                    value=True,
+                    help="Display projected values with light shading"
+                )
+            
+            with col4:
+                start_year = st.slider(
+                    "Start Year (Observed)",
+                    min_value=2000,
+                    max_value=2023,
+                    value=2000,
+                    help="Start year for observed data"
+                )
+            
+            end_year = st.slider(
+                "End Year (Projections)",
+                min_value=2024,
+                max_value=2030,
+                value=2030,
+                help="End year for projections"
+            )
+    
+    # Generate visualization
+    if selected_country and selected_indicator:
+        if viz_type == "Chart":
+            st.markdown("### Customized Trend Chart")
+            
+            chart = visualizer.create_custom_trend_chart(
+                country=selected_country,
+                indicator=selected_indicator,
+                prediction_method=prediction_method,
+                show_projection=show_projection,
+                start_year=start_year,
+                end_year=end_year
+            )
+            
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+                
+                # Chart information
+                st.info(f"""
+                **Chart Details:**
+                - **Country:** {selected_country}
+                - **Indicator:** {selected_indicator}
+                - **Observed Period:** {start_year}-2023 (blue line)
+                - **Projection Period:** 2024-{end_year} (orange dashed line with light shading)
+                - **Prediction Method:** {prediction_method.title()}
+                """)
+            else:
+                st.warning(f"No data available for {selected_indicator} in {selected_country}")
+        
+        else:  # Map
+            st.markdown("### Country Map Visualization")
+            
+            map_year = st.slider(
+                "Select Year for Map",
+                min_value=2000,
+                max_value=2023,
+                value=2023
+            )
+            
+            map_chart = visualizer.create_country_map(
+                indicator=selected_indicator,
+                year=map_year
+            )
+            
+            if map_chart:
+                st.plotly_chart(map_chart, use_container_width=True)
+                
+                st.info(f"""
+                **Map Details:**
+                - **Indicator:** {selected_indicator}
+                - **Year:** {map_year}
+                - **Color Scale:** Darker colors indicate higher values
+                """)
+            else:
+                st.warning(f"No map data available for {selected_indicator}")
+    
+    # Multi-country comparison option
+    st.markdown("---")
+    st.markdown("### Multi-Country Comparison")
+    
+    compare_countries = st.multiselect(
+        "Select Countries to Compare",
+        countries,
+        default=countries[:3] if len(countries) >= 3 else countries
+    )
+    
+    if len(compare_countries) > 0 and selected_indicator:
+        compare_chart = visualizer.create_multi_country_comparison(
+            countries=compare_countries,
+            indicator=selected_indicator,
+            show_projection=show_projection if viz_type == "Chart" else True,
+            prediction_method=prediction_method if viz_type == "Chart" else "linear"
+        )
+        
+        if compare_chart:
+            st.plotly_chart(compare_chart, use_container_width=True)
+
+
 def render_about_page():
     """Render the about page"""
     st.markdown('<h2 class="section-header">About WHO AFRO Data Hub</h2>', unsafe_allow_html=True)
@@ -501,6 +671,10 @@ def main():
             st.session_state.current_page = 'Reports'
             st.rerun()
         
+        if st.button("📈 Interactive Charts", use_container_width=True, key="nav_visualizer"):
+            st.session_state.current_page = 'Visualizer'
+            st.rerun()
+        
         if st.button("ℹ️ About", use_container_width=True, key="nav_about"):
             st.session_state.current_page = 'About'
             st.rerun()
@@ -538,6 +712,8 @@ def main():
         render_chatbot_page()
     elif st.session_state.current_page == 'Reports':
         render_reports_page()
+    elif st.session_state.current_page == 'Visualizer':
+        render_visualizer_page()
     elif st.session_state.current_page == 'About':
         render_about_page()
 
