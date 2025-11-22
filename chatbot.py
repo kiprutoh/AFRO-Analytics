@@ -13,16 +13,18 @@ from chart_generator import ChartGenerator
 class MortalityChatbot:
     """Chatbot for mortality data analysis"""
     
-    def __init__(self, analytics: MortalityAnalytics):
+    def __init__(self, analytics: MortalityAnalytics, visualizer=None):
         """
         Initialize chatbot with analytics engine
         
         Args:
             analytics: MortalityAnalytics instance
+            visualizer: Optional InteractiveVisualizer instance
         """
         self.analytics = analytics
         self.pipeline = analytics.pipeline
         self.chart_generator = ChartGenerator(analytics)
+        self.visualizer = visualizer
         
         # Common patterns for intent recognition
         self.patterns = {
