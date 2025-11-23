@@ -37,6 +37,25 @@ st.markdown("""
         box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
         position: relative;
         overflow: hidden;
+        min-height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .main-header video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: 0;
+        opacity: 0.4;
+    }
+    .main-header .header-content {
+        position: relative;
+        z-index: 1;
+        width: 100%;
     }
     .main-header::before {
         content: '';
@@ -313,13 +332,33 @@ def initialize_system():
 
 def render_home_page():
     """Render the home page"""
-    st.markdown("""
-    <div class="main-header">
-        <div class="who-logo">🌍</div>
-        <h1>WHO AFRO Data Hub</h1>
-        <p style="font-size: 1.2rem; opacity: 0.95;">Mortality Analytics Platform</p>
-    </div>
-    """, unsafe_allow_html=True)
+    import os
+    
+    # Header with video background
+    video_file = "vid-for-rdhub-herosection.mp4"
+    if os.path.exists(video_file):
+        st.markdown(f"""
+        <div class="main-header" style="position: relative; overflow: hidden; min-height: 400px;">
+            <video autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
+                <source src="{video_file}" type="video/mp4">
+            </video>
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(102, 126, 234, 0.7) 0%, rgba(118, 75, 162, 0.7) 50%, rgba(0, 102, 204, 0.7) 100%); z-index: 1;"></div>
+            <div style="position: relative; z-index: 2; padding: 3rem 2rem; text-align: center;">
+                <div class="who-logo">🌍</div>
+                <h1 style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); margin: 0.5rem 0;">WHO AFRO Data Hub</h1>
+                <p style="font-size: 1.2rem; opacity: 0.95; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 0.5rem 0;">Mortality Analytics Platform</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        # Fallback to original header if video not found
+        st.markdown("""
+        <div class="main-header">
+            <div class="who-logo">🌍</div>
+            <h1>WHO AFRO Data Hub</h1>
+            <p style="font-size: 1.2rem; opacity: 0.95;">Mortality Analytics Platform</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     st.markdown("""
     <div class="info-box">
