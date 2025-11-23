@@ -346,13 +346,79 @@ def render_home_page():
     # Header with video background
     video_file = "vid-for-rdhub-herosection.mp4"
     if os.path.exists(video_file):
+        # Use HTML5 video with proper styling for background
+        st.markdown("""
+        <style>
+        .hero-video-container {
+            position: relative;
+            width: 100%;
+            min-height: 400px;
+            overflow: hidden;
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+        }
+        .hero-video-container video {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            z-index: 0;
+            object-fit: cover;
+        }
+        .hero-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.75) 0%, rgba(118, 75, 162, 0.75) 50%, rgba(0, 102, 204, 0.75) 100%);
+            z-index: 1;
+        }
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            padding: 3rem 2rem;
+            text-align: center;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Encode video to base64 for embedding
+        @st.cache_data
+        def load_video_base64(file_path):
+            try:
+                with open(file_path, "rb") as f:
+                    return base64.b64encode(f.read()).decode()
+            except Exception as e:
+                return None
+        
+        import base64
+        video_base64 = load_video_base64(video_file)
+        
+        if video_base64:
+            video_data_url = f"data:video/mp4;base64,{video_base64}"
+            video_source = f'<source src="{video_data_url}" type="video/mp4">'
+        else:
+            # Fallback to file path
+            video_source = f'<source src="{video_file}" type="video/mp4">'
+        
         st.markdown(f"""
-        <div class="main-header" style="position: relative; overflow: hidden; min-height: 400px;">
+        <div class="hero-video-container">
             <video autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
-                <source src="{video_file}" type="video/mp4">
+                {video_source}
             </video>
-            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(102, 126, 234, 0.7) 0%, rgba(118, 75, 162, 0.7) 50%, rgba(0, 102, 204, 0.7) 100%); z-index: 1;"></div>
-            <div style="position: relative; z-index: 2; padding: 3rem 2rem; text-align: center;">
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
                 <div class="who-logo">🌍</div>
                 <h1 style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); margin: 0.5rem 0;">Regional Health Data Hub</h1>
                 <p style="font-size: 1.1rem; opacity: 0.95; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 0.5rem 0; font-weight: 600;">Analytics Section</p>
@@ -364,6 +430,22 @@ def render_home_page():
             </div>
         </div>
         """, unsafe_allow_html=True)
+        
+        # Also add video using Streamlit's component as fallback
+        with st.container():
+            st.markdown("""
+            <style>
+            .stVideo {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: 0 !important;
+                opacity: 0 !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
     else:
         # Fallback to original header if video not found
         st.markdown("""
