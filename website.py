@@ -17,7 +17,7 @@ import sys
 
 # Page configuration
 st.set_page_config(
-    page_title="WHO AFRO Data Hub - Mortality Analytics",
+    page_title="Regional Health Data Hub - Analytics Section",
     page_icon="🌍",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -80,6 +80,15 @@ st.markdown("""
     @keyframes float {
         0%, 100% { transform: translateY(0px); }
         50% { transform: translateY(-10px); }
+    }
+    .green-circle {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #00CC66;
+        margin-right: 8px;
+        vertical-align: middle;
     }
     
     /* Modern Stat Cards */
@@ -345,8 +354,13 @@ def render_home_page():
             <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(102, 126, 234, 0.7) 0%, rgba(118, 75, 162, 0.7) 50%, rgba(0, 102, 204, 0.7) 100%); z-index: 1;"></div>
             <div style="position: relative; z-index: 2; padding: 3rem 2rem; text-align: center;">
                 <div class="who-logo">🌍</div>
-                <h1 style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); margin: 0.5rem 0;">WHO AFRO Data Hub</h1>
-                <p style="font-size: 1.2rem; opacity: 0.95; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 0.5rem 0;">Mortality Analytics Platform</p>
+                <h1 style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); margin: 0.5rem 0;">Regional Health Data Hub</h1>
+                <p style="font-size: 1.1rem; opacity: 0.95; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 0.5rem 0; font-weight: 600;">Analytics Section</p>
+                <p style="font-size: 0.95rem; opacity: 0.9; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 1rem 0; line-height: 1.6;">
+                    TRANSFORMING Health Data into Actionable Insights<br>
+                    <strong>for AFRICA'S FUTURE</strong><br>
+                    <span style="font-size: 0.85rem;">A regional platform for high-quality, timely, and actionable health intelligence</span>
+                </p>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -355,8 +369,13 @@ def render_home_page():
         st.markdown("""
         <div class="main-header">
             <div class="who-logo">🌍</div>
-            <h1>WHO AFRO Data Hub</h1>
-            <p style="font-size: 1.2rem; opacity: 0.95;">Mortality Analytics Platform</p>
+            <h1>Regional Health Data Hub</h1>
+            <p style="font-size: 1.1rem; opacity: 0.95; font-weight: 600;">Analytics Section</p>
+            <p style="font-size: 0.95rem; opacity: 0.9; margin: 1rem 0; line-height: 1.6;">
+                TRANSFORMING Health Data into Actionable Insights<br>
+                <strong>for AFRICA'S FUTURE</strong><br>
+                <span style="font-size: 0.85rem;">A regional platform for high-quality, timely, and actionable health intelligence</span>
+            </p>
         </div>
         """, unsafe_allow_html=True)
     
@@ -564,7 +583,7 @@ def render_dashboard_page():
     with col2:
         st.markdown("""
         <div class="chart-container hover-lift">
-            <h4 style="color: #00CC66; margin-bottom: 1rem; font-size: 1.2rem;">✅ Lowest Under-Five Mortality</h4>
+            <h4 style="color: #00CC66; margin-bottom: 1rem; font-size: 1.2rem;"><span class="green-circle"></span>Lowest Under-Five Mortality</h4>
         </div>
         """, unsafe_allow_html=True)
         top_low = analytics.get_top_countries_by_indicator("Under-five mortality rate", 10, ascending=True)
@@ -617,7 +636,7 @@ def render_dashboard_page():
         if mmr_proj.get("countries_on_track"):
             st.markdown("""
             <div class="info-box hover-lift" style="margin-top: 1.5rem;">
-                <h4 style="color: #0066CC; margin-bottom: 0.5rem; font-size: 1.1rem;">✅ Countries On Track</h4>
+                <h4 style="color: #0066CC; margin-bottom: 0.5rem; font-size: 1.1rem;"><span class="green-circle"></span>Countries On Track</h4>
                 <p style="margin: 0; font-size: 0.95rem;">""" + ", ".join(mmr_proj['countries_on_track']) + """</p>
             </div>
             """, unsafe_allow_html=True)
@@ -1106,7 +1125,7 @@ def main():
                     st.success("System initialized!")
                     st.rerun()
         else:
-            st.success("✅ System Ready")
+            st.markdown('<div style="display: flex; align-items: center; color: green;"><span class="green-circle"></span><span style="margin-left: 8px;">System Ready</span></div>', unsafe_allow_html=True)
             summary = st.session_state.pipeline.get_data_summary()
             st.caption(f"Countries: {summary['countries']}")
             st.caption(f"Indicators: {summary['indicators']}")
