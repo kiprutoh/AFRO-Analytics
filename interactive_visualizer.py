@@ -218,6 +218,7 @@ class InteractiveVisualizer:
                 ))
         
         # Add SDG target line if applicable
+        target_value = None
         if indicator == "MMR" or "Maternal" in indicator:
             target_value = 70
             fig.add_hline(
@@ -246,6 +247,48 @@ class InteractiveVisualizer:
                 annotation_position="right"
             )
         
+        # Add curly bracket showing gap to target if projection is shown
+        shapes = []
+        annotations = []
+        if show_projection and target_value is not None and len(projection_years) > 0:
+            projected_2030 = predicted_values[-1]  # Last projected value (2030)
+            gap = abs(projected_2030 - target_value)
+            
+            if gap > 0.1:  # Only show if significant gap
+                # Determine bracket position
+                if projected_2030 > target_value:
+                    y_start = target_value
+                    y_end = projected_2030
+                else:
+                    y_start = projected_2030
+                    y_end = target_value
+                
+                bracket_y = (y_start + y_end) / 2
+                bracket_x = end_year
+                
+                # Add curly bracket shape
+                shapes = [{
+                    'type': 'path',
+                    'path': f'M {bracket_x+0.3},{y_start} Q {bracket_x+0.5},{bracket_y} {bracket_x+0.3},{y_end}',
+                    'line': {'color': 'rgba(255,0,0,0.6)', 'width': 2},
+                    'xref': 'x',
+                    'yref': 'y'
+                }]
+                
+                # Add annotation for gap value
+                annotations = [{
+                    'x': bracket_x + 0.5,
+                    'y': bracket_y,
+                    'text': f'Gap to Target: {gap:.1f}',
+                    'showarrow': False,
+                    'xref': 'x',
+                    'yref': 'y',
+                    'bgcolor': 'rgba(255,255,255,0.9)',
+                    'bordercolor': 'rgba(255,0,0,0.6)',
+                    'borderwidth': 1,
+                    'font': {'size': 10}
+                }]
+        
         # Add vertical line separating observed and projected
         if show_projection:
             fig.add_vline(
@@ -256,21 +299,28 @@ class InteractiveVisualizer:
                 annotation_position="top"
             )
         
-        fig.update_layout(
-            title=f'{indicator} - {country}<br><sub>Observed (2000-2023) & Projected (2024-{end_year})</sub>',
-            xaxis_title='Year',
-            yaxis_title='Rate',
-            hovermode='x unified',
-            template='plotly_white',
-            height=500,
-            showlegend=True,
-            legend=dict(
+        layout_dict = {
+            'title': f'{indicator} - {country}<br><sub>Observed (2000-2023) & Projected (2024-{end_year})</sub>',
+            'xaxis_title': 'Year',
+            'yaxis_title': 'Rate',
+            'hovermode': 'x unified',
+            'template': 'plotly_white',
+            'height': 500,
+            'showlegend': True,
+            'legend': dict(
                 yanchor="top",
                 y=0.99,
                 xanchor="left",
                 x=0.01
             )
-        )
+        }
+        
+        if shapes:
+            layout_dict['shapes'] = shapes
+        if annotations:
+            layout_dict['annotations'] = annotations
+        
+        fig.update_layout(**layout_dict)
         
         return fig
     

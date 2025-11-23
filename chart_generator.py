@@ -201,6 +201,72 @@ class ChartGenerator:
                 annotation_text=f"SDG Target 2030: {target_value}",
                 annotation_position="right"
             )
+            
+            # Add curly brackets showing gap to target for each country
+            annotations = []
+            shapes = []
+            for i, (idx, row) in enumerate(df.iterrows()):
+                if pd.notna(row['target_2030']):
+                    projected = row['projected_2030']
+                    target = row['target_2030']
+                    gap = abs(projected - target)
+                    
+                    # Only show bracket if there's a significant gap
+                    if gap > 0.1:  # Threshold to avoid clutter
+                        country_name = row['country']
+                        x_pos = country_name  # Use country name for x position
+                        
+                        # Determine if projected is above or below target
+                        if projected > target:
+                            # Gap is above target
+                            y_start = target
+                            y_end = projected
+                            bracket_y = target + (projected - target) / 2
+                        else:
+                            # Gap is below target (already met)
+                            y_start = projected
+                            y_end = target
+                            bracket_y = projected + (target - projected) / 2
+                        
+                        # Add curly bracket shape (using paper coordinates for better positioning)
+                        # Position bracket to the right of the bars
+                        shapes.append({
+                            'type': 'path',
+                            'path': f'M 0.98,{y_start} Q 0.99,{bracket_y} 0.98,{y_end}',
+                            'line': {'color': 'rgba(255,0,0,0.6)', 'width': 2},
+                            'xref': 'paper',
+                            'yref': 'y'
+                        })
+                        
+                        # Add annotation for gap value
+                        annotations.append({
+                            'x': country_name,
+                            'y': bracket_y,
+                            'text': f'Gap: {gap:.1f}',
+                            'showarrow': True,
+                            'arrowhead': 2,
+                            'arrowsize': 1,
+                            'arrowwidth': 1,
+                            'arrowcolor': 'rgba(255,0,0,0.6)',
+                            'ax': 20,
+                            'ay': 0,
+                            'xref': 'x',
+                            'yref': 'y',
+                            'bgcolor': 'rgba(255,255,255,0.9)',
+                            'bordercolor': 'rgba(255,0,0,0.6)',
+                            'borderwidth': 1,
+                            'font': {'size': 9}
+                        })
+            
+            if shapes:
+                # Merge with existing layout
+                current_layout = fig.layout
+                existing_shapes = list(current_layout.shapes) if current_layout.shapes else []
+                existing_annotations = list(current_layout.annotations) if current_layout.annotations else []
+                fig.update_layout(
+                    shapes=existing_shapes + shapes,
+                    annotations=existing_annotations + annotations
+                )
         
         fig.update_layout(
             title=f'{indicator} - Current vs Projected 2030 vs Target',
@@ -299,6 +365,45 @@ class ChartGenerator:
                     annotation_text=f"SDG Target: {target}",
                     annotation_position="right"
                 )
+                
+                # Add curly bracket showing gap to target
+                gap = abs(projected_2030 - target)
+                if gap > 0.1:  # Only show if significant gap
+                    # Determine bracket position
+                    if projected_2030 > target:
+                        y_start = target
+                        y_end = projected_2030
+                    else:
+                        y_start = projected_2030
+                        y_end = target
+                    
+                    bracket_y = (y_start + y_end) / 2
+                    bracket_x = 2030
+                    
+                    # Add curly bracket shape
+                    shapes = [{
+                        'type': 'path',
+                        'path': f'M {bracket_x+0.3},{y_start} Q {bracket_x+0.5},{bracket_y} {bracket_x+0.3},{y_end}',
+                        'line': {'color': 'rgba(255,0,0,0.6)', 'width': 2},
+                        'xref': 'x',
+                        'yref': 'y'
+                    }]
+                    
+                    # Add annotation for gap value
+                    annotations = [{
+                        'x': bracket_x + 0.5,
+                        'y': bracket_y,
+                        'text': f'Gap to Target: {gap:.1f}',
+                        'showarrow': False,
+                        'xref': 'x',
+                        'yref': 'y',
+                        'bgcolor': 'rgba(255,255,255,0.9)',
+                        'bordercolor': 'rgba(255,0,0,0.6)',
+                        'borderwidth': 1,
+                        'font': {'size': 10}
+                    }]
+                    
+                    fig.update_layout(shapes=shapes, annotations=annotations)
         
         fig.update_layout(
             title=f'{indicator} - Historical Trend & 2030 Projection: {country}',

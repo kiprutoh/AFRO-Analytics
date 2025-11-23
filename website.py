@@ -15,6 +15,11 @@ from interactive_visualizer import InteractiveVisualizer
 from llm_report_generator import LLMReportGenerator
 from datetime import datetime
 import sys
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 
 # Page configuration
@@ -919,6 +924,20 @@ def _collect_statistics_for_llm(analytics: MortalityAnalytics, pipeline: Mortali
         # Get projections for the country
         proj_analysis = analytics.analyze_projections(country)
         statistics["projections"] = proj_analysis
+        
+        # Add trend analysis for key indicators
+        trend_analyses = {}
+        indicators = pipeline.get_indicators()
+        for indicator in indicators[:3]:  # Top 3 indicators
+            try:
+                trend_analysis = analytics.get_trend_analysis(country, indicator)
+                if "error" not in trend_analysis:
+                    trend_analyses[indicator] = trend_analysis
+            except:
+                pass
+        
+        if trend_analyses:
+            statistics["trend_analyses"] = trend_analyses
     else:
         # Regional statistics
         regional_summary = analytics.get_regional_summary()
@@ -928,7 +947,7 @@ def _collect_statistics_for_llm(analytics: MortalityAnalytics, pipeline: Mortali
         proj_analysis = analytics.analyze_projections()
         statistics["projections"] = proj_analysis
         
-        # Get top countries for key indicators
+        # Get top countries for key indicators with values
         top_countries = {}
         indicators = pipeline.get_indicators()
         for indicator in indicators[:5]:  # Top 5 indicators
@@ -937,14 +956,27 @@ def _collect_statistics_for_llm(analytics: MortalityAnalytics, pipeline: Mortali
                 bottom_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=True)
                 
                 top_countries[indicator] = {
-                    "top": top_df['country'].tolist() if len(top_df) > 0 else [],
-                    "bottom": bottom_df['country'].tolist() if len(bottom_df) > 0 else []
+                    "top": {
+                        "countries": top_df['country'].tolist() if len(top_df) > 0 else [],
+                        "values": top_df['value'].tolist() if len(top_df) > 0 else []
+                    },
+                    "bottom": {
+                        "countries": bottom_df['country'].tolist() if len(bottom_df) > 0 else [],
+                        "values": bottom_df['value'].tolist() if len(bottom_df) > 0 else []
+                    }
                 }
             except:
                 pass
         
         if top_countries:
             statistics["top_countries"] = top_countries
+    
+    # Add SDG targets context
+    statistics["sdg_targets"] = {
+        "MMR": {"target": 70, "unit": "per 100,000 live births", "description": "Maternal mortality ratio target"},
+        "Under-five mortality": {"target": 25, "unit": "per 1,000 live births", "description": "Under-five mortality rate target"},
+        "Neonatal mortality": {"target": 12, "unit": "per 1,000 live births", "description": "Neonatal mortality rate target"}
+    }
     
     return statistics
 
@@ -963,9 +995,23 @@ def render_reports_page():
     st.markdown("### Generate LLM-Powered Report")
     st.info("💡 Reports are generated using Gemini 2.5 Flash AI model for comprehensive analysis and insights.")
     
-    # API Key configuration (store in session state)
+    # API Key configuration (load from environment variable)
     if "openrouter_api_key" not in st.session_state:
-        st.session_state.openrouter_api_key = "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"
+        # Try to load from environment variable first
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            st.error("⚠️ OPENROUTER_API_KEY not found in environment variables. Please create a .env file with your API key.")
+            st.stop()
+        st.session_state.openrouter_api_key = api_key
+    
+    # Custom prompt input
+    st.markdown("#### Customize Your Report")
+    custom_prompt = st.text_area(
+        "Specify what you need in the report (optional)",
+        placeholder="Example: Focus on trends, compare with regional averages, highlight countries off-track for 2030 targets, provide actionable recommendations for policymakers...",
+        height=100,
+        help="Describe what specific aspects you want the report to cover. The AI will tailor the report accordingly."
+    )
     
     col1, col2, col3 = st.columns([2, 1, 1])
     
@@ -1001,7 +1047,8 @@ def render_reports_page():
                 report = llm_generator.generate_report(
                     statistics=statistics,
                     report_type=report_type,
-                    country=selected_country
+                    country=selected_country,
+                    custom_requirements=custom_prompt if custom_prompt else None
                 )
             
             st.markdown("### Generated Report")
