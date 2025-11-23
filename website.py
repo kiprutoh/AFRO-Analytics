@@ -360,15 +360,16 @@ def render_home_page():
         }
         .hero-video-container video {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            min-width: 100%;
-            min-height: 100%;
-            width: auto;
-            height: auto;
+            top: 0;
+            left: 0;
+            width: 100% !important;
+            height: 100% !important;
+            min-width: 100% !important;
+            min-height: 100% !important;
+            object-fit: cover !important;
             z-index: 0;
-            object-fit: cover;
+            margin: 0;
+            padding: 0;
         }
         .hero-overlay {
             position: absolute;
@@ -414,7 +415,7 @@ def render_home_page():
         
         st.markdown(f"""
         <div class="hero-video-container">
-            <video autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;">
+            <video autoplay muted loop playsinline style="position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; min-width: 100% !important; min-height: 100% !important; object-fit: cover !important; z-index: 0; margin: 0; padding: 0;">
                 {video_source}
             </video>
             <div class="hero-overlay"></div>
