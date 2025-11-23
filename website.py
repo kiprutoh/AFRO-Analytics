@@ -6,11 +6,13 @@ Comprehensive web application for mortality analytics
 import streamlit as st
 import pandas as pd
 import numpy as np
+from typing import Dict
 from data_pipeline import MortalityDataPipeline
 from analytics import MortalityAnalytics
 from chatbot import MortalityChatbot
 from chart_generator import ChartGenerator
 from interactive_visualizer import InteractiveVisualizer
+from llm_report_generator import LLMReportGenerator
 from datetime import datetime
 import sys
 
@@ -905,6 +907,48 @@ def render_chatbot_page():
         """)
 
 
+def _collect_statistics_for_llm(analytics: MortalityAnalytics, pipeline: MortalityDataPipeline, country: str = None) -> Dict:
+    """Collect key statistics for LLM report generation"""
+    statistics = {}
+    
+    if country:
+        # Country-specific statistics
+        stats = analytics.get_country_statistics(country)
+        statistics["country_stats"] = stats
+        
+        # Get projections for the country
+        proj_analysis = analytics.analyze_projections(country)
+        statistics["projections"] = proj_analysis
+    else:
+        # Regional statistics
+        regional_summary = analytics.get_regional_summary()
+        statistics["regional_summary"] = regional_summary
+        
+        # Regional projections
+        proj_analysis = analytics.analyze_projections()
+        statistics["projections"] = proj_analysis
+        
+        # Get top countries for key indicators
+        top_countries = {}
+        indicators = pipeline.get_indicators()
+        for indicator in indicators[:5]:  # Top 5 indicators
+            try:
+                top_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=False)
+                bottom_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=True)
+                
+                top_countries[indicator] = {
+                    "top": top_df['country'].tolist() if len(top_df) > 0 else [],
+                    "bottom": bottom_df['country'].tolist() if len(bottom_df) > 0 else []
+                }
+            except:
+                pass
+        
+        if top_countries:
+            statistics["top_countries"] = top_countries
+    
+    return statistics
+
+
 def render_reports_page():
     """Render the reports page"""
     st.markdown('<h2 class="section-header">Generate Reports</h2>', unsafe_allow_html=True)
@@ -916,9 +960,14 @@ def render_reports_page():
     analytics = st.session_state.analytics
     pipeline = st.session_state.pipeline
     
-    st.markdown("### Generate Summary Report")
+    st.markdown("### Generate LLM-Powered Report")
+    st.info("💡 Reports are generated using Gemini 2.5 Flash AI model for comprehensive analysis and insights.")
     
-    col1, col2 = st.columns([2, 1])
+    # API Key configuration (store in session state)
+    if "openrouter_api_key" not in st.session_state:
+        st.session_state.openrouter_api_key = "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"
+    
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
         countries = pipeline.get_countries()
@@ -928,23 +977,64 @@ def render_reports_page():
         )
     
     with col2:
+        report_type = st.selectbox(
+            "Report Type",
+            ["comprehensive", "summary", "executive"],
+            index=0
+        )
+    
+    with col3:
         st.write("")  # Spacing
         generate_btn = st.button("📋 Generate Report", use_container_width=True)
     
     if generate_btn:
-        with st.spinner("Generating report..."):
-            report = analytics.generate_summary_report(selected_country)
-        
-        st.markdown("### Report")
-        st.text_area("Report Content", report, height=400)
-        
-        # Download button
-        st.download_button(
-            label="📥 Download Report",
-            data=report,
-            file_name=f"mortality_report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.txt",
-            mime="text/plain"
-        )
+        try:
+            # Initialize LLM report generator
+            llm_generator = LLMReportGenerator(st.session_state.openrouter_api_key)
+            
+            # Collect statistics
+            with st.spinner("Collecting statistics..."):
+                statistics = _collect_statistics_for_llm(analytics, pipeline, selected_country)
+            
+            # Generate report using LLM
+            with st.spinner("🤖 Generating AI-powered report... This may take a moment."):
+                report = llm_generator.generate_report(
+                    statistics=statistics,
+                    report_type=report_type,
+                    country=selected_country
+                )
+            
+            st.markdown("### Generated Report")
+            st.markdown("---")
+            
+            # Display report with markdown rendering
+            st.markdown(report)
+            
+            # Download button
+            st.download_button(
+                label="📥 Download Report",
+                data=report,
+                file_name=f"mortality_report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain"
+            )
+            
+        except Exception as e:
+            st.error(f"Error generating report: {str(e)}")
+            st.info("Falling back to basic report generation...")
+            
+            # Fallback to basic report
+            with st.spinner("Generating basic report..."):
+                report = analytics.generate_summary_report(selected_country)
+            
+            st.markdown("### Report (Basic)")
+            st.text_area("Report Content", report, height=400)
+            
+            st.download_button(
+                label="📥 Download Report",
+                data=report,
+                file_name=f"mortality_report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.txt",
+                mime="text/plain"
+            )
 
 
 def render_visualizer_page():
