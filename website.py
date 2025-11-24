@@ -346,10 +346,26 @@ def initialize_system(indicator_type: str = "Maternal Mortality"):
         with st.spinner(f"Loading {indicator_type} data and initializing system..."):
             if indicator_type == "Tuberculosis":
                 # Initialize TB data pipeline
-                pipeline = TBDataPipeline()
-                pipeline.load_data()
-                
-                analytics = TBAnalytics(pipeline)
+                try:
+                    pipeline = TBDataPipeline()
+                    # Load data first
+                    pipeline.load_data()
+                    
+                    # Verify data loaded
+                    if pipeline.tb_burden is None:
+                        raise ValueError("TB burden data failed to load. Please check data files.")
+                    
+                    # Create analytics
+                    analytics = TBAnalytics(pipeline)
+                except Exception as e:
+                    st.error(f"Error loading TB data: {str(e)}")
+                    st.info("""
+                    **Troubleshooting:**
+                    - Ensure the `tuberculosis ` folder exists in the project directory
+                    - Check that `tuberculosis /tb burden/TB_burden_countries_2025-09-23.csv` exists
+                    - Verify file permissions
+                    """)
+                    return False
                 # Note: TB visualizer and chatbot would need separate implementations
                 # For now, store TB analytics
                 st.session_state.tb_pipeline = pipeline

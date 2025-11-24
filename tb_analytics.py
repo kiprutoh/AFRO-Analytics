@@ -21,10 +21,23 @@ class TBAnalytics:
             pipeline: TBDataPipeline instance
         """
         self.pipeline = pipeline
-        if pipeline.tb_burden is None:
-            pipeline.load_data()
         
-        self.tb_burden_df = pipeline.clean_tb_burden_data()
+        # Ensure data is loaded
+        if pipeline.tb_burden is None:
+            try:
+                pipeline.load_data()
+            except Exception as e:
+                raise ValueError(f"Failed to load TB data: {str(e)}")
+        
+        # Verify data was loaded successfully
+        if pipeline.tb_burden is None:
+            raise ValueError("TB burden data is None after loading. Check data files.")
+        
+        # Clean the data
+        try:
+            self.tb_burden_df = pipeline.clean_tb_burden_data()
+        except Exception as e:
+            raise ValueError(f"Failed to clean TB burden data: {str(e)}")
     
     def get_country_statistics(self, country: str) -> Dict:
         """

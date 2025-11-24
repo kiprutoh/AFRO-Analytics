@@ -14,14 +14,38 @@ import glob
 class TBDataPipeline:
     """Pipeline for loading and processing TB data"""
     
-    def __init__(self, data_dir: str = "tuberculosis "):
+    def __init__(self, data_dir: str = None):
         """
         Initialize the TB data pipeline
         
         Args:
-            data_dir: Directory containing the TB data files
+            data_dir: Directory containing the TB data files (defaults to "tuberculosis " in project root)
         """
+        if data_dir is None:
+            # Try multiple possible paths
+            possible_paths = [
+                "tuberculosis ",
+                os.path.join(os.path.dirname(__file__), "tuberculosis "),
+                os.path.join(os.getcwd(), "tuberculosis ")
+            ]
+            for path in possible_paths:
+                if os.path.exists(path):
+                    data_dir = path
+                    break
+            else:
+                # Default to current directory
+                data_dir = "tuberculosis "
+        
         self.data_dir = data_dir
+        
+        # Verify directory exists
+        if not os.path.exists(self.data_dir):
+            raise FileNotFoundError(
+                f"TB data directory not found: {os.path.abspath(self.data_dir)}\n"
+                f"Current working directory: {os.getcwd()}\n"
+                f"Please ensure the 'tuberculosis ' folder exists in the project root."
+            )
+        
         self.tb_burden = None
         self.tb_notifications = None
         self.tb_outcomes = None
@@ -37,10 +61,14 @@ class TBDataPipeline:
             Dictionary containing all loaded datasets
         """
         try:
-            # Load TB burden estimates (main dataset)
+            # Load TB burden estimates (main dataset) - REQUIRED
             burden_path = os.path.join(self.data_dir, "tb burden", "TB_burden_countries_2025-09-23.csv")
-            if os.path.exists(burden_path):
-                self.tb_burden = pd.read_csv(burden_path)
+            if not os.path.exists(burden_path):
+                raise FileNotFoundError(f"TB burden data file not found at: {burden_path}")
+            
+            self.tb_burden = pd.read_csv(burden_path)
+            if self.tb_burden is None or len(self.tb_burden) == 0:
+                raise ValueError("TB burden data file is empty or could not be loaded")
             
             # Load TB notifications
             notif_path = os.path.join(self.data_dir, "case reported by countries", "TB_notifications_2025-09-23.csv")
