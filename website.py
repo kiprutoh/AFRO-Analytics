@@ -1632,9 +1632,11 @@ def main():
             
             if current_indicator == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline'):
                 summary = st.session_state.tb_pipeline.get_data_summary()
+                st.caption(f"Region: {summary.get('region', 'AFRO')}")
                 st.caption(f"Countries: {summary['countries']}")
                 st.caption(f"Indicators: {summary['indicators']}")
-                st.caption(f"Records: {summary['tb_burden_records']:,}")
+                st.caption(f"Notifications Records: {summary['tb_notifications_records']:,}")
+                st.caption(f"Outcomes Records: {summary['tb_outcomes_records']:,}")
             elif hasattr(st.session_state, 'pipeline') and st.session_state.pipeline:
                 summary = st.session_state.pipeline.get_data_summary()
                 st.caption(f"Countries: {summary['countries']}")

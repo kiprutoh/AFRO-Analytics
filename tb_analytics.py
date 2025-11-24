@@ -23,25 +23,35 @@ class TBAnalytics:
         self.pipeline = pipeline
         
         # Ensure data is loaded
-        if pipeline.tb_burden is None:
+        if pipeline.tb_notifications is None:
             try:
                 pipeline.load_data()
             except Exception as e:
                 raise ValueError(f"Failed to load TB data: {str(e)}")
         
         # Verify data was loaded successfully
-        if pipeline.tb_burden is None:
-            raise ValueError("TB burden data is None after loading. Check data files.")
+        if pipeline.tb_notifications is None:
+            raise ValueError("TB notifications data is None after loading. Check data files.")
         
-        # Clean the data
+        if pipeline.tb_outcomes is None:
+            raise ValueError("TB outcomes data is None after loading. Check data files.")
+        
+        # Clean the data (focus on notifications and outcomes)
         try:
-            self.tb_burden_df = pipeline.clean_tb_burden_data()
+            self.tb_notifications_df = pipeline.clean_tb_notifications_data()
+            self.tb_outcomes_df = pipeline.clean_tb_outcomes_data()
+            # Burden data is optional (for reference)
+            try:
+                self.tb_burden_df = pipeline.clean_tb_burden_data()
+            except:
+                self.tb_burden_df = pd.DataFrame()
         except Exception as e:
-            raise ValueError(f"Failed to clean TB burden data: {str(e)}")
+            raise ValueError(f"Failed to clean TB data: {str(e)}")
     
     def get_country_statistics(self, country: str) -> Dict:
         """
-        Get comprehensive TB statistics for a specific country
+        Get comprehensive TB statistics for a specific AFRO country
+        Focus on notifications and treatment outcomes
         
         Args:
             country: Country name
@@ -49,77 +59,140 @@ class TBAnalytics:
         Returns:
             Dictionary with TB statistics
         """
-        country_data = self.pipeline.filter_by_country(country, self.tb_burden_df)
+        # Get notifications data
+        country_notif = self.pipeline.filter_by_country(country, self.tb_notifications_df)
+        country_outcomes = self.pipeline.filter_by_country(country, self.tb_outcomes_df)
         
-        if len(country_data) == 0:
+        if len(country_notif) == 0 and len(country_outcomes) == 0:
             return {
                 "country": country,
-                "error": "No data found for this country"
+                "error": "No data found for this country in AFRO region"
             }
-        
-        # Get latest year data
-        latest_year = country_data['year'].max()
-        latest_data = country_data[country_data['year'] == latest_year].iloc[0]
         
         stats = {
             "country": country,
-            "latest_year": int(latest_year),
+            "region": "AFRO",
             "indicators": {}
         }
         
-        # Key TB indicators
-        indicators = {
-            "TB Incidence (per 100k)": "e_inc_100k",
-            "TB Mortality (per 100k)": "e_mort_100k",
-            "TB/HIV Incidence (per 100k)": "e_inc_tbhiv_100k",
-            "TB/HIV Mortality (per 100k)": "e_mort_tbhiv_100k",
-            "Case Detection Rate (%)": "c_cdr"
-        }
+        # Get latest year from notifications
+        if len(country_notif) > 0:
+            latest_year = country_notif['year'].max()
+            latest_notif = country_notif[country_notif['year'] == latest_year].iloc[0] if len(country_notif[country_notif['year'] == latest_year]) > 0 else None
+            stats["latest_year"] = int(latest_year)
+            
+            # TB Notifications indicators
+            notif_indicators = {
+                "TB Notifications (Total New Cases)": "c_newinc",
+                "New Smear-Positive Cases": "new_sp",
+                "New Smear-Negative Cases": "new_sn",
+                "New Extrapulmonary Cases": "new_ep"
+            }
+            
+            for indicator_name, col_name in notif_indicators.items():
+                if col_name in country_notif.columns:
+                    values = country_notif[col_name].dropna()
+                    if len(values) > 0:
+                        latest_val = float(latest_notif[col_name]) if latest_notif is not None and pd.notna(latest_notif[col_name]) else None
+                        stats["indicators"][indicator_name] = {
+                            "latest_value": latest_val,
+                            "median_value": float(values.median()),
+                            "min_value": float(values.min()),
+                            "max_value": float(values.max()),
+                            "trend": self._calculate_trend(country_notif, col_name),
+                            "data_points": len(values),
+                            "year_range": (int(country_notif['year'].min()), int(country_notif['year'].max()))
+                        }
         
-        for indicator_name, col_name in indicators.items():
-            if col_name in country_data.columns:
-                values = country_data[col_name].dropna()
-                if len(values) > 0:
-                    stats["indicators"][indicator_name] = {
-                        "latest_value": float(latest_data[col_name]) if pd.notna(latest_data[col_name]) else None,
-                        "median_value": float(values.median()),
-                        "min_value": float(values.min()),
-                        "max_value": float(values.max()),
-                        "trend": self._calculate_trend(country_data, col_name),
-                        "data_points": len(values),
-                        "year_range": (int(country_data['year'].min()), int(country_data['year'].max()))
-                    }
+        # Get outcomes data
+        if len(country_outcomes) > 0:
+            latest_outcome_year = country_outcomes['year'].max()
+            latest_outcome = country_outcomes[country_outcomes['year'] == latest_outcome_year].iloc[0] if len(country_outcomes[country_outcomes['year'] == latest_outcome_year]) > 0 else None
+            
+            # Treatment outcomes indicators
+            outcome_indicators = {
+                "Treatment Success Rate - New Cases (%)": "c_new_sp_tsr",
+                "Treatment Success Rate (%)": "c_new_tsr",
+                "Cured Rate (%)": None,  # Calculated from new_sp_cur / new_sp_coh
+                "Treatment Completion Rate (%)": None,  # Calculated from new_sp_cmplt / new_sp_coh
+                "Death Rate (%)": None,  # Calculated from new_sp_died / new_sp_coh
+                "Failure Rate (%)": None  # Calculated from new_sp_fail / new_sp_coh
+            }
+            
+            for indicator_name, col_name in outcome_indicators.items():
+                if col_name and col_name in country_outcomes.columns:
+                    values = country_outcomes[col_name].dropna()
+                    if len(values) > 0:
+                        latest_val = float(latest_outcome[col_name]) if latest_outcome is not None and pd.notna(latest_outcome[col_name]) else None
+                        stats["indicators"][indicator_name] = {
+                            "latest_value": latest_val,
+                            "median_value": float(values.median()),
+                            "min_value": float(values.min()),
+                            "max_value": float(values.max()),
+                            "trend": self._calculate_trend(country_outcomes, col_name),
+                            "data_points": len(values),
+                            "year_range": (int(country_outcomes['year'].min()), int(country_outcomes['year'].max()))
+                        }
+                elif col_name is None:
+                    # Calculate derived indicators
+                    if indicator_name == "Cured Rate (%)" and 'new_sp_cur' in country_outcomes.columns and 'new_sp_coh' in country_outcomes.columns:
+                        country_outcomes_copy = country_outcomes.copy()
+                        country_outcomes_copy['cured_rate'] = (country_outcomes_copy['new_sp_cur'] / country_outcomes_copy['new_sp_coh']) * 100
+                        values = country_outcomes_copy['cured_rate'].dropna()
+                        if len(values) > 0:
+                            latest_val = float(latest_outcome['cured_rate']) if latest_outcome is not None and pd.notna(latest_outcome.get('cured_rate')) else None
+                            stats["indicators"][indicator_name] = {
+                                "latest_value": latest_val,
+                                "median_value": float(values.median()),
+                                "min_value": float(values.min()),
+                                "max_value": float(values.max()),
+                                "trend": self._calculate_trend(country_outcomes_copy, 'cured_rate'),
+                                "data_points": len(values)
+                            }
         
         return stats
     
     def get_regional_summary(self) -> Dict:
         """
         Get regional summary statistics for AFRO
+        Focus on notifications and treatment outcomes
         
         Returns:
             Dictionary with regional summary
         """
-        df = self.tb_burden_df.copy()
-        latest_year = df['year'].max()
-        latest_data = df[df['year'] == latest_year]
+        # Use notifications data for regional summary
+        df_notif = self.tb_notifications_df.copy()
+        df_outcomes = self.tb_outcomes_df.copy()
+        
+        if len(df_notif) == 0:
+            return {
+                "region": "AFRO",
+                "total_countries": 0,
+                "indicators": {},
+                "error": "No notifications data available"
+            }
+        
+        latest_year = df_notif['year'].max()
+        latest_notif = df_notif[df_notif['year'] == latest_year]
+        latest_outcomes = df_outcomes[df_outcomes['year'] == latest_year] if len(df_outcomes) > 0 else pd.DataFrame()
         
         summary = {
             "region": "AFRO",
             "latest_year": int(latest_year),
-            "total_countries": len(df['country'].unique()),
+            "total_countries": len(df_notif['country'].unique()),
             "indicators": {}
         }
         
-        indicators = {
-            "TB Incidence (per 100k)": "e_inc_100k",
-            "TB Mortality (per 100k)": "e_mort_100k",
-            "TB/HIV Incidence (per 100k)": "e_inc_tbhiv_100k",
-            "Case Detection Rate (%)": "c_cdr"
+        # Notifications indicators
+        notif_indicators = {
+            "TB Notifications (Total New Cases)": "c_newinc",
+            "New Smear-Positive Cases": "new_sp",
+            "New Smear-Negative Cases": "new_sn"
         }
         
-        for indicator_name, col_name in indicators.items():
-            if col_name in latest_data.columns:
-                values = latest_data[col_name].dropna()
+        for indicator_name, col_name in notif_indicators.items():
+            if col_name in latest_notif.columns:
+                values = latest_notif[col_name].dropna()
                 if len(values) > 0:
                     summary["indicators"][indicator_name] = {
                         "median_value": float(values.median()),
@@ -127,6 +200,24 @@ class TBAnalytics:
                         "max_value": float(values.max()),
                         "mean_value": float(values.mean())
                     }
+        
+        # Treatment outcomes indicators
+        if len(latest_outcomes) > 0:
+            outcome_indicators = {
+                "Treatment Success Rate - New Cases (%)": "c_new_sp_tsr",
+                "Treatment Success Rate (%)": "c_new_tsr"
+            }
+            
+            for indicator_name, col_name in outcome_indicators.items():
+                if col_name in latest_outcomes.columns:
+                    values = latest_outcomes[col_name].dropna()
+                    if len(values) > 0:
+                        summary["indicators"][indicator_name] = {
+                            "median_value": float(values.median()),
+                            "min_value": float(values.min()),
+                            "max_value": float(values.max()),
+                            "mean_value": float(values.mean())
+                        }
         
         return summary
     
@@ -172,7 +263,8 @@ class TBAnalytics:
     
     def compare_countries(self, countries: List[str], indicator: str) -> Dict:
         """
-        Compare multiple countries for a specific TB indicator
+        Compare multiple AFRO countries for a specific TB indicator
+        Focus on notifications and outcomes
         
         Args:
             countries: List of country names
@@ -181,27 +273,44 @@ class TBAnalytics:
         Returns:
             Comparison statistics
         """
+        # Map indicator names to column names
         indicator_map = {
-            "TB Incidence (per 100k)": "e_inc_100k",
-            "TB Mortality (per 100k)": "e_mort_100k",
-            "TB/HIV Incidence (per 100k)": "e_inc_tbhiv_100k",
-            "Case Detection Rate (%)": "c_cdr"
+            "TB Notifications (Total New Cases)": ("c_newinc", "notifications"),
+            "New Smear-Positive Cases": ("new_sp", "notifications"),
+            "New Smear-Negative Cases": ("new_sn", "notifications"),
+            "New Extrapulmonary Cases": ("new_ep", "notifications"),
+            "Treatment Success Rate - New Cases (%)": ("c_new_sp_tsr", "outcomes"),
+            "Treatment Success Rate (%)": ("c_new_tsr", "outcomes")
         }
         
-        col_name = indicator_map.get(indicator)
-        if not col_name:
+        indicator_info = indicator_map.get(indicator)
+        if not indicator_info:
             return {"error": f"Indicator {indicator} not found"}
+        
+        col_name, data_type = indicator_info
+        
+        # Select appropriate dataframe
+        if data_type == "notifications":
+            df = self.tb_notifications_df
+        elif data_type == "outcomes":
+            df = self.tb_outcomes_df
+        else:
+            return {"error": f"Unknown data type for indicator {indicator}"}
+        
+        if len(df) == 0:
+            return {"error": f"No {data_type} data available"}
+        
+        latest_year = df['year'].max()
         
         comparison = {
             "indicator": indicator,
             "countries": {},
-            "latest_year": int(self.tb_burden_df['year'].max())
+            "latest_year": int(latest_year),
+            "region": "AFRO"
         }
         
-        latest_year = self.tb_burden_df['year'].max()
-        
         for country in countries:
-            country_data = self.pipeline.filter_by_country(country, self.tb_burden_df)
+            country_data = self.pipeline.filter_by_country(country, df)
             if len(country_data) > 0 and col_name in country_data.columns:
                 latest_data = country_data[country_data['year'] == latest_year]
                 if len(latest_data) > 0:

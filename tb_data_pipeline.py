@@ -55,30 +55,45 @@ class TBDataPipeline:
         
     def load_data(self) -> Dict[str, pd.DataFrame]:
         """
-        Load all TB CSV files into DataFrames
+        Load TB notifications and outcomes data for AFRO countries
         
         Returns:
             Dictionary containing all loaded datasets
         """
         try:
-            # Load TB burden estimates (main dataset) - REQUIRED
-            burden_path = os.path.join(self.data_dir, "tb burden", "TB_burden_countries_2025-09-23.csv")
-            if not os.path.exists(burden_path):
-                raise FileNotFoundError(f"TB burden data file not found at: {burden_path}")
-            
-            self.tb_burden = pd.read_csv(burden_path)
-            if self.tb_burden is None or len(self.tb_burden) == 0:
-                raise ValueError("TB burden data file is empty or could not be loaded")
-            
-            # Load TB notifications
+            # Load TB notifications - REQUIRED
             notif_path = os.path.join(self.data_dir, "case reported by countries", "TB_notifications_2025-09-23.csv")
-            if os.path.exists(notif_path):
-                self.tb_notifications = pd.read_csv(notif_path)
+            if not os.path.exists(notif_path):
+                raise FileNotFoundError(f"TB notifications file not found at: {notif_path}")
             
-            # Load TB outcomes
+            self.tb_notifications = pd.read_csv(notif_path)
+            if self.tb_notifications is None or len(self.tb_notifications) == 0:
+                raise ValueError("TB notifications file is empty or could not be loaded")
+            
+            # Filter for AFRO countries only
+            if 'g_whoregion' in self.tb_notifications.columns:
+                self.tb_notifications = self.tb_notifications[self.tb_notifications['g_whoregion'] == 'AFR'].copy()
+            
+            # Load TB outcomes - REQUIRED
             outcomes_path = os.path.join(self.data_dir, "case reported by countries", "TB_outcomes_2025-09-23.csv")
-            if os.path.exists(outcomes_path):
-                self.tb_outcomes = pd.read_csv(outcomes_path)
+            if not os.path.exists(outcomes_path):
+                raise FileNotFoundError(f"TB outcomes file not found at: {outcomes_path}")
+            
+            self.tb_outcomes = pd.read_csv(outcomes_path)
+            if self.tb_outcomes is None or len(self.tb_outcomes) == 0:
+                raise ValueError("TB outcomes file is empty or could not be loaded")
+            
+            # Filter for AFRO countries only
+            if 'g_whoregion' in self.tb_outcomes.columns:
+                self.tb_outcomes = self.tb_outcomes[self.tb_outcomes['g_whoregion'] == 'AFR'].copy()
+            
+            # Load TB burden estimates (for reference, but focus on notifications/outcomes)
+            burden_path = os.path.join(self.data_dir, "tb burden", "TB_burden_countries_2025-09-23.csv")
+            if os.path.exists(burden_path):
+                self.tb_burden = pd.read_csv(burden_path)
+                # Filter for AFRO
+                if 'g_whoregion' in self.tb_burden.columns:
+                    self.tb_burden = self.tb_burden[self.tb_burden['g_whoregion'] == 'AFR'].copy()
             
             # Load TB burden by age and sex
             age_sex_path = os.path.join(self.data_dir, "tb burden", "TB_burden_age_sex_2025-09-23.csv")
@@ -110,15 +125,68 @@ class TBDataPipeline:
             print(f"Error loading TB data: {str(e)}")
             raise
     
+    def clean_tb_notifications_data(self) -> pd.DataFrame:
+        """
+        Clean and preprocess TB notifications data (AFRO only)
+        
+        Returns:
+            Cleaned DataFrame with standardized format
+        """
+        if self.tb_notifications is None:
+            raise ValueError("TB notifications data not loaded. Call load_data() first.")
+        
+        df = self.tb_notifications.copy()
+        
+        # Ensure year is numeric
+        df['year'] = pd.to_numeric(df['year'], errors='coerce')
+        df = df.dropna(subset=['year'])
+        
+        # Standardize country names
+        if 'country' in df.columns:
+            df['country'] = df['country'].str.strip()
+        
+        # Ensure AFRO filter (should already be filtered, but double-check)
+        if 'g_whoregion' in df.columns:
+            df = df[df['g_whoregion'] == 'AFR']
+        
+        return df
+    
+    def clean_tb_outcomes_data(self) -> pd.DataFrame:
+        """
+        Clean and preprocess TB outcomes data (AFRO only)
+        
+        Returns:
+            Cleaned DataFrame with standardized format
+        """
+        if self.tb_outcomes is None:
+            raise ValueError("TB outcomes data not loaded. Call load_data() first.")
+        
+        df = self.tb_outcomes.copy()
+        
+        # Ensure year is numeric
+        df['year'] = pd.to_numeric(df['year'], errors='coerce')
+        df = df.dropna(subset=['year'])
+        
+        # Standardize country names
+        if 'country' in df.columns:
+            df['country'] = df['country'].str.strip()
+        
+        # Ensure AFRO filter (should already be filtered, but double-check)
+        if 'g_whoregion' in df.columns:
+            df = df[df['g_whoregion'] == 'AFR']
+        
+        return df
+    
     def clean_tb_burden_data(self) -> pd.DataFrame:
         """
-        Clean and preprocess TB burden data
+        Clean and preprocess TB burden data (for reference, AFRO only)
         
         Returns:
             Cleaned DataFrame with standardized format
         """
         if self.tb_burden is None:
-            raise ValueError("TB burden data not loaded. Call load_data() first.")
+            # Return empty DataFrame if burden data not available
+            return pd.DataFrame()
         
         df = self.tb_burden.copy()
         
@@ -137,26 +205,35 @@ class TBDataPipeline:
         return df
     
     def get_tb_indicators(self) -> List[str]:
-        """Get list of key TB indicators"""
+        """Get list of key TB indicators (focusing on notifications and outcomes)"""
         return [
-            "TB Incidence (per 100k)",
-            "TB Mortality (per 100k)",
-            "TB/HIV Incidence (per 100k)",
-            "TB/HIV Mortality (per 100k)",
-            "Case Detection Rate (%)",
-            "MDR/RR-TB Incidence",
-            "TB Notifications"
+            "TB Notifications (Total New Cases)",
+            "New Smear-Positive Cases",
+            "New Smear-Negative Cases",
+            "New Extrapulmonary Cases",
+            "Treatment Success Rate (%)",
+            "Treatment Success Rate - New Cases (%)",
+            "Cured Rate (%)",
+            "Treatment Completion Rate (%)",
+            "Death Rate (%)",
+            "Failure Rate (%)"
         ]
     
     def get_countries(self) -> List[str]:
-        """Get list of all countries in TB dataset"""
-        if self.tb_burden is None:
+        """Get list of all AFRO countries in TB dataset"""
+        if self.tb_notifications is None:
             self.load_data()
         
-        if self.tb_burden is None or 'country' not in self.tb_burden.columns:
-            return []
+        # Get countries from notifications (primary source)
+        countries_set = set()
+        if self.tb_notifications is not None and 'country' in self.tb_notifications.columns:
+            countries_set.update(self.tb_notifications['country'].unique())
         
-        countries = sorted(self.tb_burden['country'].unique().tolist())
+        # Also get from outcomes
+        if self.tb_outcomes is not None and 'country' in self.tb_outcomes.columns:
+            countries_set.update(self.tb_outcomes['country'].unique())
+        
+        countries = sorted(list(countries_set))
         return countries
     
     def get_indicator_value(self, country: str, indicator: str, year: Optional[int] = None) -> Optional[float]:
@@ -208,19 +285,19 @@ class TBDataPipeline:
     
     def filter_by_country(self, country: str, df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
-        Filter data by country
+        Filter data by country (AFRO countries only)
         
         Args:
             country: Country name
-            df: DataFrame to filter (defaults to tb_burden)
+            df: DataFrame to filter (defaults to tb_notifications)
         
         Returns:
             Filtered DataFrame
         """
         if df is None:
-            if self.tb_burden is None:
+            if self.tb_notifications is None:
                 self.load_data()
-            df = self.tb_burden
+            df = self.tb_notifications
         
         if df is None or 'country' not in df.columns:
             return pd.DataFrame()
@@ -235,15 +312,15 @@ class TBDataPipeline:
         Args:
             start_year: Start year
             end_year: End year
-            df: DataFrame to filter
+            df: DataFrame to filter (defaults to tb_notifications)
         
         Returns:
             Filtered DataFrame
         """
         if df is None:
-            if self.tb_burden is None:
+            if self.tb_notifications is None:
                 self.load_data()
-            df = self.tb_burden
+            df = self.tb_notifications
         
         if df is None or 'year' not in df.columns:
             return pd.DataFrame()
@@ -255,24 +332,29 @@ class TBDataPipeline:
     
     def get_data_summary(self) -> Dict:
         """
-        Get summary statistics of the TB datasets
+        Get summary statistics of the TB datasets (notifications and outcomes, AFRO only)
         
         Returns:
             Dictionary with summary information
         """
-        if self.tb_burden is None:
+        if self.tb_notifications is None:
             self.load_data()
         
+        # Get year range from notifications
+        notif_year_range = (None, None)
+        if self.tb_notifications is not None and 'year' in self.tb_notifications.columns:
+            notif_years = pd.to_numeric(self.tb_notifications['year'], errors='coerce').dropna()
+            if len(notif_years) > 0:
+                notif_year_range = (int(notif_years.min()), int(notif_years.max()))
+        
         summary = {
-            "tb_burden_records": len(self.tb_burden) if self.tb_burden is not None else 0,
             "tb_notifications_records": len(self.tb_notifications) if self.tb_notifications is not None else 0,
             "tb_outcomes_records": len(self.tb_outcomes) if self.tb_outcomes is not None else 0,
+            "tb_burden_records": len(self.tb_burden) if self.tb_burden is not None else 0,
             "countries": len(self.get_countries()),
             "indicators": len(self.get_tb_indicators()),
-            "year_range": (
-                int(self.tb_burden['year'].min()) if self.tb_burden is not None and 'year' in self.tb_burden.columns else None,
-                int(self.tb_burden['year'].max()) if self.tb_burden is not None and 'year' in self.tb_burden.columns else None
-            )
+            "year_range": notif_year_range,
+            "region": "AFRO"
         }
         
         return summary
