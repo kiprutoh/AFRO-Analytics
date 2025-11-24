@@ -682,8 +682,22 @@ def render_dashboard_page():
         st.warning("Please initialize the system first from the sidebar.")
         return
     
-    analytics = st.session_state.analytics
-    pipeline = st.session_state.pipeline
+    # Get analytics and pipeline based on indicator type
+    indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
+    
+    if indicator_type == "Tuberculosis" and hasattr(st.session_state, 'tb_analytics') and st.session_state.tb_analytics is not None:
+        analytics = st.session_state.tb_analytics
+        pipeline = st.session_state.tb_pipeline
+    elif hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
+        analytics = st.session_state.analytics
+        pipeline = st.session_state.pipeline
+    else:
+        st.error(f"Analytics system not initialized for {indicator_type}. Please initialize from the sidebar.")
+        return
+    
+    if analytics is None:
+        st.error("Analytics object is None. Please initialize the system from the sidebar.")
+        return
     
     # Regional Summary with Modern Cards
     st.markdown("""
@@ -912,6 +926,16 @@ def render_chatbot_page():
     if not st.session_state.data_loaded:
         st.warning("Please initialize the system first from the sidebar.")
         return
+    
+    # Check if chatbot exists (only for Mortality, not TB yet)
+    if not hasattr(st.session_state, 'chatbot') or st.session_state.chatbot is None:
+        indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
+        if indicator_type == "Tuberculosis":
+            st.info("💡 TB chatbot functionality is coming soon. For now, please use the Reports page or Interactive Charts for TB data analysis.")
+            return
+        else:
+            st.error("Chatbot not initialized. Please initialize the system from the sidebar.")
+            return
     
     chatbot = st.session_state.chatbot
     
@@ -1323,6 +1347,13 @@ def render_visualizer_page():
     
     if not st.session_state.data_loaded:
         st.warning("Please initialize the system first from the sidebar.")
+        return
+    
+    # Get analytics and pipeline based on indicator type
+    indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
+    
+    if indicator_type == "Tuberculosis":
+        st.info("💡 TB interactive visualizer functionality is coming soon. For now, please use the Reports page for TB data analysis.")
         return
     
     visualizer = st.session_state.visualizer
