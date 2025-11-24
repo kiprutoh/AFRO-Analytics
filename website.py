@@ -49,31 +49,47 @@ st.set_page_config(
 # Modern CSS for WHO AFRO branding with animations and gradients
 st.markdown("""
 <style>
-    /* Language Selector - Top Right Corner */
-    .language-selector-container {
+    /* Language Selector - Top Right Corner - Very Small */
+    .language-selector-top-right {
         position: fixed;
-        top: 10px;
+        top: 5px;
         right: 10px;
-        z-index: 999;
+        z-index: 9999;
         background: white;
-        padding: 5px 10px;
-        border-radius: 5px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        padding: 2px 5px;
+        border-radius: 3px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         border: 1px solid rgba(0,102,204,0.2);
+        font-size: 0.5rem;
+        line-height: 0.5;
+        max-height: 0.5rem;
     }
     .language-selector-label {
-        font-size: 0.7rem;
+        font-size: 0.5rem;
         color: #666;
-        margin-bottom: 2px;
-        font-weight: 400;
+        margin: 0;
+        padding: 0;
+        line-height: 0.5;
     }
-    /* Style the selectbox to be smaller */
-    div[data-testid="stSelectbox"] {
-        font-size: 0.85rem;
+    /* Style the selectbox to be very small */
+    .language-selector-top-right div[data-testid="stSelectbox"] {
+        font-size: 0.5rem;
+        line-height: 0.5;
+        margin: 0;
+        padding: 0;
     }
-    div[data-testid="stSelectbox"] > div > div {
-        font-size: 0.85rem;
-        padding: 2px 8px;
+    .language-selector-top-right div[data-testid="stSelectbox"] > div > div {
+        font-size: 0.5rem;
+        padding: 1px 3px;
+        line-height: 0.5;
+        min-height: 0.5rem;
+        height: 0.5rem;
+    }
+    .language-selector-top-right select {
+        font-size: 0.5rem;
+        padding: 0;
+        height: 0.5rem;
+        line-height: 0.5;
     }
     
     /* Main Header */
@@ -1668,32 +1684,61 @@ def render_reports_page():
         help="Describe what specific aspects you want the report to cover. The AI will tailor the report accordingly."
     )
     
-    # Language selector for reports
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Report language selector - Top Right Corner (very small, next to main language selector)
+    language_flags = {
+        "English": "🇬🇧",
+        "French": "🇫🇷",
+        "Portuguese": "🇵🇹",
+        "Spanish": "🇪🇸"
+    }
+    lang_options = list(language_flags.keys())
+    current_lang_index = lang_options.index(selected_language) if selected_language in lang_options else 0
     
-    with col1:
-        # Language selection dropdown
-        language_flags = {
-            "English": "🇬🇧 English",
-            "French": "🇫🇷 Français",
-            "Portuguese": "🇵🇹 Português",
-            "Spanish": "🇪🇸 Español"
-        }
-        lang_options = list(language_flags.keys())
-        current_lang_index = lang_options.index(selected_language) if selected_language in lang_options else 0
-        
+    # Position report language selector in top right (next to main language selector)
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col3:
         report_language = st.selectbox(
-            "Select Report Language",
+            "",
             options=lang_options,
             index=current_lang_index,
             format_func=lambda x: language_flags[x],
-            key="report_language_selector"
+            key="report_language_selector",
+            label_visibility="collapsed"
         )
         
         # Update session state if changed
         if report_language != selected_language:
             st.session_state.selected_language = report_language
             selected_language = report_language
+    
+    # Add CSS to position report language selector absolutely at top right (next to main selector)
+    st.markdown("""
+    <style>
+    div[data-testid="stSelectbox"]:has(select[id*="report_language_selector"]) {
+        position: fixed !important;
+        top: 5px !important;
+        right: 50px !important;
+        z-index: 9998 !important;
+        width: 35px !important;
+        font-size: 0.5rem !important;
+        line-height: 0.5 !important;
+        height: 0.5rem !important;
+    }
+    div[data-testid="stSelectbox"]:has(select[id*="report_language_selector"]) > div > div {
+        font-size: 0.5rem !important;
+        padding: 0px 2px !important;
+        line-height: 0.5 !important;
+        min-height: 0.5rem !important;
+        height: 0.5rem !important;
+    }
+    div[data-testid="stSelectbox"]:has(select[id*="report_language_selector"]) select {
+        font-size: 0.5rem !important;
+        padding: 0px !important;
+        height: 0.5rem !important;
+        line-height: 0.5 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([2, 1, 1])
     
@@ -2159,28 +2204,21 @@ def main():
         - [SDG Targets](https://www.who.int/sdg/targets/en/)
         """)
     
-    # Language Selector - Top Right Corner (appears on all pages)
+    # Language Selector - Top Right Corner (very small icon, appears on all pages)
     # Initialize language in session state if not exists
     if "selected_language" not in st.session_state:
         st.session_state.selected_language = "English"
     
     languages = {
-        "English": "🇬🇧 English",
-        "French": "🇫🇷 Français",
-        "Portuguese": "🇵🇹 Português",
-        "Spanish": "🇪🇸 Español"
+        "English": "🇬🇧",
+        "French": "🇫🇷",
+        "Portuguese": "🇵🇹",
+        "Spanish": "🇪🇸"
     }
     
-    # Position language selector in top right using columns
+    # Create very small language selector in top right corner using empty columns
     col1, col2, col3 = st.columns([1, 1, 1])
     with col3:
-        # Create container with label and dropdown
-        st.markdown("""
-        <div style="text-align: right; margin-bottom: 5px;">
-            <span style="font-size: 0.7rem; color: #666;">Select Language</span>
-        </div>
-        """, unsafe_allow_html=True)
-        
         # Get current index
         lang_options = list(languages.keys())
         current_index = lang_options.index(st.session_state.selected_language) if st.session_state.selected_language in lang_options else 0
@@ -2198,6 +2236,35 @@ def main():
         if selected_lang != st.session_state.selected_language:
             st.session_state.selected_language = selected_lang
             st.rerun()
+    
+    # Add CSS to position selectbox absolutely at top right
+    st.markdown("""
+    <style>
+    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) {
+        position: fixed !important;
+        top: 5px !important;
+        right: 10px !important;
+        z-index: 9999 !important;
+        width: 35px !important;
+        font-size: 0.5rem !important;
+        line-height: 0.5 !important;
+        height: 0.5rem !important;
+    }
+    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div > div {
+        font-size: 0.5rem !important;
+        padding: 0px 2px !important;
+        line-height: 0.5 !important;
+        min-height: 0.5rem !important;
+        height: 0.5rem !important;
+    }
+    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) select {
+        font-size: 0.5rem !important;
+        padding: 0px !important;
+        height: 0.5rem !important;
+        line-height: 0.5 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Render current page
     if st.session_state.current_page == 'Home':

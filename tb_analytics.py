@@ -197,13 +197,20 @@ class TBAnalytics:
         }
         
         # Key indicators from TB Report 2024 - Notifications
-        notif_indicators = {
-            "TB Notifications (Total New Cases)": "c_newinc",
-            "New Smear-Positive Cases": "new_sp",
-            "New Smear-Negative Cases": "new_sn",
-            "New Extrapulmonary Cases": "new_ep",
-            "New and Relapse Cases": "newrel"
-        }
+        # Always include these indicators if columns exist
+        notif_indicators = {}
+        
+        # Add indicators only if columns exist
+        if 'c_newinc' in latest_notif.columns:
+            notif_indicators["TB Notifications (Total New Cases)"] = "c_newinc"
+        if 'new_sp' in latest_notif.columns:
+            notif_indicators["New Smear-Positive Cases"] = "new_sp"
+        if 'new_sn' in latest_notif.columns:
+            notif_indicators["New Smear-Negative Cases"] = "new_sn"
+        if 'new_ep' in latest_notif.columns:
+            notif_indicators["New Extrapulmonary Cases"] = "new_ep"
+        if 'newrel' in latest_notif.columns:
+            notif_indicators["New and Relapse Cases"] = "newrel"
         
         for indicator_name, col_name in notif_indicators.items():
             if col_name in latest_notif.columns:
