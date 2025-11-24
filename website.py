@@ -519,64 +519,140 @@ def render_home_page():
         </div>
         """, unsafe_allow_html=True)
     
-    st.markdown("""
-    <div class="info-box">
-        <h3>About WHO AFRO</h3>
-        <p>The World Health Organization Regional Office for Africa (WHO AFRO) is committed to improving 
-        health outcomes across the African continent. This platform provides comprehensive analytics and 
-        insights into maternal and child mortality data to support evidence-based decision making.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Get current indicator type
+    indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
     
-    # Key statistics
+    # Update About text based on indicator type
+    if indicator_type == "Tuberculosis":
+        about_text = """
+        <div class="info-box">
+            <h3>About WHO AFRO</h3>
+            <p>The World Health Organization Regional Office for Africa (WHO AFRO) is committed to improving 
+            health outcomes across the African continent. This platform provides comprehensive analytics and 
+            insights into tuberculosis data for the <strong>47 AFRO member countries</strong> to support evidence-based decision making.</p>
+        </div>
+        """
+    else:
+        about_text = """
+        <div class="info-box">
+            <h3>About WHO AFRO</h3>
+            <p>The World Health Organization Regional Office for Africa (WHO AFRO) is committed to improving 
+            health outcomes across the African continent. This platform provides comprehensive analytics and 
+            insights into maternal and child mortality data for the <strong>47 AFRO member countries</strong> to support evidence-based decision making.</p>
+        </div>
+        """
+    
+    st.markdown(about_text, unsafe_allow_html=True)
+    
+    # Key statistics - handle both TB and Mortality data
     if st.session_state.data_loaded:
-        summary = st.session_state.pipeline.get_data_summary()
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-value">{summary['countries']}</div>
-                <div class="stat-label">Countries</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-value">{summary['indicators']}</div>
-                <div class="stat-label">Indicators</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-value">{summary['mortality_records']:,}</div>
-                <div class="stat-label">Mortality Records</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-value">{summary['mmr_records']:,}</div>
-                <div class="stat-label">MMR Records</div>
-            </div>
-            """, unsafe_allow_html=True)
+        # Get summary based on indicator type
+        if indicator_type == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline') and st.session_state.tb_pipeline is not None:
+            summary = st.session_state.tb_pipeline.get_data_summary()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{summary['countries']}</div>
+                    <div class="stat-label">AFRO Countries</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{summary['indicators']}</div>
+                    <div class="stat-label">TB Indicators</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{summary['tb_burden_records']:,}</div>
+                    <div class="stat-label">TB Burden Records</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col4:
+                year_range = summary.get('year_range', (None, None))
+                year_text = f"{year_range[0]}-{year_range[1]}" if year_range[0] and year_range[1] else "N/A"
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{year_text}</div>
+                    <div class="stat-label">Year Range</div>
+                </div>
+                """, unsafe_allow_html=True)
+        elif hasattr(st.session_state, 'pipeline') and st.session_state.pipeline is not None:
+            summary = st.session_state.pipeline.get_data_summary()
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{summary['countries']}</div>
+                    <div class="stat-label">AFRO Countries</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{summary['indicators']}</div>
+                    <div class="stat-label">Indicators</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col3:
+                records_key = 'mortality_records' if 'mortality_records' in summary else 'tb_burden_records'
+                records_value = summary.get(records_key, 0)
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{records_value:,}</div>
+                    <div class="stat-label">Mortality Records</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            with col4:
+                mmr_records = summary.get('mmr_records', 0)
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{mmr_records:,}</div>
+                    <div class="stat-label">MMR Records</div>
+                </div>
+                """, unsafe_allow_html=True)
     
-    st.markdown("""
-    ### Key Features
+    # Key Features - update based on indicator type
+    if indicator_type == "Tuberculosis":
+        features_text = """
+        ### Key Features
+        
+        - 📊 **Comprehensive TB Analytics**: Analyze TB trends across 47 AFRO member countries
+        - 🤖 **AI-Powered Chatbot**: Ask questions about TB data in natural language
+        - 📈 **Trend Analysis**: Track TB incidence and mortality over time
+        - 📋 **Report Generation**: Generate detailed TB summary reports in multiple languages
+        - 🌍 **Multi-Country Comparison**: Compare TB performance across AFRO countries
+        
+        ### Available TB Indicators
+        """
+    else:
+        features_text = """
+        ### Key Features
+        
+        - 📊 **Comprehensive Analytics**: Analyze mortality trends across 47 AFRO member countries
+        - 🤖 **AI-Powered Chatbot**: Ask questions in natural language
+        - 📈 **Trend Analysis**: Track progress over time
+        - 🔮 **Projections**: Monitor progress towards 2030 targets
+        - 📋 **Report Generation**: Generate detailed summary reports in multiple languages
+        - 🌍 **Multi-Country Comparison**: Compare performance across AFRO countries
+        
+        ### Available Indicators
+        """
     
-    - 📊 **Comprehensive Analytics**: Analyze mortality trends across African countries
-    - 🤖 **AI-Powered Chatbot**: Ask questions in natural language
-    - 📈 **Trend Analysis**: Track progress over time
-    - 🔮 **Projections**: Monitor progress towards 2030 targets
-    - 📋 **Report Generation**: Generate detailed summary reports
-    - 🌍 **Multi-Country Comparison**: Compare performance across countries
-    
-    ### Available Indicators
+    st.markdown(features_text, unsafe_allow_html=True)
     
     - Neonatal mortality rate
     - Infant mortality rate

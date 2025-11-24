@@ -54,7 +54,8 @@ class MortalityAnalytics:
             if len(ind_data) > 0:
                 stats["indicators"][indicator] = {
                     "latest_value": ind_data['value'].iloc[-1] if len(ind_data) > 0 else None,
-                    "mean_value": ind_data['value'].mean(),
+                    "mean_value": ind_data['value'].median(),  # Using median instead of mean
+                    "median_value": ind_data['value'].median(),
                     "min_value": ind_data['value'].min(),
                     "max_value": ind_data['value'].max(),
                     "trend": self._calculate_trend(ind_data),
@@ -65,7 +66,8 @@ class MortalityAnalytics:
         if len(country_mmr) > 0:
             stats["mmr_trend"] = {
                 "latest_mmr": country_mmr['value'].iloc[-1] if len(country_mmr) > 0 else None,
-                "mean_mmr": country_mmr['value'].mean(),
+                "mean_mmr": country_mmr['value'].median(),  # Using median instead of mean
+                "median_mmr": country_mmr['value'].median(),
                 "min_mmr": country_mmr['value'].min(),
                 "max_mmr": country_mmr['value'].max(),
                 "trend": self._calculate_trend(country_mmr),
@@ -99,7 +101,8 @@ class MortalityAnalytics:
             if len(ind_data) > 0:
                 comparison["countries"][country] = {
                     "latest_value": ind_data['value'].iloc[-1],
-                    "mean_value": ind_data['value'].mean(),
+                    "mean_value": ind_data['value'].median(),  # Using median instead of mean
+                    "median_value": ind_data['value'].median(),
                     "trend": self._calculate_trend(ind_data)
                 }
                 comparison["countries_with_data"].append(country)
@@ -145,7 +148,7 @@ class MortalityAnalytics:
         # MMR summary
         if len(self.mmr_df) > 0:
             summary["mmr_summary"] = {
-                "mean_mmr": self.mmr_df['value'].mean(),
+                "mean_mmr": self.mmr_df['value'].median(),  # Using median instead of mean
                 "median_mmr": self.mmr_df['value'].median(),
                 "min_mmr": self.mmr_df['value'].min(),
                 "max_mmr": self.mmr_df['value'].max(),
