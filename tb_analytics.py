@@ -156,6 +156,7 @@ class TBAnalytics:
         """
         Get regional summary statistics for AFRO
         Focus on notifications and treatment outcomes
+        Based on key indicators from TB Report 2024
         
         Returns:
             Dictionary with regional summary
@@ -176,18 +177,32 @@ class TBAnalytics:
         latest_notif = df_notif[df_notif['year'] == latest_year]
         latest_outcomes = df_outcomes[df_outcomes['year'] == latest_year] if len(df_outcomes) > 0 else pd.DataFrame()
         
+        # Calculate regional totals
+        total_notifications = latest_notif['c_newinc'].sum() if 'c_newinc' in latest_notif.columns else 0
+        total_smear_positive = latest_notif['new_sp'].sum() if 'new_sp' in latest_notif.columns else 0
+        total_smear_negative = latest_notif['new_sn'].sum() if 'new_sn' in latest_notif.columns else 0
+        total_extrapulmonary = latest_notif['new_ep'].sum() if 'new_ep' in latest_notif.columns else 0
+        
         summary = {
             "region": "AFRO",
             "latest_year": int(latest_year),
             "total_countries": len(df_notif['country'].unique()),
+            "regional_totals": {
+                "total_notifications": float(total_notifications),
+                "total_smear_positive": float(total_smear_positive),
+                "total_smear_negative": float(total_smear_negative),
+                "total_extrapulmonary": float(total_extrapulmonary)
+            },
             "indicators": {}
         }
         
-        # Notifications indicators
+        # Key indicators from TB Report 2024 - Notifications
         notif_indicators = {
             "TB Notifications (Total New Cases)": "c_newinc",
             "New Smear-Positive Cases": "new_sp",
-            "New Smear-Negative Cases": "new_sn"
+            "New Smear-Negative Cases": "new_sn",
+            "New Extrapulmonary Cases": "new_ep",
+            "New and Relapse Cases": "newrel"
         }
         
         for indicator_name, col_name in notif_indicators.items():
@@ -198,14 +213,20 @@ class TBAnalytics:
                         "median_value": float(values.median()),
                         "min_value": float(values.min()),
                         "max_value": float(values.max()),
-                        "mean_value": float(values.mean())
+                        "mean_value": float(values.mean()),
+                        "total_regional": float(values.sum()),
+                        "countries_with_data": int(values.count())
                     }
         
         # Treatment outcomes indicators
         if len(latest_outcomes) > 0:
             outcome_indicators = {
                 "Treatment Success Rate - New Cases (%)": "c_new_sp_tsr",
-                "Treatment Success Rate (%)": "c_new_tsr"
+                "Treatment Success Rate (%)": "c_new_tsr",
+                "Cured Rate (%)": "new_sp_cur",
+                "Treatment Completion Rate (%)": "new_sp_cmplt",
+                "Death Rate (%)": "new_sp_died",
+                "Failure Rate (%)": "new_sp_fail"
             }
             
             for indicator_name, col_name in outcome_indicators.items():
@@ -216,10 +237,144 @@ class TBAnalytics:
                             "median_value": float(values.median()),
                             "min_value": float(values.min()),
                             "max_value": float(values.max()),
-                            "mean_value": float(values.mean())
+                            "mean_value": float(values.mean()),
+                            "countries_with_data": int(values.count())
                         }
         
         return summary
+    
+    def get_trend_analysis(self, indicator: str, start_year: Optional[int] = None, end_year: Optional[int] = None) -> Dict:
+        """
+        Get trend analysis for a specific indicator across AFRO region
+        
+        Args:
+            indicator: Indicator name
+            start_year: Start year (optional)
+            end_year: End year (optional)
+        
+        Returns:
+            Dictionary with trend analysis
+        """
+        indicator_map = {
+            "TB Notifications (Total New Cases)": ("c_newinc", "notifications"),
+            "New Smear-Positive Cases": ("new_sp", "notifications"),
+            "New Smear-Negative Cases": ("new_sn", "notifications"),
+            "New Extrapulmonary Cases": ("new_ep", "notifications"),
+            "Treatment Success Rate - New Cases (%)": ("c_new_sp_tsr", "outcomes"),
+            "Treatment Success Rate (%)": ("c_new_tsr", "outcomes")
+        }
+        
+        indicator_info = indicator_map.get(indicator)
+        if not indicator_info:
+            return {"error": f"Indicator {indicator} not found"}
+        
+        col_name, data_type = indicator_info
+        
+        # Select appropriate dataframe
+        if data_type == "notifications":
+            df = self.tb_notifications_df.copy()
+        elif data_type == "outcomes":
+            df = self.tb_outcomes_df.copy()
+        else:
+            return {"error": f"Unknown data type for indicator {indicator}"}
+        
+        # Filter by year range if provided
+        if start_year:
+            df = df[df['year'] >= start_year]
+        if end_year:
+            df = df[df['year'] <= end_year]
+        
+        if col_name not in df.columns:
+            return {"error": f"Column {col_name} not found in {data_type} data"}
+        
+        # Calculate regional totals by year
+        yearly_totals = df.groupby('year')[col_name].sum().reset_index()
+        yearly_totals.columns = ['year', 'total_value']
+        
+        # Calculate regional averages by year
+        yearly_averages = df.groupby('year')[col_name].mean().reset_index()
+        yearly_averages.columns = ['year', 'average_value']
+        
+        # Calculate percentage change
+        if len(yearly_totals) >= 2:
+            first_value = yearly_totals['total_value'].iloc[0]
+            last_value = yearly_totals['total_value'].iloc[-1]
+            if first_value > 0:
+                pct_change = ((last_value - first_value) / first_value) * 100
+            else:
+                pct_change = 0
+        else:
+            pct_change = 0
+        
+        return {
+            "indicator": indicator,
+            "yearly_totals": yearly_totals.to_dict('records'),
+            "yearly_averages": yearly_averages.to_dict('records'),
+            "percentage_change": float(pct_change),
+            "trend": "Increasing" if pct_change > 0 else "Decreasing" if pct_change < 0 else "Stable",
+            "start_year": int(yearly_totals['year'].min()) if len(yearly_totals) > 0 else None,
+            "end_year": int(yearly_totals['year'].max()) if len(yearly_totals) > 0 else None
+        }
+    
+    def get_top_countries(self, indicator: str, n: int = 10, ascending: bool = False) -> Dict:
+        """
+        Get top N countries for a specific indicator
+        
+        Args:
+            indicator: Indicator name
+            n: Number of countries to return
+            ascending: If True, return bottom N countries
+        
+        Returns:
+            Dictionary with top countries
+        """
+        indicator_map = {
+            "TB Notifications (Total New Cases)": ("c_newinc", "notifications"),
+            "New Smear-Positive Cases": ("new_sp", "notifications"),
+            "New Smear-Negative Cases": ("new_sn", "notifications"),
+            "New Extrapulmonary Cases": ("new_ep", "notifications"),
+            "Treatment Success Rate - New Cases (%)": ("c_new_sp_tsr", "outcomes"),
+            "Treatment Success Rate (%)": ("c_new_tsr", "outcomes")
+        }
+        
+        indicator_info = indicator_map.get(indicator)
+        if not indicator_info:
+            return {"error": f"Indicator {indicator} not found"}
+        
+        col_name, data_type = indicator_info
+        
+        # Select appropriate dataframe
+        if data_type == "notifications":
+            df = self.tb_notifications_df.copy()
+        elif data_type == "outcomes":
+            df = self.tb_outcomes_df.copy()
+        else:
+            return {"error": f"Unknown data type for indicator {indicator}"}
+        
+        latest_year = df['year'].max()
+        latest_data = df[df['year'] == latest_year]
+        
+        if col_name not in latest_data.columns:
+            return {"error": f"Column {col_name} not found"}
+        
+        # Get top countries
+        top_countries = latest_data.nlargest(n, col_name) if not ascending else latest_data.nsmallest(n, col_name)
+        
+        result = {
+            "indicator": indicator,
+            "year": int(latest_year),
+            "countries": []
+        }
+        
+        for idx, row in top_countries.iterrows():
+            if pd.notna(row[col_name]):
+                result["countries"].append({
+                    "country": row['country'],
+                    "value": float(row[col_name]),
+                    "rank": len(result["countries"]) + 1
+                })
+        
+        return result
     
     def _calculate_trend(self, df: pd.DataFrame, column: str) -> str:
         """
@@ -332,4 +487,104 @@ class TBAnalytics:
             comparison["countries"][country]["rank"] = rank
         
         return comparison
+    
+    def get_regional_outlook(self) -> Dict:
+        """
+        Generate comprehensive regional outlook for AFRO
+        Based on TB Report 2024 structure
+        
+        Returns:
+            Dictionary with regional outlook analysis
+        """
+        df_notif = self.tb_notifications_df.copy()
+        df_outcomes = self.tb_outcomes_df.copy()
+        
+        if len(df_notif) == 0:
+            return {
+                "region": "AFRO",
+                "error": "No notifications data available"
+            }
+        
+        latest_year = df_notif['year'].max()
+        latest_notif = df_notif[df_notif['year'] == latest_year]
+        latest_outcomes = df_outcomes[df_outcomes['year'] == latest_year] if len(df_outcomes) > 0 else pd.DataFrame()
+        
+        # Calculate regional statistics
+        outlook = {
+            "region": "AFRO",
+            "latest_year": int(latest_year),
+            "total_countries": len(df_notif['country'].unique()),
+            "countries_with_data": {},
+            "regional_totals": {},
+            "trends": {},
+            "performance_summary": {}
+        }
+        
+        # Regional totals for latest year
+        if 'c_newinc' in latest_notif.columns:
+            outlook["regional_totals"]["total_notifications"] = float(latest_notif['c_newinc'].sum())
+            outlook["countries_with_data"]["notifications"] = int(latest_notif['c_newinc'].notna().sum())
+        
+        if 'new_sp' in latest_notif.columns:
+            outlook["regional_totals"]["smear_positive"] = float(latest_notif['new_sp'].sum())
+        
+        if 'new_sn' in latest_notif.columns:
+            outlook["regional_totals"]["smear_negative"] = float(latest_notif['new_sn'].sum())
+        
+        if 'new_ep' in latest_notif.columns:
+            outlook["regional_totals"]["extrapulmonary"] = float(latest_notif['new_ep'].sum())
+        
+        # Treatment outcomes totals
+        if len(latest_outcomes) > 0:
+            if 'new_sp_coh' in latest_outcomes.columns:
+                outlook["regional_totals"]["cohort_size"] = float(latest_outcomes['new_sp_coh'].sum())
+                outlook["countries_with_data"]["outcomes"] = int(latest_outcomes['new_sp_coh'].notna().sum())
+            
+            if 'c_new_sp_tsr' in latest_outcomes.columns:
+                tsr_values = latest_outcomes['c_new_sp_tsr'].dropna()
+                if len(tsr_values) > 0:
+                    outlook["performance_summary"]["treatment_success_rate"] = {
+                        "mean": float(tsr_values.mean()),
+                        "median": float(tsr_values.median()),
+                        "min": float(tsr_values.min()),
+                        "max": float(tsr_values.max()),
+                        "countries_above_85": int((tsr_values >= 85).sum()),  # WHO target
+                        "countries_below_85": int((tsr_values < 85).sum())
+                    }
+        
+        # Calculate trends (comparing latest year with 5 years ago)
+        if latest_year >= 2018:
+            five_years_ago = latest_year - 5
+            notif_5y_ago = df_notif[df_notif['year'] == five_years_ago]
+            
+            if len(notif_5y_ago) > 0 and 'c_newinc' in notif_5y_ago.columns:
+                total_5y_ago = notif_5y_ago['c_newinc'].sum()
+                total_latest = latest_notif['c_newinc'].sum()
+                
+                if total_5y_ago > 0:
+                    pct_change = ((total_latest - total_5y_ago) / total_5y_ago) * 100
+                    outlook["trends"]["notifications_5year"] = {
+                        "percentage_change": float(pct_change),
+                        "direction": "Increasing" if pct_change > 0 else "Decreasing" if pct_change < 0 else "Stable",
+                        "value_5y_ago": float(total_5y_ago),
+                        "value_latest": float(total_latest)
+                    }
+        
+        # Country performance distribution
+        if 'c_newinc' in latest_notif.columns:
+            notif_values = latest_notif['c_newinc'].dropna()
+            if len(notif_values) > 0:
+                # Categorize countries by notification levels
+                q1 = notif_values.quantile(0.25)
+                q2 = notif_values.quantile(0.50)
+                q3 = notif_values.quantile(0.75)
+                
+                outlook["performance_summary"]["notification_distribution"] = {
+                    "low": int((notif_values < q1).sum()),
+                    "medium_low": int(((notif_values >= q1) & (notif_values < q2)).sum()),
+                    "medium_high": int(((notif_values >= q2) & (notif_values < q3)).sum()),
+                    "high": int((notif_values >= q3).sum())
+                }
+        
+        return outlook
 

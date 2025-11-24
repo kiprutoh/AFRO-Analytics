@@ -519,10 +519,66 @@ def render_home_page():
         </div>
         """, unsafe_allow_html=True)
     
-    # Get current indicator type
+    # Language Selection with Flags
+    st.markdown("""
+    <div style="margin: 2rem 0; padding: 1.5rem; background: white; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);">
+        <h3 style="color: #0066CC; margin-bottom: 1rem; font-size: 1.3rem;">🌐 Select Language / Choisir la langue / Selecionar idioma / Seleccionar idioma</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Initialize language in session state if not exists
+    if "selected_language" not in st.session_state:
+        st.session_state.selected_language = "English"
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    languages = {
+        "English": "🇬🇧",
+        "French": "🇫🇷",
+        "Portuguese": "🇵🇹",
+        "Spanish": "🇪🇸"
+    }
+    
+    with col1:
+        if st.button(f"{languages['English']} English", use_container_width=True, 
+                    type="primary" if st.session_state.selected_language == "English" else "secondary",
+                    key="lang_english"):
+            st.session_state.selected_language = "English"
+            st.rerun()
+    
+    with col2:
+        if st.button(f"{languages['French']} Français", use_container_width=True,
+                    type="primary" if st.session_state.selected_language == "French" else "secondary",
+                    key="lang_french"):
+            st.session_state.selected_language = "French"
+            st.rerun()
+    
+    with col3:
+        if st.button(f"{languages['Portuguese']} Português", use_container_width=True,
+                    type="primary" if st.session_state.selected_language == "Portuguese" else "secondary",
+                    key="lang_portuguese"):
+            st.session_state.selected_language = "Portuguese"
+            st.rerun()
+    
+    with col4:
+        if st.button(f"{languages['Spanish']} Español", use_container_width=True,
+                    type="primary" if st.session_state.selected_language == "Spanish" else "secondary",
+                    key="lang_spanish"):
+            st.session_state.selected_language = "Spanish"
+            st.rerun()
+    
+    # Display current language selection
+    current_lang = st.session_state.selected_language
+    st.markdown(f"""
+    <div style="margin: 1rem 0; padding: 1rem; background: linear-gradient(135deg, #0066CC 0%, #004499 100%); border-radius: 10px; color: white; text-align: center;">
+        <strong>Current Language / Langue actuelle / Idioma atual / Idioma actual:</strong> {languages.get(current_lang, '')} {current_lang}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Get current health topic
     indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
     
-    # Update About text based on indicator type
+    # Update About text based on health topic
     if indicator_type == "Tuberculosis":
         about_text = """
         <div class="info-box">
@@ -674,6 +730,322 @@ def render_home_page():
     """)
 
 
+def render_tb_dashboard(analytics, pipeline):
+    """Render specialized TB dashboard with interactive analytics for notifications"""
+    try:
+        import plotly.graph_objects as go
+        import plotly.express as px
+    except ImportError:
+        st.error("Plotly is required for TB dashboard. Please install: pip install plotly")
+        return
+    
+    st.markdown('<h2 class="section-header">TB Notifications Analytics Dashboard</h2>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Focus:</strong> TB Case Notifications and Treatment Outcomes for WHO AFRO Region (47 countries)
+            <br>Data based on Global Tuberculosis Report 2024 indicators
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    summary = analytics.get_regional_summary()
+    
+    # Regional Overview Cards
+    st.markdown("""
+    <div class="dashboard-card">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Overview - WHO AFRO</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{summary['total_countries']}</div>
+            <div class="stat-label">AFRO Countries</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        latest_year = summary.get('latest_year', 'N/A')
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{latest_year}</div>
+            <div class="stat-label">Latest Year</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        if summary.get('regional_totals'):
+            total_notif = summary['regional_totals'].get('total_notifications', 0)
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-value">{total_notif:,.0f}</div>
+                <div class="stat-label">Total Notifications</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    with col4:
+        if summary.get('regional_totals'):
+            total_sp = summary['regional_totals'].get('total_smear_positive', 0)
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-value">{total_sp:,.0f}</div>
+                <div class="stat-label">Smear-Positive Cases</div>
+            </div>
+            """, unsafe_allow_html=True)
+    
+    # Key TB Indicators from Report 2024
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Key TB Indicators (Latest Year)</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Display key indicators in a grid
+    indicators_list = list(summary.get('indicators', {}).items())
+    if indicators_list:
+        cols = st.columns(2)
+        for idx, (indicator_name, data) in enumerate(indicators_list[:6]):
+            col_idx = idx % 2
+            with cols[col_idx]:
+                mean_val = data.get('mean_value', 0)
+                median_val = data.get('median_value', 0)
+                total_regional = data.get('total_regional', 0)
+                
+                st.markdown(f"""
+                <div class="info-box hover-lift">
+                    <h4 style="color: #0066CC; margin-bottom: 0.5rem; font-size: 1.1rem;">{indicator_name}</h4>
+                    <p style="margin: 0.25rem 0; font-size: 0.95rem;">
+                        <strong>Mean:</strong> <span style="color: #0066CC; font-weight: 600;">{mean_val:,.0f}</span>
+                    </p>
+                    <p style="margin: 0.25rem 0; font-size: 0.95rem;">
+                        <strong>Median:</strong> {median_val:,.0f}
+                    </p>
+                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Regional Total:</strong> {total_regional:,.0f}</p>' if total_regional > 0 else ''}
+                    <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #666;">
+                        Range: {data.get('min_value', 0):,.0f} - {data.get('max_value', 0):,.0f}
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Interactive Trend Analysis
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Trend Analysis</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        available_indicators = [
+            "TB Notifications (Total New Cases)",
+            "New Smear-Positive Cases",
+            "New Smear-Negative Cases",
+            "New Extrapulmonary Cases",
+            "Treatment Success Rate - New Cases (%)",
+            "Treatment Success Rate (%)"
+        ]
+        selected_indicator = st.selectbox(
+            "Select Indicator for Trend Analysis",
+            available_indicators,
+            index=0
+        )
+    
+    with col2:
+        year_range = st.slider(
+            "Year Range",
+            min_value=2000,
+            max_value=2023,
+            value=(2015, 2023)
+        )
+    
+    # Get trend analysis
+    try:
+        trend_data = analytics.get_trend_analysis(
+            selected_indicator,
+            start_year=year_range[0],
+            end_year=year_range[1]
+        )
+        
+        if 'error' not in trend_data and trend_data.get('yearly_totals'):
+            # Create trend chart
+            df_trend = pd.DataFrame(trend_data['yearly_totals'])
+            
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(
+                x=df_trend['year'],
+                y=df_trend['total_value'],
+                mode='lines+markers',
+                name='Regional Total',
+                line=dict(color='#0066CC', width=3),
+                marker=dict(size=8)
+            ))
+            
+            fig.update_layout(
+                title=f'{selected_indicator} - Regional Trend (AFRO)',
+                xaxis_title='Year',
+                yaxis_title='Value',
+                hovermode='x unified',
+                template='plotly_white',
+                height=400,
+                showlegend=True
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Display trend summary
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Percentage Change", f"{trend_data.get('percentage_change', 0):.1f}%")
+            with col2:
+                st.metric("Trend Direction", trend_data.get('trend', 'N/A'))
+            with col3:
+                st.metric("Period", f"{trend_data.get('start_year', 'N/A')} - {trend_data.get('end_year', 'N/A')}")
+        else:
+            st.info(f"No trend data available for {selected_indicator}")
+    except Exception as e:
+        st.warning(f"Could not generate trend analysis: {str(e)}")
+    
+    # Regional Outlook Section
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Outlook - WHO AFRO</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    try:
+        outlook = analytics.get_regional_outlook()
+        
+        if 'error' not in outlook:
+            # Regional Performance Summary
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                if outlook.get('regional_totals', {}).get('total_notifications'):
+                    st.metric(
+                        "Total Notifications",
+                        f"{outlook['regional_totals']['total_notifications']:,.0f}",
+                        help="Total TB cases notified in AFRO region"
+                    )
+            
+            with col2:
+                if outlook.get('countries_with_data', {}).get('notifications'):
+                    st.metric(
+                        "Countries Reporting",
+                        f"{outlook['countries_with_data']['notifications']}/{outlook['total_countries']}",
+                        help="Number of countries with notification data"
+                    )
+            
+            with col3:
+                if outlook.get('performance_summary', {}).get('treatment_success_rate'):
+                    tsr = outlook['performance_summary']['treatment_success_rate']
+                    st.metric(
+                        "Mean Treatment Success Rate",
+                        f"{tsr['mean']:.1f}%",
+                        help=f"Range: {tsr['min']:.1f}% - {tsr['max']:.1f}%"
+                    )
+            
+            with col4:
+                if outlook.get('performance_summary', {}).get('treatment_success_rate'):
+                    tsr = outlook['performance_summary']['treatment_success_rate']
+                    above_target = tsr.get('countries_above_85', 0)
+                    st.metric(
+                        "Countries ≥85% TSR",
+                        f"{above_target}/{outlook['total_countries']}",
+                        help="WHO target: ≥85% treatment success rate"
+                    )
+            
+            # Trend Analysis
+            if outlook.get('trends', {}).get('notifications_5year'):
+                trend_5y = outlook['trends']['notifications_5year']
+                st.markdown("### 5-Year Trend Analysis")
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("5-Year Change", f"{trend_5y['percentage_change']:.1f}%")
+                with col2:
+                    st.metric("Direction", trend_5y['direction'])
+                with col3:
+                    st.metric("5 Years Ago", f"{trend_5y['value_5y_ago']:,.0f}")
+            
+            # Performance Distribution
+            if outlook.get('performance_summary', {}).get('notification_distribution'):
+                dist = outlook['performance_summary']['notification_distribution']
+                st.markdown("### Country Performance Distribution")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Low", dist['low'])
+                with col2:
+                    st.metric("Medium-Low", dist['medium_low'])
+                with col3:
+                    st.metric("Medium-High", dist['medium_high'])
+                with col4:
+                    st.metric("High", dist['high'])
+    except Exception as e:
+        st.warning(f"Could not generate regional outlook: {str(e)}")
+    
+    # Top Countries Analysis
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Top Countries Analysis</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        top_indicator = st.selectbox(
+            "Select Indicator",
+            available_indicators[:4],  # Only notifications indicators
+            index=0,
+            key="top_indicator"
+        )
+        
+        try:
+            top_countries = analytics.get_top_countries(top_indicator, n=10, ascending=False)
+            if 'error' not in top_countries and top_countries.get('countries'):
+                df_top = pd.DataFrame(top_countries['countries'])
+                
+                fig = px.bar(
+                    df_top,
+                    x='value',
+                    y='country',
+                    orientation='h',
+                    title=f'Top 10 Countries - {top_indicator}',
+                    labels={'value': 'Value', 'country': 'Country'},
+                    color='value',
+                    color_continuous_scale='Blues'
+                )
+                fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+                st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Could not generate top countries: {str(e)}")
+    
+    with col2:
+        try:
+            bottom_countries = analytics.get_top_countries(top_indicator, n=10, ascending=True)
+            if 'error' not in bottom_countries and bottom_countries.get('countries'):
+                df_bottom = pd.DataFrame(bottom_countries['countries'])
+                
+                fig = px.bar(
+                    df_bottom,
+                    x='value',
+                    y='country',
+                    orientation='h',
+                    title=f'Bottom 10 Countries - {top_indicator}',
+                    labels={'value': 'Value', 'country': 'Country'},
+                    color='value',
+                    color_continuous_scale='Reds_r'
+                )
+                fig.update_layout(height=400, yaxis={'categoryorder': 'total descending'})
+                st.plotly_chart(fig, use_container_width=True)
+        except Exception as e:
+            st.warning(f"Could not generate bottom countries: {str(e)}")
+
+
 def render_dashboard_page():
     """Render the modern analytics dashboard"""
     st.markdown('<h2 class="section-header">Analytics Dashboard</h2>', unsafe_allow_html=True)
@@ -688,6 +1060,10 @@ def render_dashboard_page():
     if indicator_type == "Tuberculosis" and hasattr(st.session_state, 'tb_analytics') and st.session_state.tb_analytics is not None:
         analytics = st.session_state.tb_analytics
         pipeline = st.session_state.tb_pipeline
+        # Render specialized TB dashboard
+        render_tb_dashboard(analytics, pipeline)
+        return
+    
     elif hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
         analytics = st.session_state.analytics
         pipeline = st.session_state.pipeline
@@ -921,23 +1297,36 @@ def render_dashboard_page():
 
 def render_chatbot_page():
     """Render the chatbot page"""
+    # Get current health topic and language
+    health_topic = st.session_state.get("indicator_type", "Maternal Mortality")
+    selected_language = st.session_state.get("selected_language", "English")
+    
+    # Display current settings
+    st.markdown(f"""
+    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #0066CC 0%, #004499 100%); border-radius: 10px; color: white;">
+        <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown('<h2 class="section-header">AI Analytics Chatbot</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
         st.warning("Please initialize the system first from the sidebar.")
         return
     
-    # Check if chatbot exists (only for Mortality, not TB yet)
-    if not hasattr(st.session_state, 'chatbot') or st.session_state.chatbot is None:
-        indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
-        if indicator_type == "Tuberculosis":
+    # Get chatbot based on health topic
+    chatbot = None
+    if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
+        chatbot = st.session_state.tb_chatbot
+    elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
+        chatbot = st.session_state.chatbot
+    
+    if chatbot is None:
+        if health_topic == "Tuberculosis":
             st.info("💡 TB chatbot functionality is coming soon. For now, please use the Reports page or Interactive Charts for TB data analysis.")
-            return
         else:
             st.error("Chatbot not initialized. Please initialize the system from the sidebar.")
-            return
-    
-    chatbot = st.session_state.chatbot
+        return
     
     # Link to Interactive Visualizer
     st.markdown("""
@@ -948,14 +1337,27 @@ def render_chatbot_page():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("""
-    Ask questions about mortality data in natural language. The chatbot can help you:
-    - Get statistics for specific countries (with charts)
-    - Compare countries (with charts)
-    - Analyze trends (with charts)
-    - View projections (with charts)
-    - Generate reports
-    """)
+    # Update prompt based on health topic
+    if health_topic == "Tuberculosis":
+        prompt_text = """
+        Ask questions about TB data in natural language. The chatbot can help you:
+        - Get TB statistics for specific countries (with charts)
+        - Compare TB indicators across countries (with charts)
+        - Analyze TB trends (with charts)
+        - View TB notifications and outcomes
+        - Generate TB reports
+        """
+    else:
+        prompt_text = """
+        Ask questions about mortality data in natural language. The chatbot can help you:
+        - Get statistics for specific countries (with charts)
+        - Compare countries (with charts)
+        - Analyze trends (with charts)
+        - View projections (with charts)
+        - Generate reports
+        """
+    
+    st.markdown(prompt_text)
     
     # Display chat history
     for message in st.session_state.chat_history:
@@ -994,8 +1396,13 @@ def render_chatbot_page():
                 else:
                     st.write(message["content"])
     
-    # Chat input
-    user_query = st.chat_input("Ask a question about mortality data...")
+    # Chat input - adapt placeholder based on health topic
+    if health_topic == "Tuberculosis":
+        placeholder = "Ask a question about TB data..."
+    else:
+        placeholder = "Ask a question about mortality data..."
+    
+    user_query = st.chat_input(placeholder)
     
     if user_query:
         # Add user message to history
@@ -1168,17 +1575,41 @@ def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indica
 
 def render_reports_page():
     """Render the reports page"""
+    # Get current health topic and language
+    health_topic = st.session_state.get("indicator_type", "Maternal Mortality")
+    selected_language = st.session_state.get("selected_language", "English")
+    
+    # Display current settings
+    st.markdown(f"""
+    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #0066CC 0%, #004499 100%); border-radius: 10px; color: white;">
+        <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown('<h2 class="section-header">Generate Reports</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
         st.warning("Please initialize the system first from the sidebar.")
         return
     
-    analytics = st.session_state.analytics
-    pipeline = st.session_state.pipeline
+    # Get analytics and pipeline based on health topic
+    if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_analytics') and st.session_state.tb_analytics is not None:
+        analytics = st.session_state.tb_analytics
+        pipeline = st.session_state.tb_pipeline
+    elif hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
+        analytics = st.session_state.analytics
+        pipeline = st.session_state.pipeline
+    else:
+        st.error(f"Analytics system not initialized for {health_topic}. Please initialize from the sidebar.")
+        return
+    
+    if analytics is None or pipeline is None:
+        st.error("Analytics or Pipeline object is None. Please initialize the system from the sidebar.")
+        return
     
     st.markdown("### Generate LLM-Powered Report")
     st.info("💡 Reports are generated using Gemini 2.5 Flash AI model for comprehensive analysis and insights.")
+    st.warning("⚠️ **Content Restriction**: Reports are restricted to information available from the World Health Organization (WHO) official website (https://www.who.int/). Requests for information outside WHO sources will be politely declined.")
     
     # API Key configuration (load from environment variable or Streamlit secrets)
     if "openrouter_api_key" not in st.session_state:
@@ -1242,24 +1673,21 @@ def render_reports_page():
         help="Describe what specific aspects you want the report to cover. The AI will tailor the report accordingly."
     )
     
-    # Language selection
+    # Language display (using session state language)
+    language_flags = {
+        "English": "🇬🇧",
+        "French": "🇫🇷",
+        "Portuguese": "🇵🇹",
+        "Spanish": "🇪🇸"
+    }
     st.markdown("#### Report Language")
-    languages = [
-        "English", "French", "Spanish", "Portuguese", "Arabic", 
-        "Swahili", "Amharic", "Hausa", "Yoruba", "Zulu"
-    ]
-    selected_language = st.selectbox(
-        "Select Report Language",
-        languages,
-        index=0,  # Default to English
-        help="The report will be generated in the selected language"
-    )
+    st.info(f"📝 Report will be generated in: {language_flags.get(selected_language, '')} **{selected_language}** (Change language on Home page)")
     
     col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
-        # Get countries based on indicator type
-        if st.session_state.get("indicator_type") == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline'):
+        # Get countries based on health topic
+        if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline'):
             countries = st.session_state.tb_pipeline.get_countries()
         else:
             countries = pipeline.get_countries()
@@ -1285,27 +1713,18 @@ def render_reports_page():
             # Initialize LLM report generator
             llm_generator = LLMReportGenerator(st.session_state.openrouter_api_key)
             
-            # Collect statistics based on indicator type
+            # Collect statistics based on health topic
             with st.spinner("Collecting statistics..."):
-                indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
-                
-                if indicator_type == "Tuberculosis" and hasattr(st.session_state, 'tb_analytics'):
-                    analytics = st.session_state.tb_analytics
-                    pipeline = st.session_state.tb_pipeline
-                else:
-                    analytics = st.session_state.analytics
-                    pipeline = st.session_state.pipeline
-                
-                statistics = _collect_statistics_for_llm(analytics, pipeline, selected_country, indicator_type)
+                statistics = _collect_statistics_for_llm(analytics, pipeline, selected_country, health_topic)
             
-            # Generate report using LLM
+            # Generate report using LLM with selected language from session state
             with st.spinner(f"🤖 Generating AI-powered report in {selected_language}... This may take a moment."):
                 report = llm_generator.generate_report(
                     statistics=statistics,
                     report_type=report_type,
                     country=selected_country,
                     custom_requirements=custom_prompt if custom_prompt else None,
-                    language=selected_language
+                    language=selected_language  # Use language from session state
                 )
             
             st.markdown("### Generated Report")
@@ -1343,35 +1762,64 @@ def render_reports_page():
 
 def render_visualizer_page():
     """Render the interactive visualizer page"""
+    # Get current health topic and language
+    health_topic = st.session_state.get("indicator_type", "Maternal Mortality")
+    selected_language = st.session_state.get("selected_language", "English")
+    
+    # Display current settings
+    st.markdown(f"""
+    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #0066CC 0%, #004499 100%); border-radius: 10px; color: white;">
+        <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown('<h2 class="section-header">Interactive Chart Visualizer</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
         st.warning("Please initialize the system first from the sidebar.")
         return
     
-    # Get analytics and pipeline based on indicator type
-    indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
-    
-    if indicator_type == "Tuberculosis":
-        st.info("💡 TB interactive visualizer functionality is coming soon. For now, please use the Reports page for TB data analysis.")
+    # Get visualizer, analytics, and pipeline based on health topic
+    if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_visualizer') and st.session_state.tb_visualizer is not None:
+        visualizer = st.session_state.tb_visualizer
+        analytics = st.session_state.tb_analytics
+        pipeline = st.session_state.tb_pipeline
+    elif hasattr(st.session_state, 'visualizer') and st.session_state.visualizer is not None:
+        visualizer = st.session_state.visualizer
+        analytics = st.session_state.analytics
+        pipeline = st.session_state.pipeline
+    else:
+        if health_topic == "Tuberculosis":
+            st.info("💡 TB interactive visualizer functionality is coming soon. For now, please use the Reports page for TB data analysis.")
+        else:
+            st.error(f"Visualizer system not initialized for {health_topic}. Please initialize from the sidebar.")
         return
-    
-    visualizer = st.session_state.visualizer
-    analytics = st.session_state.analytics
-    pipeline = st.session_state.pipeline
     
     if visualizer is None or analytics is None or pipeline is None:
         st.error("System not properly initialized. Please initialize from the sidebar.")
         return
     
-    st.markdown("""
-    Create customized visualizations with full control over:
-    - Country selection
-    - Indicator selection
-    - Prediction methods
-    - Chart types (Chart or Map)
-    - Year ranges
-    """)
+    # Update description based on health topic
+    if health_topic == "Tuberculosis":
+        description = """
+        Create customized TB visualizations with full control over:
+        - Country selection (47 AFRO countries)
+        - TB indicator selection (Notifications, Outcomes)
+        - Prediction methods
+        - Chart types (Chart or Map)
+        - Year ranges
+        """
+    else:
+        description = """
+        Create customized visualizations with full control over:
+        - Country selection
+        - Indicator selection
+        - Prediction methods
+        - Chart types (Chart or Map)
+        - Year ranges
+        """
+    
+    st.markdown(description)
     
     # Control Panel
     with st.expander("⚙️ Chart Controls", expanded=True):
@@ -1573,14 +2021,14 @@ def main():
         st.markdown("### WHO AFRO")
         st.markdown("**Data Hub Analytics**")
         
-        # Indicator Type Selection
-        st.markdown("### Indicator Area")
+        # Health Topic Selection
+        st.markdown("### Health Topic")
         indicator_type = st.selectbox(
-            "Select Indicator Area",
+            "Select Health Topic",
             ["Tuberculosis", "Maternal Mortality", "Child Mortality"],
             index=1,  # Default to Maternal Mortality
             key="indicator_type_select",
-            help="Choose the health indicator area to analyze"
+            help="Choose the health topic to analyze"
         )
         
         # Reinitialize if indicator type changed
@@ -1628,7 +2076,7 @@ def main():
         else:
             st.markdown('<div style="display: flex; align-items: center; color: green;"><span class="green-circle"></span><span style="margin-left: 8px;">System Ready</span></div>', unsafe_allow_html=True)
             current_indicator = st.session_state.get("indicator_type", indicator_type)
-            st.caption(f"Area: {current_indicator}")
+            st.caption(f"Health Topic: {current_indicator}")
             
             if current_indicator == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline'):
                 summary = st.session_state.tb_pipeline.get_data_summary()

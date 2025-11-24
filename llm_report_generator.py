@@ -78,9 +78,28 @@ class LLMReportGenerator:
         """Get system prompt for the LLM"""
         language_instruction = f"IMPORTANT: Generate the entire report in {language}. All text, headings, explanations, and content must be in {language}."
         
+        # Language-specific decline messages
+        decline_messages = {
+            "English": "I apologize, but I can only provide information based on content available from the World Health Organization (WHO) website at https://www.who.int/. For information outside of WHO's official content, please refer to the WHO website directly or consult other authorized sources.",
+            "French": "Je m'excuse, mais je ne peux fournir des informations que sur la base du contenu disponible sur le site Web de l'Organisation mondiale de la Santé (OMS) à https://www.who.int/. Pour des informations en dehors du contenu officiel de l'OMS, veuillez consulter directement le site Web de l'OMS ou d'autres sources autorisées.",
+            "Portuguese": "Peço desculpas, mas só posso fornecer informações com base no conteúdo disponível no site da Organização Mundial da Saúde (OMS) em https://www.who.int/. Para informações fora do conteúdo oficial da OMS, consulte diretamente o site da OMS ou outras fontes autorizadas.",
+            "Spanish": "Me disculpo, pero solo puedo proporcionar información basada en el contenido disponible del sitio web de la Organización Mundial de la Salud (OMS) en https://www.who.int/. Para información fuera del contenido oficial de la OMS, consulte directamente el sitio web de la OMS u otras fuentes autorizadas."
+        }
+        
+        decline_message = decline_messages.get(language, decline_messages["English"])
+        
         return f"""You are an expert health data analyst specializing in health analytics (maternal mortality, child mortality, and tuberculosis) for the WHO African Region (AFRO).
 
 {language_instruction} 
+
+CRITICAL CONTENT RESTRICTION:
+- You MUST ONLY use information, data, and content that is available from the World Health Organization (WHO) official website: https://www.who.int/
+- You MUST ONLY reference WHO publications, reports, guidelines, and official data
+- If asked about topics, data, or information NOT available on https://www.who.int/, you MUST politely decline using this message:
+  "{decline_message}"
+- Do NOT use information from other sources, even if you believe it to be accurate
+- Do NOT make up or infer information not explicitly available from WHO sources
+- When referencing WHO content, you may mention it comes from WHO's official website
 
 Your role is to analyze health data and generate comprehensive, insightful reports that:
 - Present key findings clearly and concisely with detailed interpretation
@@ -95,16 +114,21 @@ Your role is to analyze health data and generate comprehensive, insightful repor
 - Interpret statistical trends and explain their implications
 - Compare values against benchmarks and targets
 - Explain the significance of changes over time
+- Reference WHO sources when appropriate (e.g., "According to WHO data..." or "Based on WHO reports...")
 
 Focus on:
 - Maternal Mortality Ratio (MMR) trends and projections with interpretation
 - Under-five mortality rates with detailed analysis
 - Neonatal and infant mortality patterns
+- Tuberculosis notifications and treatment outcomes (for TB reports)
 - Progress toward SDG 2030 targets with clear assessment
 - Regional comparisons and country-specific insights
 - Statistical summaries that explain what the data means
 
-IMPORTANT: Always provide interpretation alongside statistics. Don't just list numbers - explain what they mean, why they matter, and what implications they have."""
+IMPORTANT: 
+- Always provide interpretation alongside statistics. Don't just list numbers - explain what they mean, why they matter, and what implications they have.
+- Only use WHO-approved information and data from https://www.who.int/
+- Politely decline requests for information not available on WHO's website"""
     
     def _build_prompt(
         self,
@@ -117,6 +141,16 @@ IMPORTANT: Always provide interpretation alongside statistics. Don't just list n
         """Build the user prompt with statistics"""
         
         prompt_parts = []
+        
+        # Content restriction notice
+        prompt_parts.append("=" * 80)
+        prompt_parts.append("CRITICAL: CONTENT RESTRICTION")
+        prompt_parts.append("=" * 80)
+        prompt_parts.append("You MUST ONLY use information from the World Health Organization (WHO) official website: https://www.who.int/")
+        prompt_parts.append("If the user requests information NOT available on WHO's website, politely decline.")
+        prompt_parts.append("Do NOT use information from other sources.")
+        prompt_parts.append("=" * 80)
+        prompt_parts.append("")
         
         # Language instruction
         prompt_parts.append(f"LANGUAGE REQUIREMENT: Generate the entire report in {language}. All content must be in {language}.")
@@ -132,7 +166,9 @@ IMPORTANT: Always provide interpretation alongside statistics. Don't just list n
             prompt_parts.append(f"\n## Custom Requirements:")
             prompt_parts.append(f"The user has specified the following requirements for this report:")
             prompt_parts.append(f"{custom_requirements}")
-            prompt_parts.append(f"\nPlease ensure the report addresses these specific requirements while maintaining comprehensive analysis.")
+            prompt_parts.append(f"\nIMPORTANT: Only address these requirements if they can be answered using WHO content from https://www.who.int/")
+            prompt_parts.append(f"If any requirement asks for information NOT available on WHO's website, politely decline that specific part.")
+            prompt_parts.append(f"Please ensure the report addresses these specific requirements while maintaining comprehensive analysis using ONLY WHO sources.")
         
         prompt_parts.append("\n## Key Statistics and Data:\n")
         prompt_parts.append("IMPORTANT: For each statistic provided below, provide interpretation explaining:")
@@ -232,11 +268,15 @@ IMPORTANT: Always provide interpretation alongside statistics. Don't just list n
         prompt_parts.append("4. Trends and Patterns Analysis - Explain what trends indicate and their significance")
         prompt_parts.append("5. SDG 2030 Progress Assessment - Detailed analysis of progress toward targets")
         prompt_parts.append("6. Recommendations (if applicable) - Actionable insights based on the data")
-        prompt_parts.append("\nCRITICAL: Do not just list statistics. For every number, provide:")
-        prompt_parts.append("- Clear interpretation of what it means")
-        prompt_parts.append("- Context (is this good/bad, improving/declining)")
-        prompt_parts.append("- Comparison to relevant benchmarks or targets")
-        prompt_parts.append("- Practical implications")
+        prompt_parts.append("\nCRITICAL REQUIREMENTS:")
+        prompt_parts.append("- Do not just list statistics. For every number, provide:")
+        prompt_parts.append("  * Clear interpretation of what it means")
+        prompt_parts.append("  * Context (is this good/bad, improving/declining)")
+        prompt_parts.append("  * Comparison to relevant benchmarks or targets")
+        prompt_parts.append("  * Practical implications")
+        prompt_parts.append("- ONLY use information from WHO's official website (https://www.who.int/)")
+        prompt_parts.append("- If any requested information is not available on WHO's website, politely decline that specific part")
+        prompt_parts.append("- When referencing WHO content, mention it comes from WHO sources")
         prompt_parts.append("\nUse markdown formatting for headings and structure.")
         
         return "\n".join(prompt_parts)
