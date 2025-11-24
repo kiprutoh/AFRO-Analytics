@@ -654,13 +654,18 @@ def render_home_page():
     
     st.markdown(features_text, unsafe_allow_html=True)
     
-    - Neonatal mortality rate
-    - Infant mortality rate
-    - Under-five mortality rate
-    - Maternal Mortality Ratio (MMR)
-    - Mortality rates by age groups
-    - Stillbirth rate
+    # Additional indicators list
+    if indicator_type != "Tuberculosis":
+        st.markdown("""
+        - Neonatal mortality rate
+        - Infant mortality rate
+        - Under-five mortality rate
+        - Maternal Mortality Ratio (MMR)
+        - Mortality rates by age groups
+        - Stillbirth rate
+        """)
     
+    st.markdown("""
     ### Getting Started
     
     1. Navigate to the **Analytics Dashboard** to explore data visualizations
@@ -671,7 +676,7 @@ def render_home_page():
 
 def render_dashboard_page():
     """Render the modern analytics dashboard"""
-    st.markdown('<h2 class="section-header">📊 Analytics Dashboard</h2>', unsafe_allow_html=True)
+    st.markdown('<h2 class="section-header">Analytics Dashboard</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
         st.warning("Please initialize the system first from the sidebar.")
@@ -683,7 +688,7 @@ def render_dashboard_page():
     # Regional Summary with Modern Cards
     st.markdown("""
     <div class="dashboard-card">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">🌍 Regional Overview</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Overview</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -731,7 +736,7 @@ def render_dashboard_page():
     # Key Indicators with Modern Layout
     st.markdown("""
     <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">📈 Key Indicators Summary</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Key Indicators Summary</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -814,7 +819,7 @@ def render_dashboard_page():
     # Projections Analysis with Modern Metrics
     st.markdown("""
     <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">🔮 2030 Projections Analysis</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">2030 Projections Analysis</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -860,7 +865,7 @@ def render_dashboard_page():
     # Country Comparison with Interactive Chart
     st.markdown("""
     <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">📊 Country Comparison</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Country Comparison</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1534,7 +1539,7 @@ def main():
     # Render header
     # Sidebar navigation
     with st.sidebar:
-        st.markdown("### 🌍 WHO AFRO")
+        st.markdown("### WHO AFRO")
         st.markdown("**Data Hub Analytics**")
         
         # Indicator Type Selection
