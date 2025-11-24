@@ -32,7 +32,8 @@ class LLMReportGenerator:
         statistics: Dict,
         report_type: str = "comprehensive",
         country: Optional[str] = None,
-        custom_requirements: Optional[str] = None
+        custom_requirements: Optional[str] = None,
+        language: str = "English"
     ) -> str:
         """
         Generate a report using LLM based on provided statistics
@@ -42,12 +43,13 @@ class LLMReportGenerator:
             report_type: Type of report (comprehensive, summary, executive)
             country: Optional country name for country-specific reports
             custom_requirements: Optional custom requirements from user
+            language: Language for the report (default: English)
         
         Returns:
             Generated report text
         """
         # Build prompt with key statistics
-        prompt = self._build_prompt(statistics, report_type, country, custom_requirements)
+        prompt = self._build_prompt(statistics, report_type, country, custom_requirements, language)
         
         try:
             response = self.client.chat.completions.create(
@@ -55,7 +57,7 @@ class LLMReportGenerator:
                 messages=[
                     {
                         "role": "system",
-                        "content": self._get_system_prompt()
+                        "content": self._get_system_prompt(language)
                     },
                     {
                         "role": "user",
@@ -72,9 +74,13 @@ class LLMReportGenerator:
         except Exception as e:
             return f"Error generating report: {str(e)}\n\nFallback Report:\n{self._generate_fallback_report(statistics, country)}"
     
-    def _get_system_prompt(self) -> str:
+    def _get_system_prompt(self, language: str = "English") -> str:
         """Get system prompt for the LLM"""
-        return """You are an expert health data analyst specializing in maternal and child mortality analytics for the WHO African Region (AFRO). 
+        language_instruction = f"IMPORTANT: Generate the entire report in {language}. All text, headings, explanations, and content must be in {language}."
+        
+        return f"""You are an expert health data analyst specializing in health analytics (maternal mortality, child mortality, and tuberculosis) for the WHO African Region (AFRO).
+
+{language_instruction} 
 
 Your role is to analyze health data and generate comprehensive, insightful reports that:
 - Present key findings clearly and concisely with detailed interpretation
@@ -105,11 +111,16 @@ IMPORTANT: Always provide interpretation alongside statistics. Don't just list n
         statistics: Dict,
         report_type: str,
         country: Optional[str],
-        custom_requirements: Optional[str] = None
+        custom_requirements: Optional[str] = None,
+        language: str = "English"
     ) -> str:
         """Build the user prompt with statistics"""
         
         prompt_parts = []
+        
+        # Language instruction
+        prompt_parts.append(f"LANGUAGE REQUIREMENT: Generate the entire report in {language}. All content must be in {language}.")
+        prompt_parts.append("")
         
         if country:
             prompt_parts.append(f"Generate a {report_type} health analytics report for {country}.")

@@ -13,13 +13,26 @@ from chatbot import MortalityChatbot
 from chart_generator import ChartGenerator
 from interactive_visualizer import InteractiveVisualizer
 from llm_report_generator import LLMReportGenerator
+from tb_data_pipeline import TBDataPipeline
+from tb_analytics import TBAnalytics
 from datetime import datetime
 import sys
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables - try multiple paths
+env_paths = [
+    os.path.join(os.path.dirname(__file__), '.env'),
+    os.path.join(os.getcwd(), '.env'),
+    '.env'
+]
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        load_dotenv(dotenv_path=env_path, override=True)
+        break
+else:
+    # Try loading from current directory without explicit path
+    load_dotenv(override=True)
 
 
 # Page configuration
@@ -323,22 +336,43 @@ if 'visualizer' not in st.session_state:
     st.session_state.visualizer = None
 
 
-def initialize_system():
-    """Initialize the data pipeline and analytics system"""
+def initialize_system(indicator_type: str = "Maternal Mortality"):
+    """Initialize the data pipeline and analytics system
+    
+    Args:
+        indicator_type: Type of indicator ("Tuberculosis", "Maternal Mortality", "Child Mortality")
+    """
     try:
-        with st.spinner("Loading data and initializing system..."):
-            pipeline = MortalityDataPipeline()
-            pipeline.load_data()
-            
-            analytics = MortalityAnalytics(pipeline)
-            visualizer = InteractiveVisualizer(analytics)
-            chatbot = MortalityChatbot(analytics, visualizer)  # Pass visualizer to chatbot
-            
-            st.session_state.pipeline = pipeline
-            st.session_state.analytics = analytics
-            st.session_state.chatbot = chatbot
-            st.session_state.visualizer = visualizer
-            st.session_state.data_loaded = True
+        with st.spinner(f"Loading {indicator_type} data and initializing system..."):
+            if indicator_type == "Tuberculosis":
+                # Initialize TB data pipeline
+                pipeline = TBDataPipeline()
+                pipeline.load_data()
+                
+                analytics = TBAnalytics(pipeline)
+                # Note: TB visualizer and chatbot would need separate implementations
+                # For now, store TB analytics
+                st.session_state.tb_pipeline = pipeline
+                st.session_state.tb_analytics = analytics
+                st.session_state.pipeline = None
+                st.session_state.analytics = None
+                st.session_state.data_loaded = True
+                st.session_state.indicator_type = "Tuberculosis"
+            else:
+                # Initialize Mortality data pipeline (for Maternal and Child Mortality)
+                pipeline = MortalityDataPipeline()
+                pipeline.load_data()
+                
+                analytics = MortalityAnalytics(pipeline)
+                visualizer = InteractiveVisualizer(analytics)
+                chatbot = MortalityChatbot(analytics, visualizer)
+                
+                st.session_state.pipeline = pipeline
+                st.session_state.analytics = analytics
+                st.session_state.chatbot = chatbot
+                st.session_state.visualizer = visualizer
+                st.session_state.data_loaded = True
+                st.session_state.indicator_type = indicator_type
             
         return True
     except Exception as e:
@@ -912,64 +946,94 @@ def render_chatbot_page():
         """)
 
 
-def _collect_statistics_for_llm(analytics: MortalityAnalytics, pipeline: MortalityDataPipeline, country: str = None) -> Dict:
-    """Collect key statistics for LLM report generation"""
-    statistics = {}
+def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indicator_type: str = "Maternal Mortality") -> Dict:
+    """Collect key statistics for LLM report generation
     
-    if country:
-        # Country-specific statistics
-        stats = analytics.get_country_statistics(country)
-        statistics["country_stats"] = stats
-        
-        # Get projections for the country
-        proj_analysis = analytics.analyze_projections(country)
-        statistics["projections"] = proj_analysis
-        
-        # Add trend analysis for key indicators
-        trend_analyses = {}
-        indicators = pipeline.get_indicators()
-        for indicator in indicators[:3]:  # Top 3 indicators
-            try:
-                trend_analysis = analytics.get_trend_analysis(country, indicator)
-                if "error" not in trend_analysis:
-                    trend_analyses[indicator] = trend_analysis
-            except:
-                pass
-        
-        if trend_analyses:
-            statistics["trend_analyses"] = trend_analyses
+    Args:
+        analytics: Analytics instance (MortalityAnalytics or TBAnalytics)
+        pipeline: Pipeline instance (MortalityDataPipeline or TBDataPipeline)
+        country: Optional country name
+        indicator_type: Type of indicator ("Tuberculosis", "Maternal Mortality", "Child Mortality")
+    """
+    statistics = {}
+    statistics["indicator_type"] = indicator_type
+    
+    if indicator_type == "Tuberculosis":
+        # TB-specific statistics collection
+        if country:
+            stats = analytics.get_country_statistics(country)
+            statistics["country_stats"] = stats
+        else:
+            regional_summary = analytics.get_regional_summary()
+            statistics["regional_summary"] = regional_summary
     else:
-        # Regional statistics
-        regional_summary = analytics.get_regional_summary()
-        statistics["regional_summary"] = regional_summary
-        
-        # Regional projections
-        proj_analysis = analytics.analyze_projections()
-        statistics["projections"] = proj_analysis
-        
-        # Get top countries for key indicators with values
-        top_countries = {}
-        indicators = pipeline.get_indicators()
-        for indicator in indicators[:5]:  # Top 5 indicators
+        # Mortality-specific statistics collection
+        if country:
+            # Country-specific statistics
+            stats = analytics.get_country_statistics(country)
+            statistics["country_stats"] = stats
+            
+            # Get projections for the country
             try:
-                top_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=False)
-                bottom_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=True)
+                proj_analysis = analytics.analyze_projections(country)
+                statistics["projections"] = proj_analysis
+            except:
+                pass
+            
+            # Add trend analysis for key indicators
+            trend_analyses = {}
+            try:
+                indicators = pipeline.get_indicators()
+                for indicator in indicators[:3]:  # Top 3 indicators
+                    try:
+                        trend_analysis = analytics.get_trend_analysis(country, indicator)
+                        if "error" not in trend_analysis:
+                            trend_analyses[indicator] = trend_analysis
+                    except:
+                        pass
                 
-                top_countries[indicator] = {
-                    "top": {
-                        "countries": top_df['country'].tolist() if len(top_df) > 0 else [],
-                        "values": top_df['value'].tolist() if len(top_df) > 0 else []
-                    },
-                    "bottom": {
-                        "countries": bottom_df['country'].tolist() if len(bottom_df) > 0 else [],
-                        "values": bottom_df['value'].tolist() if len(bottom_df) > 0 else []
-                    }
-                }
+                if trend_analyses:
+                    statistics["trend_analyses"] = trend_analyses
+            except:
+                pass
+        else:
+            # Regional statistics
+            regional_summary = analytics.get_regional_summary()
+            statistics["regional_summary"] = regional_summary
+            
+            # Regional projections
+            try:
+                proj_analysis = analytics.analyze_projections()
+                statistics["projections"] = proj_analysis
             except:
                 pass
         
-        if top_countries:
-            statistics["top_countries"] = top_countries
+            # Get top countries for key indicators with values
+            top_countries = {}
+            try:
+                indicators = pipeline.get_indicators()
+                for indicator in indicators[:5]:  # Top 5 indicators
+                    try:
+                        top_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=False)
+                        bottom_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=True)
+                        
+                        top_countries[indicator] = {
+                            "top": {
+                                "countries": top_df['country'].tolist() if len(top_df) > 0 else [],
+                                "values": top_df['value'].tolist() if len(top_df) > 0 else []
+                            },
+                            "bottom": {
+                                "countries": bottom_df['country'].tolist() if len(bottom_df) > 0 else [],
+                                "values": bottom_df['value'].tolist() if len(bottom_df) > 0 else []
+                            }
+                        }
+                    except:
+                        pass
+                
+                if top_countries:
+                    statistics["top_countries"] = top_countries
+            except:
+                pass
     
     # Add SDG targets context
     statistics["sdg_targets"] = {
@@ -995,13 +1059,57 @@ def render_reports_page():
     st.markdown("### Generate LLM-Powered Report")
     st.info("💡 Reports are generated using Gemini 2.5 Flash AI model for comprehensive analysis and insights.")
     
-    # API Key configuration (load from environment variable)
+    # API Key configuration (load from environment variable or Streamlit secrets)
     if "openrouter_api_key" not in st.session_state:
-        # Try to load from environment variable first
-        api_key = os.getenv("OPENROUTER_API_KEY")
+        api_key = None
+        
+        # Method 1: Try Streamlit secrets (for Streamlit Cloud deployment)
+        try:
+            if hasattr(st, 'secrets') and 'OPENROUTER_API_KEY' in st.secrets:
+                api_key = st.secrets['OPENROUTER_API_KEY']
+        except Exception:
+            pass
+        
+        # Method 2: Try environment variable
         if not api_key:
-            st.error("⚠️ OPENROUTER_API_KEY not found in environment variables. Please create a .env file with your API key.")
+            api_key = os.getenv("OPENROUTER_API_KEY")
+        
+        # Method 3: Try to read directly from .env file (for local development)
+        if not api_key:
+            env_paths = [
+                os.path.join(os.path.dirname(__file__), '.env'),
+                os.path.join(os.getcwd(), '.env'),
+                '.env'
+            ]
+            
+            for env_path in env_paths:
+                if os.path.exists(env_path):
+                    try:
+                        with open(env_path, 'r') as f:
+                            for line in f:
+                                line = line.strip()
+                                if line and not line.startswith('#'):
+                                    if line.startswith('OPENROUTER_API_KEY='):
+                                        api_key = line.split('=', 1)[1].strip().strip('"').strip("'")
+                                        break
+                        if api_key:
+                            break
+                    except Exception as e:
+                        continue
+        
+        if not api_key:
+            st.error("⚠️ OPENROUTER_API_KEY not found.")
+            st.info("""
+            **For Local Development:**
+            - Create a `.env` file in the project root
+            - Add: `OPENROUTER_API_KEY=your_key_here`
+            
+            **For Streamlit Cloud:**
+            - Go to Settings → Secrets
+            - Add: `OPENROUTER_API_KEY = "your_key_here"`
+            """)
             st.stop()
+        
         st.session_state.openrouter_api_key = api_key
     
     # Custom prompt input
@@ -1013,10 +1121,28 @@ def render_reports_page():
         help="Describe what specific aspects you want the report to cover. The AI will tailor the report accordingly."
     )
     
+    # Language selection
+    st.markdown("#### Report Language")
+    languages = [
+        "English", "French", "Spanish", "Portuguese", "Arabic", 
+        "Swahili", "Amharic", "Hausa", "Yoruba", "Zulu"
+    ]
+    selected_language = st.selectbox(
+        "Select Report Language",
+        languages,
+        index=0,  # Default to English
+        help="The report will be generated in the selected language"
+    )
+    
     col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
-        countries = pipeline.get_countries()
+        # Get countries based on indicator type
+        if st.session_state.get("indicator_type") == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline'):
+            countries = st.session_state.tb_pipeline.get_countries()
+        else:
+            countries = pipeline.get_countries()
+        
         selected_country = st.selectbox(
             "Select Country (optional - leave blank for regional report)",
             [None] + sorted(countries)
@@ -1038,17 +1164,27 @@ def render_reports_page():
             # Initialize LLM report generator
             llm_generator = LLMReportGenerator(st.session_state.openrouter_api_key)
             
-            # Collect statistics
+            # Collect statistics based on indicator type
             with st.spinner("Collecting statistics..."):
-                statistics = _collect_statistics_for_llm(analytics, pipeline, selected_country)
+                indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
+                
+                if indicator_type == "Tuberculosis" and hasattr(st.session_state, 'tb_analytics'):
+                    analytics = st.session_state.tb_analytics
+                    pipeline = st.session_state.tb_pipeline
+                else:
+                    analytics = st.session_state.analytics
+                    pipeline = st.session_state.pipeline
+                
+                statistics = _collect_statistics_for_llm(analytics, pipeline, selected_country, indicator_type)
             
             # Generate report using LLM
-            with st.spinner("🤖 Generating AI-powered report... This may take a moment."):
+            with st.spinner(f"🤖 Generating AI-powered report in {selected_language}... This may take a moment."):
                 report = llm_generator.generate_report(
                     statistics=statistics,
                     report_type=report_type,
                     country=selected_country,
-                    custom_requirements=custom_prompt if custom_prompt else None
+                    custom_requirements=custom_prompt if custom_prompt else None,
+                    language=selected_language
                 )
             
             st.markdown("### Generated Report")
@@ -1309,6 +1445,23 @@ def main():
         st.markdown("### 🌍 WHO AFRO")
         st.markdown("**Data Hub Analytics**")
         
+        # Indicator Type Selection
+        st.markdown("### Indicator Area")
+        indicator_type = st.selectbox(
+            "Select Indicator Area",
+            ["Tuberculosis", "Maternal Mortality", "Child Mortality"],
+            index=1,  # Default to Maternal Mortality
+            key="indicator_type_select",
+            help="Choose the health indicator area to analyze"
+        )
+        
+        # Reinitialize if indicator type changed
+        if "indicator_type" not in st.session_state:
+            st.session_state.indicator_type = indicator_type
+        elif st.session_state.indicator_type != indicator_type:
+            st.session_state.data_loaded = False
+            st.session_state.indicator_type = indicator_type
+        
         st.markdown("### Navigation")
         
         if st.button("🏠 Home", use_container_width=True, key="nav_home"):
@@ -1341,15 +1494,24 @@ def main():
         st.markdown("### System Status")
         if not st.session_state.data_loaded:
             if st.button("🚀 Initialize System", use_container_width=True):
-                if initialize_system():
-                    st.success("System initialized!")
+                if initialize_system(indicator_type):
+                    st.success(f"{indicator_type} system initialized!")
                     st.rerun()
         else:
             st.markdown('<div style="display: flex; align-items: center; color: green;"><span class="green-circle"></span><span style="margin-left: 8px;">System Ready</span></div>', unsafe_allow_html=True)
-            summary = st.session_state.pipeline.get_data_summary()
-            st.caption(f"Countries: {summary['countries']}")
-            st.caption(f"Indicators: {summary['indicators']}")
-            st.caption(f"Records: {summary['mortality_records']:,}")
+            current_indicator = st.session_state.get("indicator_type", indicator_type)
+            st.caption(f"Area: {current_indicator}")
+            
+            if current_indicator == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline'):
+                summary = st.session_state.tb_pipeline.get_data_summary()
+                st.caption(f"Countries: {summary['countries']}")
+                st.caption(f"Indicators: {summary['indicators']}")
+                st.caption(f"Records: {summary['tb_burden_records']:,}")
+            elif hasattr(st.session_state, 'pipeline') and st.session_state.pipeline:
+                summary = st.session_state.pipeline.get_data_summary()
+                st.caption(f"Countries: {summary['countries']}")
+                st.caption(f"Indicators: {summary['indicators']}")
+                st.caption(f"Records: {summary['mortality_records']:,}")
         
         st.markdown("---")
         st.markdown("### Quick Links")

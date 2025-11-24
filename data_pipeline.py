@@ -236,3 +236,4 @@ class MortalityDataPipeline:
         
         return df[(df['year'] >= start_year) & (df['year'] <= end_year)]
 
+
