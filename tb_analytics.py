@@ -218,15 +218,12 @@ class TBAnalytics:
                         "countries_with_data": int(values.count())
                     }
         
-        # Treatment outcomes indicators
+        # Treatment outcomes indicators - Show percentages only (not totals)
         if len(latest_outcomes) > 0:
+            # Direct percentage indicators (already computed)
             outcome_indicators = {
                 "Treatment Success Rate - New Cases (%)": "c_new_sp_tsr",
-                "Treatment Success Rate (%)": "c_new_tsr",
-                "Cured Rate (%)": "new_sp_cur",
-                "Treatment Completion Rate (%)": "new_sp_cmplt",
-                "Death Rate (%)": "new_sp_died",
-                "Failure Rate (%)": "new_sp_fail"
+                "Treatment Success Rate (%)": "c_new_tsr"
             }
             
             for indicator_name, col_name in outcome_indicators.items():
@@ -234,6 +231,64 @@ class TBAnalytics:
                     values = latest_outcomes[col_name].dropna()
                     if len(values) > 0:
                         summary["indicators"][indicator_name] = {
+                            "median_value": float(values.median()),
+                            "min_value": float(values.min()),
+                            "max_value": float(values.max()),
+                            "mean_value": float(values.mean()),
+                            "countries_with_data": int(values.count())
+                        }
+            
+            # Calculate percentage rates from cohort data
+            if 'new_sp_coh' in latest_outcomes.columns:
+                # Cured Rate (%)
+                if 'new_sp_cur' in latest_outcomes.columns:
+                    latest_outcomes_copy = latest_outcomes.copy()
+                    latest_outcomes_copy['cured_rate'] = (latest_outcomes_copy['new_sp_cur'] / latest_outcomes_copy['new_sp_coh']) * 100
+                    values = latest_outcomes_copy['cured_rate'].dropna()
+                    if len(values) > 0:
+                        summary["indicators"]["Cured Rate (%)"] = {
+                            "median_value": float(values.median()),
+                            "min_value": float(values.min()),
+                            "max_value": float(values.max()),
+                            "mean_value": float(values.mean()),
+                            "countries_with_data": int(values.count())
+                        }
+                
+                # Treatment Completion Rate (%)
+                if 'new_sp_cmplt' in latest_outcomes.columns:
+                    latest_outcomes_copy = latest_outcomes.copy()
+                    latest_outcomes_copy['completion_rate'] = (latest_outcomes_copy['new_sp_cmplt'] / latest_outcomes_copy['new_sp_coh']) * 100
+                    values = latest_outcomes_copy['completion_rate'].dropna()
+                    if len(values) > 0:
+                        summary["indicators"]["Treatment Completion Rate (%)"] = {
+                            "median_value": float(values.median()),
+                            "min_value": float(values.min()),
+                            "max_value": float(values.max()),
+                            "mean_value": float(values.mean()),
+                            "countries_with_data": int(values.count())
+                        }
+                
+                # Death Rate (%)
+                if 'new_sp_died' in latest_outcomes.columns:
+                    latest_outcomes_copy = latest_outcomes.copy()
+                    latest_outcomes_copy['death_rate'] = (latest_outcomes_copy['new_sp_died'] / latest_outcomes_copy['new_sp_coh']) * 100
+                    values = latest_outcomes_copy['death_rate'].dropna()
+                    if len(values) > 0:
+                        summary["indicators"]["Death Rate (%)"] = {
+                            "median_value": float(values.median()),
+                            "min_value": float(values.min()),
+                            "max_value": float(values.max()),
+                            "mean_value": float(values.mean()),
+                            "countries_with_data": int(values.count())
+                        }
+                
+                # Failure Rate (%)
+                if 'new_sp_fail' in latest_outcomes.columns:
+                    latest_outcomes_copy = latest_outcomes.copy()
+                    latest_outcomes_copy['failure_rate'] = (latest_outcomes_copy['new_sp_fail'] / latest_outcomes_copy['new_sp_coh']) * 100
+                    values = latest_outcomes_copy['failure_rate'].dropna()
+                    if len(values) > 0:
+                        summary["indicators"]["Failure Rate (%)"] = {
                             "median_value": float(values.median()),
                             "min_value": float(values.min()),
                             "max_value": float(values.max()),

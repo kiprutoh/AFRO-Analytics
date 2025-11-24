@@ -219,6 +219,10 @@ class TBDataPipeline:
             "Failure Rate (%)"
         ]
     
+    def get_indicators(self) -> List[str]:
+        """Get list of indicators (alias for get_tb_indicators for compatibility)"""
+        return self.get_tb_indicators()
+    
     def get_countries(self) -> List[str]:
         """Get list of all AFRO countries in TB dataset"""
         if self.tb_notifications is None:
