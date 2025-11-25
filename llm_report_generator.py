@@ -69,10 +69,16 @@ class LLMReportGenerator:
             )
             
             report = response.choices[0].message.content.strip()
+            
+            # Add AI-generated content disclaimer
+            disclaimer = self._get_ai_disclaimer(language)
+            report = f"{report}\n\n---\n\n{disclaimer}"
+            
             return report
             
         except Exception as e:
-            return f"Error generating report: {str(e)}\n\nFallback Report:\n{self._generate_fallback_report(statistics, country)}"
+            fallback = self._generate_fallback_report(statistics, country, language)
+            return f"Error generating report: {str(e)}\n\nFallback Report:\n{fallback}"
     
     def _get_system_prompt(self, language: str = "English") -> str:
         """Get system prompt for the LLM"""
@@ -281,10 +287,38 @@ IMPORTANT:
         
         return "\n".join(prompt_parts)
     
+    def _get_ai_disclaimer(self, language: str = "English") -> str:
+        """
+        Get AI-generated content disclaimer in the specified language
+        
+        Args:
+            language: Language code
+        
+        Returns:
+            Disclaimer text
+        """
+        disclaimers = {
+            "English": """**AI-Generated Content**
+
+This report was generated using artificial intelligence. Please review all content for accuracy and verify any critical information.""",
+            "French": """**Contenu Généré par IA**
+
+Ce rapport a été généré à l'aide de l'intelligence artificielle. Veuillez examiner tout le contenu pour vérifier son exactitude et vérifier toute information critique.""",
+            "Portuguese": """**Conteúdo Gerado por IA**
+
+Este relatório foi gerado usando inteligência artificial. Por favor, revise todo o conteúdo para verificar a precisão e verifique quaisquer informações críticas.""",
+            "Spanish": """**Contenido Generado por IA**
+
+Este informe fue generado usando inteligencia artificial. Por favor, revise todo el contenido para verificar la precisión y verifique cualquier información crítica."""
+        }
+        
+        return disclaimers.get(language, disclaimers["English"])
+    
     def _generate_fallback_report(
         self,
         statistics: Dict,
-        country: Optional[str]
+        country: Optional[str],
+        language: str = "English"
     ) -> str:
         """Generate a basic fallback report if LLM fails"""
         report_lines = []
@@ -298,6 +332,10 @@ IMPORTANT:
             report_lines.append("## Regional Report: WHO African Region")
         
         report_lines.append("\nNote: LLM report generation unavailable. Please check API configuration.")
+        
+        # Add AI disclaimer
+        disclaimer = self._get_ai_disclaimer(language)
+        report_lines.append(f"\n\n---\n\n{disclaimer}")
         
         return "\n".join(report_lines)
 

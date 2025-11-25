@@ -18,6 +18,7 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 from tb_interactive_visualizer import TBInteractiveVisualizer
+from translations import get_translation, TRANSLATIONS
 from datetime import datetime
 import sys
 import os
@@ -561,11 +562,14 @@ def render_home_page():
             """, unsafe_allow_html=True)
     else:
         # Fallback to original header if video not found
-        st.markdown("""
+        # Get current language for translations
+        current_lang = st.session_state.get("selected_language", "English")
+        
+        st.markdown(f"""
         <div class="main-header">
             <div class="who-logo">🌍</div>
-            <h1>Regional Health Data Hub</h1>
-            <p style="font-size: 1.1rem; opacity: 0.95; font-weight: 600;">Analytics Section</p>
+            <h1>{get_translation("home_title", current_lang)}</h1>
+            <p style="font-size: 1.1rem; opacity: 0.95; font-weight: 600;">{get_translation("home_subtitle", current_lang)}</p>
             <p style="font-size: 0.95rem; opacity: 0.9; margin: 1rem 0; line-height: 1.6;">
                 TRANSFORMING Health Data into Actionable Insights<br>
                 <strong>for AFRICA'S FUTURE</strong><br>
@@ -833,14 +837,17 @@ def render_tb_dashboard(analytics, pipeline):
                 </div>
                 """, unsafe_allow_html=True)
     
+    # Get current language for translations
+    current_lang = st.session_state.get("selected_language", "English")
+    
     # Interactive Trend Analysis
-    st.markdown("""
+    st.markdown(f"""
     <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Trend Analysis</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("trend_analysis", current_lang)}</h3>
     </div>
     """, unsafe_allow_html=True)
     
-    col1, col2 = st.columns([2, 1])
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
         available_indicators = [
@@ -852,14 +859,21 @@ def render_tb_dashboard(analytics, pipeline):
             "Treatment Success Rate (%)"
         ]
         selected_indicator = st.selectbox(
-            "Select Indicator for Trend Analysis",
+            get_translation("select_indicator", current_lang),
             available_indicators,
             index=0
         )
     
     with col2:
+        chart_type = st.selectbox(
+            get_translation("chart_type", current_lang),
+            ["Line Chart", "Bar Chart"],
+            index=0
+        )
+    
+    with col3:
         year_range = st.slider(
-            "Year Range",
+            get_translation("year_range", current_lang),
             min_value=2000,
             max_value=2023,
             value=(2015, 2023)
@@ -994,7 +1008,63 @@ def render_tb_dashboard(analytics, pipeline):
                 with col4:
                     st.metric("High", dist['high'])
     except Exception as e:
-        st.warning(f"Could not generate regional outlook: {str(e)}")
+            st.warning(f"Could not generate regional outlook: {str(e)}")
+    
+    # Age Group Analysis (Post-2011)
+    st.markdown(f"""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("age_groups", current_lang)} - TB Cases by Age Group (Post-2011)</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Country selection for age group chart
+    countries = pipeline.get_countries()
+    selected_country_age = st.selectbox(
+        f"{get_translation('select_country', current_lang)} for Age Group Analysis",
+        countries,
+        index=0 if countries else None,
+        key="age_group_country"
+    )
+    
+    if selected_country_age:
+        try:
+            from tb_chart_generator import TBChartGenerator
+            chart_gen = TBChartGenerator(analytics)
+            age_chart = chart_gen.create_age_group_chart(selected_country_age)
+            if age_chart:
+                st.plotly_chart(age_chart, use_container_width=True)
+            else:
+                st.info(f"No age group data available for {selected_country_age} (data available post-2011)")
+        except Exception as e:
+            st.warning(f"Could not generate age group chart: {str(e)}")
+    
+    # Notification Types Breakdown
+    st.markdown(f"""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("notification_types", current_lang)} - Breakdown</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Country selection for notification types
+    selected_country_notif = st.selectbox(
+        f"{get_translation('select_country', current_lang)} for Notification Types",
+        countries,
+        index=0 if countries else None,
+        key="notif_types_country"
+    )
+    
+    if selected_country_notif:
+        try:
+            from tb_chart_generator import TBChartGenerator
+            chart_gen = TBChartGenerator(analytics)
+            notif_chart = chart_gen.create_notification_types_chart(selected_country_notif)
+            if notif_chart:
+                st.plotly_chart(notif_chart, use_container_width=True)
+                st.info("Note: Notification types should sum to c_newinc (Total New Cases)")
+            else:
+                st.info(f"No notification type data available for {selected_country_notif}")
+        except Exception as e:
+            st.warning(f"Could not generate notification types chart: {str(e)}")
     
     # Top Countries Analysis
     st.markdown("""
@@ -1787,6 +1857,16 @@ def render_reports_page():
             st.markdown("### Generated Report")
             st.markdown("---")
             
+            # Display AI disclaimer notice before report
+            current_lang = st.session_state.get("selected_language", "English")
+            disclaimer_texts = {
+                "English": "**AI-Generated Content**: This report was generated using artificial intelligence. Please review all content for accuracy and verify any critical information.",
+                "French": "**Contenu Généré par IA** : Ce rapport a été généré à l'aide de l'intelligence artificielle. Veuillez examiner tout le contenu pour vérifier son exactitude.",
+                "Portuguese": "**Conteúdo Gerado por IA**: Este relatório foi gerado usando inteligência artificial. Por favor, revise todo o conteúdo para verificar a precisão.",
+                "Spanish": "**Contenido Generado por IA**: Este informe fue generado usando inteligencia artificial. Por favor, revise todo el contenido para verificar la precisión."
+            }
+            st.info(disclaimer_texts.get(current_lang, disclaimer_texts["English"]))
+            
             # Generate and display charts/maps for the report
             if health_topic == "Tuberculosis":
                 # TB-specific charts
@@ -2204,36 +2284,43 @@ def main():
         - [SDG Targets](https://www.who.int/sdg/targets/en/)
         """)
     
-    # Language Selector - Top Right Corner (very small icon, appears on all pages)
+    # Language Selector - Top Right Corner (small with caption)
     # Initialize language in session state if not exists
     if "selected_language" not in st.session_state:
         st.session_state.selected_language = "English"
     
+    current_lang = st.session_state.selected_language
     languages = {
-        "English": "🇬🇧",
-        "French": "🇫🇷",
-        "Portuguese": "🇵🇹",
-        "Spanish": "🇪🇸"
+        "English": ("🇬🇧", "English"),
+        "French": ("🇫🇷", "Français"),
+        "Portuguese": ("🇵🇹", "Português"),
+        "Spanish": ("🇪🇸", "Español")
     }
     
-    # Create very small language selector in top right corner using empty columns
+    # Create language selector in top right corner with caption
+    st.markdown("""
+    <div style="position: fixed; top: 5px; right: 10px; z-index: 9999; background: white; padding: 3px 8px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid rgba(0,102,204,0.2);">
+        <div style="font-size: 0.6rem; color: #666; margin-bottom: 2px; text-align: center;">Change Language here</div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Use columns to position dropdown
     col1, col2, col3 = st.columns([1, 1, 1])
     with col3:
-        # Get current index
         lang_options = list(languages.keys())
-        current_index = lang_options.index(st.session_state.selected_language) if st.session_state.selected_language in lang_options else 0
+        current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
         
         selected_lang = st.selectbox(
             "",
             options=lang_options,
             index=current_index,
-            format_func=lambda x: languages[x],
+            format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
             key="language_selector_dropdown",
             label_visibility="collapsed"
         )
         
         # Update session state if language changed
-        if selected_lang != st.session_state.selected_language:
+        if selected_lang != current_lang:
             st.session_state.selected_language = selected_lang
             st.rerun()
     
@@ -2242,26 +2329,16 @@ def main():
     <style>
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) {
         position: fixed !important;
-        top: 5px !important;
+        top: 20px !important;
         right: 10px !important;
         z-index: 9999 !important;
-        width: 35px !important;
-        font-size: 0.5rem !important;
-        line-height: 0.5 !important;
-        height: 0.5rem !important;
+        width: 140px !important;
+        font-size: 0.7rem !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div > div {
-        font-size: 0.5rem !important;
-        padding: 0px 2px !important;
-        line-height: 0.5 !important;
-        min-height: 0.5rem !important;
-        height: 0.5rem !important;
-    }
-    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) select {
-        font-size: 0.5rem !important;
-        padding: 0px !important;
-        height: 0.5rem !important;
-        line-height: 0.5 !important;
+        font-size: 0.7rem !important;
+        padding: 2px 5px !important;
+        min-height: 1.2rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
