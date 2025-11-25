@@ -272,7 +272,7 @@ IMPORTANT:
         prompt_parts.append("   - Compare against targets or benchmarks")
         prompt_parts.append("   - Discuss implications")
         prompt_parts.append("4. Trends and Patterns Analysis - Explain what trends indicate and their significance")
-        prompt_parts.append("5. SDG 2030 Progress Assessment - Detailed analysis of progress toward targets")
+        prompt_parts.append("5. SDG 2030 Progress Assessment - Detailed analysis of progress toward targets (do NOT repeat 'Gap to target' information)")
         prompt_parts.append("6. Recommendations (if applicable) - Actionable insights based on the data")
         prompt_parts.append("\nCRITICAL REQUIREMENTS:")
         prompt_parts.append("- Do not just list statistics. For every number, provide:")

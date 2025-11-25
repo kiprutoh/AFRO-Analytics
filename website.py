@@ -742,7 +742,10 @@ def render_tb_dashboard(analytics, pipeline):
         st.error("Plotly is required for TB dashboard. Please install: pip install plotly")
         return
     
-    st.markdown('<h2 class="section-header">TB Notifications Analytics Dashboard</h2>', unsafe_allow_html=True)
+    # Get current language for translations
+    current_lang = st.session_state.get("selected_language", "English")
+    
+    st.markdown(f'<h2 class="section-header">{get_translation("tb_notifications", current_lang)} Analytics Dashboard</h2>', unsafe_allow_html=True)
     st.markdown("""
     <div class="info-box" style="margin-bottom: 2rem;">
         <p style="margin: 0; font-size: 0.95rem;">
@@ -754,10 +757,13 @@ def render_tb_dashboard(analytics, pipeline):
     
     summary = analytics.get_regional_summary()
     
+    # Get current language for translations
+    current_lang = st.session_state.get("selected_language", "English")
+    
     # Regional Overview Cards
-    st.markdown("""
+    st.markdown(f"""
     <div class="dashboard-card">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Overview - WHO AFRO</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("regional_overview", current_lang)} - WHO AFRO</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -767,7 +773,7 @@ def render_tb_dashboard(analytics, pipeline):
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{summary['total_countries']}</div>
-            <div class="stat-label">AFRO Countries</div>
+            <div class="stat-label">{get_translation("countries", current_lang)}</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -776,7 +782,7 @@ def render_tb_dashboard(analytics, pipeline):
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{latest_year}</div>
-            <div class="stat-label">Latest Year</div>
+            <div class="stat-label">{get_translation("latest_year", current_lang)}</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -786,7 +792,7 @@ def render_tb_dashboard(analytics, pipeline):
             st.markdown(f"""
             <div class="stat-card">
                 <div class="stat-value">{total_notif:,.0f}</div>
-                <div class="stat-label">Total Notifications</div>
+                <div class="stat-label">{get_translation("total_notifications", current_lang)}</div>
             </div>
             """, unsafe_allow_html=True)
     
@@ -796,14 +802,18 @@ def render_tb_dashboard(analytics, pipeline):
             st.markdown(f"""
             <div class="stat-card">
                 <div class="stat-value">{total_sp:,.0f}</div>
-                <div class="stat-label">Smear-Positive Cases</div>
+                <div class="stat-label">{get_translation("smear_positive", current_lang)}</div>
             </div>
             """, unsafe_allow_html=True)
     
     # Key TB Indicators from Report 2024
-    st.markdown("""
+    # Get current language and health topic
+    current_lang = st.session_state.get("selected_language", "English")
+    health_topic = st.session_state.get("indicator_type", "Tuberculosis")
+    
+    st.markdown(f"""
     <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Key TB Indicators (Latest Year)</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("key_indicators", current_lang)} ({get_translation("latest_year", current_lang)})</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -818,19 +828,18 @@ def render_tb_dashboard(analytics, pipeline):
                 median_val = data.get('median_value', 0)
                 total_regional = data.get('total_regional', 0)
                 
-                # For treatment outcomes (%), show percentages; for notifications, show totals
+                # For TB notifications: Show only total cases (no mean/median)
+                # For TB treatment outcomes: Show percentages (median)
+                # For Mortality: Show only median (not mean)
                 is_percentage = '%' in indicator_name or 'Rate' in indicator_name
+                is_tb_notification = health_topic == "Tuberculosis" and not is_percentage
                 
                 st.markdown(f"""
                 <div class="info-box hover-lift">
                     <h4 style="color: #0066CC; margin-bottom: 0.5rem; font-size: 1.1rem;">{indicator_name}</h4>
-                    <p style="margin: 0.25rem 0; font-size: 0.95rem;">
-                        <strong>Mean:</strong> <span style="color: #0066CC; font-weight: 600;">{mean_val:.2f}{'%' if is_percentage else ''}</span>
-                    </p>
-                    <p style="margin: 0.25rem 0; font-size: 0.95rem;">
-                        <strong>Median:</strong> {median_val:.2f}{'%' if is_percentage else ''}
-                    </p>
-                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Regional Total:</strong> {total_regional:,.0f}</p>' if total_regional > 0 and not is_percentage else ''}
+                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>{get_translation("total_new_cases", current_lang)}:</strong> <span style="color: #0066CC; font-weight: 600;">{total_regional:,.0f}</span></p>' if total_regional > 0 and is_tb_notification else ''}
+                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Median:</strong> <span style="color: #0066CC; font-weight: 600;">{median_val:.2f}%</span></p>' if is_percentage and health_topic == "Tuberculosis" else ''}
+                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Median:</strong> <span style="color: #0066CC; font-weight: 600;">{median_val:.2f}</span></p>' if not is_tb_notification and health_topic != "Tuberculosis" else ''}
                     <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #666;">
                         Range: {data.get('min_value', 0):.2f}{'%' if is_percentage else ''} - {data.get('max_value', 0):.2f}{'%' if is_percentage else ''}
                     </p>
@@ -1203,8 +1212,8 @@ def render_dashboard_page():
             mmr = summary["mmr_summary"]
             st.markdown(f"""
             <div class="stat-card">
-                <div class="stat-value">{mmr['mean_mmr']:.0f}</div>
-                <div class="stat-label">Mean MMR</div>
+                <div class="stat-value">{mmr.get('median_mmr', mmr.get('mean_mmr', 0)):.0f}</div>
+                <div class="stat-label">Median MMR</div>
             </div>
             """, unsafe_allow_html=True)
     
@@ -1227,12 +1236,17 @@ def render_dashboard_page():
     
     col1, col2 = st.columns(2)
     
+    # Get current language for translations
+    current_lang = st.session_state.get("selected_language", "English")
+    
     with col1:
         for indicator, data in list(summary["indicators"].items())[:5]:
+            # For Mortality: Show only Median (not Mean)
+            median_val = data.get('median_value', 0)
             st.markdown(f"""
             <div class="info-box hover-lift">
                 <h4 style="color: #0066CC; margin-bottom: 0.5rem; font-size: 1.1rem;">{indicator}</h4>
-                <p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Mean:</strong> <span style="color: #0066CC; font-weight: 600;">{data['mean_value']:.2f}</span></p>
+                <p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Median:</strong> <span style="color: #0066CC; font-weight: 600;">{median_val:.2f}</span></p>
                 <p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Range:</strong> {data['min_value']:.2f} - {data['max_value']:.2f}</p>
             </div>
             """, unsafe_allow_html=True)
@@ -1403,10 +1417,13 @@ def render_chatbot_page():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<h2 class="section-header">AI Analytics Chatbot</h2>', unsafe_allow_html=True)
+    # Use translations
+    current_lang = st.session_state.get("selected_language", "English")
+    
+    st.markdown(f'<h2 class="section-header">{get_translation("chatbot", current_lang)}</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
-        st.warning("Please initialize the system first from the sidebar.")
+        st.warning(f"{get_translation('initialize_system', current_lang)}")
         return
     
     # Get chatbot based on health topic
@@ -2233,45 +2250,47 @@ def main():
             st.session_state.data_loaded = False
             st.session_state.indicator_type = indicator_type
         
-        st.markdown("### Navigation")
+        current_lang = st.session_state.get("selected_language", "English")
+        st.markdown(f"### {get_translation('navigation', current_lang)}")
         
-        if st.button("🏠 Home", use_container_width=True, key="nav_home"):
+        if st.button(f"🏠 {get_translation('home_title', current_lang).split()[0]}", use_container_width=True, key="nav_home"):
             st.session_state.current_page = 'Home'
             st.rerun()
         
-        if st.button("📊 Dashboard", use_container_width=True, key="nav_dashboard"):
+        if st.button(f"📊 {get_translation('dashboard', current_lang)}", use_container_width=True, key="nav_dashboard"):
             st.session_state.current_page = 'Dashboard'
             st.rerun()
         
-        if st.button("🤖 AI Chatbot", use_container_width=True, key="nav_chatbot"):
+        if st.button(f"🤖 {get_translation('chatbot', current_lang)}", use_container_width=True, key="nav_chatbot"):
             st.session_state.current_page = 'Chatbot'
             st.rerun()
         
-        if st.button("📋 Reports", use_container_width=True, key="nav_reports"):
+        if st.button(f"📋 {get_translation('reports', current_lang)}", use_container_width=True, key="nav_reports"):
             st.session_state.current_page = 'Reports'
             st.rerun()
         
-        if st.button("📈 Interactive Charts", use_container_width=True, key="nav_visualizer"):
+        if st.button(f"📈 {get_translation('visualizer', current_lang)}", use_container_width=True, key="nav_visualizer"):
             st.session_state.current_page = 'Visualizer'
             st.rerun()
         
-        if st.button("ℹ️ About", use_container_width=True, key="nav_about"):
+        if st.button(f"ℹ️ {get_translation('about', current_lang)}", use_container_width=True, key="nav_about"):
             st.session_state.current_page = 'About'
             st.rerun()
         
         st.markdown("---")
         
         # System status
-        st.markdown("### System Status")
+        current_lang = st.session_state.get("selected_language", "English")
+        st.markdown(f"### {get_translation('system_status', current_lang)}")
         if not st.session_state.data_loaded:
-            if st.button("🚀 Initialize System", use_container_width=True):
+            if st.button(f"🚀 {get_translation('initialize_system', current_lang)}", use_container_width=True):
                 if initialize_system(indicator_type):
-                    st.success(f"{indicator_type} system initialized!")
+                    st.success(f"{indicator_type} {get_translation('system_ready', current_lang).lower()}!")
                     st.rerun()
         else:
-            st.markdown('<div style="display: flex; align-items: center; color: green;"><span class="green-circle"></span><span style="margin-left: 8px;">System Ready</span></div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="display: flex; align-items: center; color: green;"><span class="green-circle"></span><span style="margin-left: 8px;">{get_translation("system_ready", current_lang)}</span></div>', unsafe_allow_html=True)
             current_indicator = st.session_state.get("indicator_type", indicator_type)
-            st.caption(f"Health Topic: {current_indicator}")
+            st.caption(f"{get_translation('health_topic', current_lang)}: {current_indicator}")
             
             if current_indicator == "Tuberculosis" and hasattr(st.session_state, 'tb_pipeline'):
                 summary = st.session_state.tb_pipeline.get_data_summary()
@@ -2287,7 +2306,8 @@ def main():
                 st.caption(f"Records: {summary['mortality_records']:,}")
         
         st.markdown("---")
-        st.markdown("### Quick Links")
+        current_lang = st.session_state.get("selected_language", "English")
+        st.markdown(f"### {get_translation('quick_links', current_lang)}")
         st.markdown("""
         - [WHO AFRO Website](https://www.afro.who.int/)
         - [Global Health Observatory](https://www.who.int/data/gho)
@@ -2307,10 +2327,10 @@ def main():
         "Spanish": ("🇪🇸", "Español")
     }
     
-    # Create language selector in top right corner with caption
-    st.markdown("""
-    <div style="position: fixed; top: 5px; right: 10px; z-index: 9999; background: white; padding: 3px 8px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid rgba(0,102,204,0.2);">
-        <div style="font-size: 0.6rem; color: #666; margin-bottom: 2px; text-align: center;">Change Language here</div>
+    # Create language selector in top right corner with caption - very small
+    st.markdown(f"""
+    <div style="position: fixed; top: 5px; right: 10px; z-index: 9999; background: white; padding: 2px 5px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(0,102,204,0.2);">
+        <div style="font-size: 0.45rem; color: #666; margin-bottom: 1px; text-align: center; line-height: 0.5;">{get_translation("select_language", current_lang)}</div>
     </div>
     """, unsafe_allow_html=True)
     
@@ -2334,7 +2354,7 @@ def main():
             st.session_state.selected_language = selected_lang
             st.rerun()
     
-    # Add CSS to position selectbox absolutely at top right - autofit size
+    # Add CSS to position selectbox absolutely at top right - very small, autofit size
     st.markdown("""
     <style>
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) {
@@ -2342,26 +2362,27 @@ def main():
         top: 20px !important;
         right: 10px !important;
         z-index: 9999 !important;
-        width: fit-content !important;
-        min-width: 100px !important;
-        max-width: 160px !important;
-        font-size: 0.65rem !important;
+        width: auto !important;
+        min-width: 80px !important;
+        max-width: 120px !important;
+        font-size: 0.5rem !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div {
-        width: fit-content !important;
+        width: auto !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div > div {
-        font-size: 0.65rem !important;
-        padding: 2px 4px !important;
-        min-height: 1.1rem !important;
+        font-size: 0.5rem !important;
+        padding: 1px 3px !important;
+        min-height: 0.9rem !important;
         white-space: nowrap !important;
-        width: fit-content !important;
+        width: auto !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) select {
-        font-size: 0.65rem !important;
-        padding: 2px 4px !important;
-        width: fit-content !important;
-        min-width: 100px !important;
+        font-size: 0.5rem !important;
+        padding: 1px 3px !important;
+        width: auto !important;
+        min-width: 80px !important;
+        height: 0.9rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
