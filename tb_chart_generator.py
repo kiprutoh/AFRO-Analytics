@@ -246,6 +246,7 @@ class TBChartGenerator:
     def create_age_group_chart(self, country: str, year: Optional[int] = None) -> go.Figure:
         """
         Create age group chart for TB cases (post-2011)
+        Note: Case definition for new smear-positive changed after 2012
         
         Args:
             country: Country name
@@ -263,7 +264,7 @@ class TBChartGenerator:
         if year:
             country_data = country_data[country_data['year'] == year]
         else:
-            # Use latest year after 2011
+            # Use latest year after 2011 (when age group data became available)
             country_data = country_data[country_data['year'] >= 2011]
             if len(country_data) == 0:
                 return None
@@ -274,6 +275,7 @@ class TBChartGenerator:
             return None
         
         # Age group columns (post-2011)
+        # Note: After 2012, case definition for new smear-positive changed
         age_groups = {
             "0-4": ["new_sp_m04"],
             "5-14": ["new_sp_m514"],
@@ -310,8 +312,13 @@ class TBChartGenerator:
             textposition='outside'
         ))
         
+        # Add note about case definition change after 2012
+        note_text = ""
+        if year and year > 2012:
+            note_text = "<br><sub>Note: Case definition for new smear-positive changed after 2012</sub>"
+        
         fig.update_layout(
-            title=f'TB Cases by Age Group - {country} ({year})',
+            title=f'TB Cases by Age Group - {country} ({year}){note_text}',
             xaxis_title='Age Group',
             yaxis_title='Number of Cases',
             template='plotly_white',
@@ -387,8 +394,13 @@ class TBChartGenerator:
             textposition='outside'
         ))
         
+        # Add note about case definition change after 2012
+        note_text = ""
+        if year and year > 2012:
+            note_text = "<br><sub>Note: Case definition for new smear-positive changed after 2012</sub>"
+        
         fig.update_layout(
-            title=f'TB Notification Types Breakdown - {country} ({year})',
+            title=f'TB Notification Types Breakdown - {country} ({year}){note_text}',
             xaxis_title='Notification Type',
             yaxis_title='Number of Cases',
             template='plotly_white',

@@ -1035,6 +1035,11 @@ def render_tb_dashboard(analytics, pipeline):
                 st.plotly_chart(age_chart, use_container_width=True)
             else:
                 st.info(f"No age group data available for {selected_country_age} (data available post-2011)")
+        except AttributeError as e:
+            if "'TBChartGenerator' object has no attribute" in str(e):
+                st.error(f"Chart generator method missing. Please ensure tb_chart_generator.py has the create_age_group_chart method.")
+            else:
+                st.warning(f"Could not generate age group chart: {str(e)}")
         except Exception as e:
             st.warning(f"Could not generate age group chart: {str(e)}")
     
@@ -1060,9 +1065,14 @@ def render_tb_dashboard(analytics, pipeline):
             notif_chart = chart_gen.create_notification_types_chart(selected_country_notif)
             if notif_chart:
                 st.plotly_chart(notif_chart, use_container_width=True)
-                st.info("Note: Notification types should sum to c_newinc (Total New Cases)")
+                st.info("Note: Notification types should sum to c_newinc (Total New Cases). Note: Case definition for new smear-positive changed after 2012.")
             else:
                 st.info(f"No notification type data available for {selected_country_notif}")
+        except AttributeError as e:
+            if "'TBChartGenerator' object has no attribute" in str(e):
+                st.error(f"Chart generator method missing. Please ensure tb_chart_generator.py has the create_notification_types_chart method.")
+            else:
+                st.warning(f"Could not generate notification types chart: {str(e)}")
         except Exception as e:
             st.warning(f"Could not generate notification types chart: {str(e)}")
     
@@ -2324,7 +2334,7 @@ def main():
             st.session_state.selected_language = selected_lang
             st.rerun()
     
-    # Add CSS to position selectbox absolutely at top right
+    # Add CSS to position selectbox absolutely at top right - autofit size
     st.markdown("""
     <style>
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) {
@@ -2332,13 +2342,26 @@ def main():
         top: 20px !important;
         right: 10px !important;
         z-index: 9999 !important;
-        width: 140px !important;
-        font-size: 0.7rem !important;
+        width: fit-content !important;
+        min-width: 100px !important;
+        max-width: 160px !important;
+        font-size: 0.65rem !important;
+    }
+    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div {
+        width: fit-content !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div > div {
-        font-size: 0.7rem !important;
-        padding: 2px 5px !important;
-        min-height: 1.2rem !important;
+        font-size: 0.65rem !important;
+        padding: 2px 4px !important;
+        min-height: 1.1rem !important;
+        white-space: nowrap !important;
+        width: fit-content !important;
+    }
+    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) select {
+        font-size: 0.65rem !important;
+        padding: 2px 4px !important;
+        width: fit-content !important;
+        min-width: 100px !important;
     }
     </style>
     """, unsafe_allow_html=True)
