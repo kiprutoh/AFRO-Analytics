@@ -552,12 +552,12 @@ def render_home_page():
             <div class="hero-overlay"></div>
             <div class="hero-content">
                 <div class="who-logo">🌍</div>
-                <h1 style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); margin: 0.5rem 0;">Regional Health Data Hub</h1>
-                <p style="font-size: 1.1rem; opacity: 0.95; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 0.5rem 0; font-weight: 600;">Analytics Section</p>
+                <h1 style="color: white; text-shadow: 2px 2px 4px rgba(0,0,0,0.7); margin: 0.5rem 0;">{get_translation("home_title", current_lang)}</h1>
+                <p style="font-size: 1.1rem; opacity: 0.95; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 0.5rem 0; font-weight: 600;">{get_translation("home_subtitle", current_lang)}</p>
                 <p style="font-size: 0.95rem; opacity: 0.9; color: white; text-shadow: 1px 1px 2px rgba(0,0,0,0.7); margin: 1rem 0; line-height: 1.6;">
-                    TRANSFORMING Health Data into Actionable Insights<br>
-                    <strong>for AFRICA'S FUTURE</strong><br>
-                    <span style="font-size: 0.85rem;">A regional platform for high-quality, timely, and actionable health intelligence</span>
+                    {get_translation("transforming_data", current_lang)}<br>
+                    <strong>{get_translation("for_africa", current_lang)}</strong><br>
+                    <span style="font-size: 0.85rem;">{get_translation("platform_description", current_lang)}</span>
                 </p>
             </div>
         </div>
@@ -758,22 +758,19 @@ def render_home_page():
     indicator_type = st.session_state.get("indicator_type", "Maternal Mortality")
     
     # Update About text based on health topic
+    current_lang = st.session_state.get("selected_language", "English")
     if indicator_type == "Tuberculosis":
-        about_text = """
+        about_text = f"""
         <div class="info-box">
-            <h3>About WHO AFRO</h3>
-            <p>The World Health Organization Regional Office for Africa (WHO AFRO) is committed to improving 
-            health outcomes across the African continent. This platform provides comprehensive analytics and 
-            insights into tuberculosis data for the <strong>47 AFRO member countries</strong> to support evidence-based decision making.</p>
+            <h3>{get_translation("about_who_afro", current_lang)}</h3>
+            <p>{get_translation("about_description_tb", current_lang)}</p>
         </div>
         """
     else:
-        about_text = """
+        about_text = f"""
         <div class="info-box">
-            <h3>About WHO AFRO</h3>
-            <p>The World Health Organization Regional Office for Africa (WHO AFRO) is committed to improving 
-            health outcomes across the African continent. This platform provides comprehensive analytics and 
-            insights into maternal and child mortality data for the <strong>47 AFRO member countries</strong> to support evidence-based decision making.</p>
+            <h3>{get_translation("about_who_afro", current_lang)}</h3>
+            <p>{get_translation("about_description_mortality", current_lang)}</p>
         </div>
         """
     
@@ -791,7 +788,7 @@ def render_home_page():
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{summary['countries']}</div>
-                    <div class="stat-label">AFRO Countries</div>
+                    <div class="stat-label">{get_translation("afro_countries", current_lang)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -799,7 +796,7 @@ def render_home_page():
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{summary['indicators']}</div>
-                    <div class="stat-label">TB Indicators</div>
+                    <div class="stat-label">{get_translation("tb_indicators", current_lang)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -807,7 +804,7 @@ def render_home_page():
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{summary['tb_burden_records']:,}</div>
-                    <div class="stat-label">TB Burden Records</div>
+                    <div class="stat-label">{get_translation("tb_burden_records", current_lang)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -829,7 +826,7 @@ def render_home_page():
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{summary['countries']}</div>
-                    <div class="stat-label">AFRO Countries</div>
+                    <div class="stat-label">{get_translation("afro_countries", current_lang)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -837,7 +834,7 @@ def render_home_page():
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{summary['indicators']}</div>
-                    <div class="stat-label">Indicators</div>
+                    <div class="stat-label">{get_translation("indicators", current_lang)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -847,7 +844,7 @@ def render_home_page():
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{records_value:,}</div>
-                    <div class="stat-label">Mortality Records</div>
+                    <div class="stat-label">{get_translation("mortality_records", current_lang)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             
@@ -856,35 +853,35 @@ def render_home_page():
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{mmr_records:,}</div>
-                    <div class="stat-label">MMR Records</div>
+                    <div class="stat-label">{get_translation("mmr_records", current_lang)}</div>
                 </div>
                 """, unsafe_allow_html=True)
     
     # Key Features - update based on indicator type
     if indicator_type == "Tuberculosis":
-        features_text = """
-        ### Key Features
+        features_text = f"""
+        ### {get_translation("key_features", current_lang)}
         
-        - 📊 **Comprehensive TB Analytics**: Analyze TB trends across 47 AFRO member countries
-        - 🤖 **AI-Powered Chatbot**: Ask questions about TB data in natural language
-        - 📈 **Trend Analysis**: Track TB incidence and mortality over time
-        - 📋 **Report Generation**: Generate detailed TB summary reports in multiple languages
-        - 🌍 **Multi-Country Comparison**: Compare TB performance across AFRO countries
+        - 📊 **{get_translation("comprehensive_tb_analytics", current_lang)}**: {get_translation("comprehensive_tb_analytics_desc", current_lang)}
+        - 🤖 **{get_translation("ai_powered_chatbot", current_lang)}**: {get_translation("ai_chatbot_desc", current_lang)}
+        - 📈 **{get_translation("trend_analysis_feature", current_lang)}**: {get_translation("trend_analysis_desc", current_lang)}
+        - 📋 **{get_translation("report_generation", current_lang)}**: {get_translation("report_generation_desc", current_lang)}
+        - 🌍 **{get_translation("multi_country_comparison", current_lang)}**: {get_translation("multi_country_desc", current_lang)}
         
-        ### Available TB Indicators
+        ### {get_translation("available_indicators", current_lang)}
         """
     else:
-        features_text = """
-        ### Key Features
+        features_text = f"""
+        ### {get_translation("key_features", current_lang)}
         
-        - 📊 **Comprehensive Analytics**: Analyze mortality trends across 47 AFRO member countries
-        - 🤖 **AI-Powered Chatbot**: Ask questions in natural language
-        - 📈 **Trend Analysis**: Track progress over time
-        - 🔮 **Projections**: Monitor progress towards 2030 targets
-        - 📋 **Report Generation**: Generate detailed summary reports in multiple languages
-        - 🌍 **Multi-Country Comparison**: Compare performance across AFRO countries
+        - 📊 **{get_translation("comprehensive_analytics", current_lang)}**: {get_translation("comprehensive_analytics_desc", current_lang)}
+        - 🤖 **{get_translation("ai_powered_chatbot", current_lang)}**: {get_translation("ai_chatbot_desc", current_lang)}
+        - 📈 **{get_translation("trend_analysis_feature", current_lang)}**: {get_translation("trend_analysis_desc", current_lang)}
+        - 🔮 **{get_translation("projections_feature", current_lang)}**: {get_translation("projections_desc", current_lang)}
+        - 📋 **{get_translation("report_generation", current_lang)}**: {get_translation("report_generation_desc", current_lang)}
+        - 🌍 **{get_translation("multi_country_comparison", current_lang)}**: {get_translation("multi_country_desc", current_lang)}
         
-        ### Available Indicators
+        ### {get_translation("available_indicators", current_lang)}
         """
     
     st.markdown(features_text, unsafe_allow_html=True)
@@ -900,12 +897,12 @@ def render_home_page():
         - Stillbirth rate
         """)
     
-    st.markdown("""
-    ### Getting Started
+    st.markdown(f"""
+    ### {get_translation("getting_started", current_lang)}
     
-    1. Navigate to the **Analytics Dashboard** to explore data visualizations
-    2. Use the **AI Chatbot** to ask questions about the data
-    3. Generate **Reports** for specific countries or regions
+    1. {get_translation("getting_started_1", current_lang)}
+    2. {get_translation("getting_started_2", current_lang)}
+    3. {get_translation("getting_started_3", current_lang)}
     """)
 
 
@@ -1328,10 +1325,11 @@ def render_tb_dashboard(analytics, pipeline):
 
 def render_dashboard_page():
     """Render the modern analytics dashboard"""
-    st.markdown('<h2 class="section-header">Analytics Dashboard</h2>', unsafe_allow_html=True)
+    current_lang = st.session_state.get("selected_language", "English")
+    st.markdown(f'<h2 class="section-header">{get_translation("analytics_dashboard", current_lang)}</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
-        st.warning("Please initialize the system first from the sidebar.")
+        st.warning(get_translation("please_initialize", current_lang))
         return
     
     # Get analytics and pipeline based on indicator type
@@ -1356,9 +1354,9 @@ def render_dashboard_page():
         return
     
     # Regional Summary with Modern Cards
-    st.markdown("""
+    st.markdown(f"""
     <div class="dashboard-card">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Overview</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("regional_overview", current_lang)}</h3>
     </div>
     """, unsafe_allow_html=True)
     
@@ -2304,47 +2302,47 @@ def render_visualizer_page():
 
 def render_about_page():
     """Render the about page"""
-    st.markdown('<h2 class="section-header">About WHO AFRO Data Hub</h2>', unsafe_allow_html=True)
+    current_lang = st.session_state.get("selected_language", "English")
+    st.markdown(f'<h2 class="section-header">{get_translation("about_who_afro_title", current_lang)}</h2>', unsafe_allow_html=True)
     
-    st.markdown("""
-    ### Mission
+    st.markdown(f"""
+    ### {get_translation("mission", current_lang)}
     
-    The WHO AFRO Data Hub provides comprehensive analytics and insights into health data across 
-    the African continent, with a focus on maternal and child mortality indicators.
+    {get_translation("mission_desc", current_lang)}
     
-    ### Data Sources
+    ### {get_translation("data_sources", current_lang)}
     
-    This platform analyzes data from multiple sources including:
-    - WHO Global Health Observatory
-    - UNICEF Data
-    - National Health Information Systems
-    - Demographic and Health Surveys
+    {get_translation("data_sources_desc", current_lang)}
+    - {get_translation("data_source_1", current_lang)}
+    - {get_translation("data_source_2", current_lang)}
+    - {get_translation("data_source_3", current_lang)}
+    - {get_translation("data_source_4", current_lang)}
     
-    ### Indicators Tracked
+    ### {get_translation("indicators_tracked", current_lang)}
     
-    - **Neonatal Mortality Rate**: Deaths per 1,000 live births in the first 28 days
-    - **Infant Mortality Rate**: Deaths per 1,000 live births in the first year
-    - **Under-Five Mortality Rate**: Deaths per 1,000 live births before age 5
-    - **Maternal Mortality Ratio (MMR)**: Deaths per 100,000 live births
-    - **Stillbirth Rate**: Stillbirths per 1,000 total births
+    - **{get_translation("neonatal_mortality", current_lang)}**: {get_translation("neonatal_desc", current_lang)}
+    - **{get_translation("infant_mortality", current_lang)}**: {get_translation("infant_desc", current_lang)}
+    - **{get_translation("under_five_mortality", current_lang)}**: {get_translation("under_five_desc", current_lang)}
+    - **{get_translation("maternal_mortality", current_lang)}**: {get_translation("maternal_desc", current_lang)}
+    - **{get_translation("stillbirth_rate", current_lang)}**: {get_translation("stillbirth_desc", current_lang)}
     
-    ### 2030 Targets
+    ### {get_translation("targets_2030", current_lang)}
     
-    The platform tracks progress towards Sustainable Development Goal (SDG) targets:
-    - Reduce neonatal mortality to at least 12 per 1,000 live births
-    - Reduce under-five mortality to at least 25 per 1,000 live births
-    - Reduce maternal mortality ratio to less than 70 per 100,000 live births
+    {get_translation("targets_desc", current_lang)}
+    - {get_translation("target_neonatal", current_lang)}
+    - {get_translation("target_under_five", current_lang)}
+    - {get_translation("target_maternal", current_lang)}
     
-    ### Contact
+    ### {get_translation("contact", current_lang)}
     
-    For questions or support, please contact WHO AFRO.
+    {get_translation("contact_desc", current_lang)}
     
-    ### Technical Information
+    ### {get_translation("technical_info", current_lang)}
     
-    - **Platform**: Streamlit
-    - **Data Processing**: Python, Pandas
-    - **Analytics Engine**: Custom-built mortality analytics
-    - **AI Chatbot**: Natural language processing for data queries
+    - **{get_translation("platform", current_lang)}**: Streamlit
+    - **{get_translation("data_processing", current_lang)}**: Python, Pandas
+    - **{get_translation("analytics_engine", current_lang)}**: Custom-built mortality analytics
+    - **{get_translation("ai_chatbot_tech", current_lang)}**: Natural language processing for data queries
     """)
 
 
@@ -2377,7 +2375,7 @@ def main():
         current_lang = st.session_state.get("selected_language", "English")
         st.markdown(f"### {get_translation('navigation', current_lang)}")
         
-        if st.button(f"🏠 {get_translation('home_title', current_lang).split()[0]}", use_container_width=True, key="nav_home"):
+        if st.button(f"🏠 {get_translation('home', current_lang)}", use_container_width=True, key="nav_home"):
             st.session_state.current_page = 'Home'
             st.rerun()
         
