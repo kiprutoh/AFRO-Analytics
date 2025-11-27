@@ -18,11 +18,347 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 from tb_interactive_visualizer import TBInteractiveVisualizer
+from tb_burden_analytics import TBBurdenAnalytics
+from tb_burden_chart_generator import TBBurdenChartGenerator
 from translations import get_translation, TRANSLATIONS
 from datetime import datetime
 import sys
 import os
 from dotenv import load_dotenv
+
+
+# Health Topic Content Configuration
+def get_topic_content(topic: str, content_key: str, language: str = "English") -> str:
+    """
+    Get content specific to the health topic
+    
+    Args:
+        topic: Health topic (Tuberculosis, Maternal Mortality, Child Mortality)
+        content_key: Type of content needed
+        language: Selected language
+    
+    Returns:
+        Topic-specific content string
+    """
+    
+    content_map = {
+        "Tuberculosis": {
+            "page_focus": {
+                "English": "Focus: TB Case Notifications and Treatment Outcomes for WHO AFRO Region",
+                "French": "Focus : Notifications de cas de TB et résultats du traitement pour la région AFRO de l'OMS",
+                "Portuguese": "Foco: Notificações de casos de TB e resultados do tratamento para a Região AFRO da OMS",
+                "Spanish": "Enfoque: Notificaciones de casos de TB y resultados del tratamiento para la Región AFRO de la OMS"
+            },
+            "chatbot_help": {
+                "English": "Ask questions about TB data in natural language. The chatbot can help you:\n- Get TB statistics for specific countries (with charts)\n- Compare TB indicators across countries (with charts)\n- Analyze TB trends (with charts)\n- View TB notifications and outcomes\n- Generate TB reports",
+                "French": "Posez des questions sur les données TB en langage naturel. Le chatbot peut vous aider à :\n- Obtenir des statistiques TB pour des pays spécifiques (avec graphiques)\n- Comparer les indicateurs TB entre les pays (avec graphiques)\n- Analyser les tendances TB (avec graphiques)\n- Voir les notifications et résultats TB\n- Générer des rapports TB",
+                "Portuguese": "Faça perguntas sobre dados de TB em linguagem natural. O chatbot pode ajudá-lo a:\n- Obter estatísticas de TB para países específicos (com gráficos)\n- Comparar indicadores de TB entre países (com gráficos)\n- Analisar tendências de TB (com gráficos)\n- Ver notificações e resultados de TB\n- Gerar relatórios de TB",
+                "Spanish": "Haga preguntas sobre datos de TB en lenguaje natural. El chatbot puede ayudarle a:\n- Obtener estadísticas de TB para países específicos (con gráficos)\n- Comparar indicadores de TB entre países (con gráficos)\n- Analizar tendencias de TB (con gráficos)\n- Ver notificaciones y resultados de TB\n- Generar informes de TB"
+            },
+            "example_queries": {
+                "English": """**Country Statistics (with charts):**
+- What are the TB statistics for Kenya?
+- Show me TB notification charts for Angola
+- Visualize TB treatment outcomes for Nigeria
+
+**Comparisons (with charts):**
+- Compare TB notification rates between Kenya and Uganda
+- Compare TB treatment success rates across Kenya, Uganda, and Tanzania
+
+**Trends (with charts):**
+- What is the trend for TB notifications in Angola?
+- Show TB treatment success trend chart for Kenya
+
+**Reports:**
+- Generate a TB summary report for Nigeria
+- Create a comprehensive TB analysis for the AFRO region""",
+                "French": """**Statistiques des Pays (avec graphiques) :**
+- Quelles sont les statistiques TB pour le Kenya ?
+- Montrez-moi les graphiques de notifications TB pour l'Angola
+- Visualisez les résultats du traitement TB pour le Nigeria
+
+**Comparaisons (avec graphiques) :**
+- Comparez les taux de notification TB entre le Kenya et l'Ouganda
+- Comparez les taux de réussite du traitement TB au Kenya, en Ouganda et en Tanzanie
+
+**Tendances (avec graphiques) :**
+- Quelle est la tendance des notifications TB en Angola ?
+- Montrez le graphique de tendance de réussite du traitement TB pour le Kenya
+
+**Rapports :**
+- Générez un rapport récapitulatif TB pour le Nigeria
+- Créez une analyse TB complète pour la région AFRO""",
+                "Portuguese": """**Estatísticas do País (com gráficos):**
+- Quais são as estatísticas de TB para o Quênia?
+- Mostre-me os gráficos de notificações de TB para Angola
+- Visualize os resultados do tratamento de TB para a Nigéria
+
+**Comparações (com gráficos):**
+- Compare as taxas de notificação de TB entre Quênia e Uganda
+- Compare as taxas de sucesso do tratamento de TB no Quênia, Uganda e Tanzânia
+
+**Tendências (com gráficos):**
+- Qual é a tendência das notificações de TB em Angola?
+- Mostre o gráfico de tendência de sucesso do tratamento de TB para o Quênia
+
+**Relatórios:**
+- Gere um relatório resumido de TB para a Nigéria
+- Crie uma análise abrangente de TB para a região AFRO""",
+                "Spanish": """**Estadísticas del País (con gráficos):**
+- ¿Cuáles son las estadísticas de TB para Kenia?
+- Muéstrame los gráficos de notificaciones de TB para Angola
+- Visualiza los resultados del tratamiento de TB para Nigeria
+
+**Comparaciones (con gráficos):**
+- Compara las tasas de notificación de TB entre Kenia y Uganda
+- Compara las tasas de éxito del tratamiento de TB en Kenia, Uganda y Tanzania
+
+**Tendencias (con gráficos):**
+- ¿Cuál es la tendencia de las notificaciones de TB en Angola?
+- Muestra el gráfico de tendencia de éxito del tratamiento de TB para Kenia
+
+**Informes:**
+- Genera un informe resumido de TB para Nigeria
+- Crea un análisis integral de TB para la región AFRO"""
+            },
+            "visualizer_desc": {
+                "English": "Create customized TB visualizations with full control over:\n- Country selection (47 AFRO countries)\n- TB indicator selection (Notifications, Outcomes)\n- Prediction methods\n- Chart types (Chart or Map)\n- Year ranges",
+                "French": "Créez des visualisations TB personnalisées avec un contrôle total sur :\n- Sélection de pays (47 pays AFRO)\n- Sélection d'indicateurs TB (Notifications, Résultats)\n- Méthodes de prédiction\n- Types de graphiques (Graphique ou Carte)\n- Plages d'années",
+                "Portuguese": "Crie visualizações de TB personalizadas com controle total sobre:\n- Seleção de país (47 países AFRO)\n- Seleção de indicadores de TB (Notificações, Resultados)\n- Métodos de previsão\n- Tipos de gráfico (Gráfico ou Mapa)\n- Intervalos de anos",
+                "Spanish": "Cree visualizaciones de TB personalizadas con control total sobre:\n- Selección de país (47 países AFRO)\n- Selección de indicadores de TB (Notificaciones, Resultados)\n- Métodos de predicción\n- Tipos de gráfico (Gráfico o Mapa)\n- Rangos de años"
+            }
+        },
+        "Maternal Mortality": {
+            "page_focus": {
+                "English": "Focus: Maternal and Child Mortality Data for WHO AFRO Region",
+                "French": "Focus : Données de mortalité maternelle et infantile pour la région AFRO de l'OMS",
+                "Portuguese": "Foco: Dados de mortalidade materna e infantil para a Região AFRO da OMS",
+                "Spanish": "Enfoque: Datos de mortalidad materna e infantil para la Región AFRO de la OMS"
+            },
+            "chatbot_help": {
+                "English": "Ask questions about mortality data in natural language. The chatbot can help you:\n- Get statistics for specific countries (with charts)\n- Compare countries (with charts)\n- Analyze trends (with charts)\n- View projections (with charts)\n- Generate reports",
+                "French": "Posez des questions sur les données de mortalité en langage naturel. Le chatbot peut vous aider à :\n- Obtenir des statistiques pour des pays spécifiques (avec graphiques)\n- Comparer les pays (avec graphiques)\n- Analyser les tendances (avec graphiques)\n- Voir les projections (avec graphiques)\n- Générer des rapports",
+                "Portuguese": "Faça perguntas sobre dados de mortalidade em linguagem natural. O chatbot pode ajudá-lo a:\n- Obter estatísticas para países específicos (com gráficos)\n- Comparar países (com gráficos)\n- Analisar tendências (com gráficos)\n- Ver projeções (com gráficos)\n- Gerar relatórios",
+                "Spanish": "Haga preguntas sobre datos de mortalidad en lenguaje natural. El chatbot puede ayudarle a:\n- Obtener estadísticas para países específicos (con gráficos)\n- Comparar países (con gráficos)\n- Analizar tendencias (con gráficos)\n- Ver proyecciones (con gráficos)\n- Generar informes"
+            },
+            "example_queries": {
+                "English": """**Country Statistics (with charts):**
+- What are the statistics for Kenya?
+- Show me charts for Angola
+- Visualize data for Nigeria
+
+**Comparisons (with charts):**
+- Compare Kenya and Uganda
+- Compare Kenya, Uganda, and Tanzania
+
+**Trends (with charts):**
+- What is the trend for neonatal mortality in Angola?
+- Show trend chart for Kenya
+
+**Projections (with charts):**
+- Show me projections for 2030
+- Projections for Kenya
+
+**Top Countries (with charts):**
+- Top 10 countries by under-five mortality rate
+
+**Reports:**
+- Generate a summary report for Nigeria""",
+                "French": """**Statistiques des Pays (avec graphiques) :**
+- Quelles sont les statistiques pour le Kenya ?
+- Montrez-moi les graphiques pour l'Angola
+- Visualisez les données pour le Nigeria
+
+**Comparaisons (avec graphiques) :**
+- Comparez le Kenya et l'Ouganda
+- Comparez le Kenya, l'Ouganda et la Tanzanie
+
+**Tendances (avec graphiques) :**
+- Quelle est la tendance de la mortalité néonatale en Angola ?
+- Montrez le graphique de tendance pour le Kenya
+
+**Projections (avec graphiques) :**
+- Montrez-moi les projections pour 2030
+- Projections pour le Kenya
+
+**Meilleurs Pays (avec graphiques) :**
+- Top 10 des pays par taux de mortalité des moins de cinq ans
+
+**Rapports :**
+- Générez un rapport récapitulatif pour le Nigeria""",
+                "Portuguese": """**Estatísticas do País (com gráficos):**
+- Quais são as estatísticas para o Quênia?
+- Mostre-me os gráficos para Angola
+- Visualize os dados para a Nigéria
+
+**Comparações (com gráficos):**
+- Compare Quênia e Uganda
+- Compare Quênia, Uganda e Tanzânia
+
+**Tendências (com gráficos):**
+- Qual é a tendência da mortalidade neonatal em Angola?
+- Mostre o gráfico de tendência para o Quênia
+
+**Projeções (com gráficos):**
+- Mostre-me as projeções para 2030
+- Projeções para o Quênia
+
+**Principais Países (com gráficos):**
+- Top 10 países por taxa de mortalidade de menores de cinco anos
+
+**Relatórios:**
+- Gere um relatório resumido para a Nigéria""",
+                "Spanish": """**Estadísticas del País (con gráficos):**
+- ¿Cuáles son las estadísticas para Kenia?
+- Muéstrame los gráficos para Angola
+- Visualiza los datos para Nigeria
+
+**Comparaciones (con gráficos):**
+- Compara Kenia y Uganda
+- Compara Kenia, Uganda y Tanzania
+
+**Tendencias (con gráficos):**
+- ¿Cuál es la tendencia de la mortalidad neonatal en Angola?
+- Muestra el gráfico de tendencia para Kenia
+
+**Proyecciones (con gráficos):**
+- Muéstrame las proyecciones para 2030
+- Proyecciones para Kenia
+
+**Países Principales (con gráficos):**
+- Top 10 países por tasa de mortalidad de menores de cinco años
+
+**Informes:**
+- Genera un informe resumido para Nigeria"""
+            },
+            "visualizer_desc": {
+                "English": "Create customized visualizations with full control over:\n- Country selection\n- Indicator selection\n- Prediction methods\n- Chart types (Chart or Map)\n- Year ranges",
+                "French": "Créez des visualisations personnalisées avec un contrôle total sur :\n- Sélection de pays\n- Sélection d'indicateurs\n- Méthodes de prédiction\n- Types de graphiques (Graphique ou Carte)\n- Plages d'années",
+                "Portuguese": "Crie visualizações personalizadas com controle total sobre:\n- Seleção de país\n- Seleção de indicador\n- Métodos de previsão\n- Tipos de gráfico (Gráfico ou Mapa)\n- Intervalos de anos",
+                "Spanish": "Cree visualizaciones personalizadas con control total sobre:\n- Selección de país\n- Selección de indicador\n- Métodos de predicción\n- Tipos de gráfico (Gráfico o Mapa)\n- Rangos de años"
+            }
+        },
+        "Child Mortality": {
+            "page_focus": {
+                "English": "Focus: Child Mortality Data for WHO AFRO Region",
+                "French": "Focus : Données de mortalité infantile pour la région AFRO de l'OMS",
+                "Portuguese": "Foco: Dados de mortalidade infantil para a Região AFRO da OMS",
+                "Spanish": "Enfoque: Datos de mortalidad infantil para la Región AFRO de la OMS"
+            },
+            "chatbot_help": {
+                "English": "Ask questions about child mortality data in natural language. The chatbot can help you:\n- Get statistics for specific countries (with charts)\n- Compare countries (with charts)\n- Analyze trends (with charts)\n- View projections (with charts)\n- Generate reports",
+                "French": "Posez des questions sur les données de mortalité infantile en langage naturel. Le chatbot peut vous aider à :\n- Obtenir des statistiques pour des pays spécifiques (avec graphiques)\n- Comparer les pays (avec graphiques)\n- Analyser les tendances (avec graphiques)\n- Voir les projections (avec graphiques)\n- Générer des rapports",
+                "Portuguese": "Faça perguntas sobre dados de mortalidade infantil em linguagem natural. O chatbot pode ajudá-lo a:\n- Obter estatísticas para países específicos (com gráficos)\n- Comparar países (com gráficos)\n- Analisar tendências (com gráficos)\n- Ver projeções (com gráficos)\n- Gerar relatórios",
+                "Spanish": "Haga preguntas sobre datos de mortalidad infantil en lenguaje natural. El chatbot puede ayudarle a:\n- Obtener estadísticas para países específicos (con gráficos)\n- Comparar países (con gráficos)\n- Analizar tendencias (con gráficos)\n- Ver proyecciones (con gráficos)\n- Generar informes"
+            },
+            "example_queries": {
+                "English": """**Country Statistics (with charts):**
+- What are the child mortality statistics for Kenya?
+- Show me child mortality charts for Angola
+- Visualize child mortality data for Nigeria
+
+**Comparisons (with charts):**
+- Compare child mortality between Kenya and Uganda
+- Compare under-five mortality across Kenya, Uganda, and Tanzania
+
+**Trends (with charts):**
+- What is the trend for infant mortality in Angola?
+- Show child mortality trend chart for Kenya
+
+**Projections (with charts):**
+- Show me child mortality projections for 2030
+- Under-five mortality projections for Kenya
+
+**Top Countries (with charts):**
+- Top 10 countries by infant mortality rate
+
+**Reports:**
+- Generate a child mortality summary report for Nigeria""",
+                "French": """**Statistiques des Pays (avec graphiques) :**
+- Quelles sont les statistiques de mortalité infantile pour le Kenya ?
+- Montrez-moi les graphiques de mortalité infantile pour l'Angola
+- Visualisez les données de mortalité infantile pour le Nigeria
+
+**Comparaisons (avec graphiques) :**
+- Comparez la mortalité infantile entre le Kenya et l'Ouganda
+- Comparez la mortalité des moins de cinq ans au Kenya, en Ouganda et en Tanzanie
+
+**Tendances (avec graphiques) :**
+- Quelle est la tendance de la mortalité infantile en Angola ?
+- Montrez le graphique de tendance de mortalité infantile pour le Kenya
+
+**Projections (avec graphiques) :**
+- Montrez-moi les projections de mortalité infantile pour 2030
+- Projections de mortalité des moins de cinq ans pour le Kenya
+
+**Meilleurs Pays (avec graphiques) :**
+- Top 10 des pays par taux de mortalité infantile
+
+**Rapports :**
+- Générez un rapport récapitulatif de mortalité infantile pour le Nigeria""",
+                "Portuguese": """**Estatísticas do País (com gráficos):**
+- Quais são as estatísticas de mortalidade infantil para o Quênia?
+- Mostre-me os gráficos de mortalidade infantil para Angola
+- Visualize os dados de mortalidade infantil para a Nigéria
+
+**Comparações (com gráficos):**
+- Compare a mortalidade infantil entre Quênia e Uganda
+- Compare a mortalidade de menores de cinco anos no Quênia, Uganda e Tanzânia
+
+**Tendências (com gráficos):**
+- Qual é a tendência da mortalidade infantil em Angola?
+- Mostre o gráfico de tendência de mortalidade infantil para o Quênia
+
+**Projeções (com gráficos):**
+- Mostre-me as projeções de mortalidade infantil para 2030
+- Projeções de mortalidade de menores de cinco anos para o Quênia
+
+**Principais Países (com gráficos):**
+- Top 10 países por taxa de mortalidade infantil
+
+**Relatórios:**
+- Gere um relatório resumido de mortalidade infantil para a Nigéria""",
+                "Spanish": """**Estadísticas del País (con gráficos):**
+- ¿Cuáles son las estadísticas de mortalidad infantil para Kenia?
+- Muéstrame los gráficos de mortalidad infantil para Angola
+- Visualiza los datos de mortalidad infantil para Nigeria
+
+**Comparaciones (con gráficos):**
+- Compara la mortalidad infantil entre Kenia y Uganda
+- Compara la mortalidad de menores de cinco años en Kenia, Uganda y Tanzania
+
+**Tendencias (con gráficos):**
+- ¿Cuál es la tendencia de la mortalidad infantil en Angola?
+- Muestra el gráfico de tendencia de mortalidad infantil para Kenia
+
+**Proyecciones (con gráficos):**
+- Muéstrame las proyecciones de mortalidad infantil para 2030
+- Proyecciones de mortalidad de menores de cinco años para Kenia
+
+**Países Principales (con gráficos):**
+- Top 10 países por tasa de mortalidad infantil
+
+**Informes:**
+- Genera un informe resumido de mortalidad infantil para Nigeria"""
+            },
+            "visualizer_desc": {
+                "English": "Create customized child mortality visualizations with full control over:\n- Country selection\n- Indicator selection (infant, neonatal, under-five mortality)\n- Prediction methods\n- Chart types (Chart or Map)\n- Year ranges",
+                "French": "Créez des visualisations de mortalité infantile personnalisées avec un contrôle total sur :\n- Sélection de pays\n- Sélection d'indicateurs (mortalité infantile, néonatale, des moins de cinq ans)\n- Méthodes de prédiction\n- Types de graphiques (Graphique ou Carte)\n- Plages d'années",
+                "Portuguese": "Crie visualizações de mortalidade infantil personalizadas com controle total sobre:\n- Seleção de país\n- Seleção de indicador (mortalidade infantil, neonatal, de menores de cinco anos)\n- Métodos de previsão\n- Tipos de gráfico (Gráfico ou Mapa)\n- Intervalos de anos",
+                "Spanish": "Cree visualizaciones de mortalidad infantil personalizadas con control total sobre:\n- Selección de país\n- Selección de indicador (mortalidad infantil, neonatal, de menores de cinco años)\n- Métodos de predicción\n- Tipos de gráfico (Gráfico o Mapa)\n- Rangos de años"
+            }
+        }
+    }
+    
+    # Get content for the specified topic and key
+    if topic in content_map and content_key in content_map[topic]:
+        return content_map[topic][content_key].get(language, content_map[topic][content_key]["English"])
+    
+    # Default to Maternal Mortality if topic not found
+    if content_key in content_map["Maternal Mortality"]:
+        return content_map["Maternal Mortality"][content_key].get(language, content_map["Maternal Mortality"][content_key]["English"])
+    
+    return ""
 
 # Load environment variables - try multiple paths
 env_paths = [
@@ -418,6 +754,22 @@ def initialize_system(indicator_type: str = "Maternal Mortality"):
                     - Verify file permissions
                     """)
                     return False
+                
+                # Initialize TB Burden analytics
+                burden_path = "TB_burden_countries_2025-11-27.csv"
+                lookup_path = "look up file WHO_AFRO_47_Countries_ISO3_Lookup_File.csv"
+                
+                try:
+                    tb_burden_analytics = TBBurdenAnalytics(burden_path, lookup_path)
+                    tb_burden_analytics.load_data()
+                    tb_burden_chart_gen = TBBurdenChartGenerator(tb_burden_analytics)
+                    
+                    st.session_state.tb_burden_analytics = tb_burden_analytics
+                    st.session_state.tb_burden_chart_gen = tb_burden_chart_gen
+                except Exception as e:
+                    st.warning(f"TB Burden data not available: {str(e)}")
+                    st.session_state.tb_burden_analytics = None
+                    st.session_state.tb_burden_chart_gen = None
                 
                 # Store TB components
                 st.session_state.tb_pipeline = pipeline
@@ -1323,6 +1675,256 @@ def render_tb_dashboard(analytics, pipeline):
             st.warning(f"Could not generate bottom countries: {str(e)}")
 
 
+def render_tb_burden_dashboard():
+    """Render TB Burden dashboard with estimates and visualizations"""
+    current_lang = st.session_state.get("selected_language", "English")
+    
+    st.markdown(f'<h2 class="section-header">TB Burden Estimates - AFRO Region</h2>', unsafe_allow_html=True)
+    
+    # Check if TB Burden data is loaded
+    if not hasattr(st.session_state, 'tb_burden_analytics') or st.session_state.tb_burden_analytics is None:
+        st.warning("TB Burden data not available. Please initialize the system.")
+        return
+    
+    burden_analytics = st.session_state.tb_burden_analytics
+    chart_gen = st.session_state.tb_burden_chart_gen
+    
+    # Info box about TB Burden estimates
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Focus:</strong> TB Burden Estimates for WHO AFRO Region (47 countries)
+            <br>Data includes incidence, TB/HIV, mortality estimates with confidence intervals
+            <br>Based on WHO Global TB Programme burden estimates
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Get latest year and summary
+    latest_year = burden_analytics.get_latest_year()
+    summary = burden_analytics.get_burden_summary(year=latest_year)
+    
+    # Regional Overview Cards
+    st.markdown(f"""
+    <div class="dashboard-card">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Burden Overview - {latest_year}</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{summary['total_incident_cases']:,.0f}</div>
+            <div class="stat-label">TB Incident Cases</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{summary['regional_incidence_rate_100k']:.1f}</div>
+            <div class="stat-label">Incidence Rate<br>(per 100,000)</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{summary['total_tb_hiv_cases']:,.0f}</div>
+            <div class="stat-label">TB/HIV Cases</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col4:
+        st.markdown(f"""
+        <div class="stat-card">
+            <div class="stat-value">{summary['total_mortality_cases']:,.0f}</div>
+            <div class="stat-label">TB Deaths</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Top 10 High Burden Countries
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #CC0000; margin-bottom: 1.5rem; font-size: 1.5rem;">🔴 Top 10 High Burden Countries</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### TB Incidence (Cases)")
+        high_inc_chart = chart_gen.create_top_burden_chart(
+            indicator='e_inc_num',
+            indicator_name='TB Incidence Cases',
+            n=10,
+            year=latest_year,
+            high_burden=True
+        )
+        st.plotly_chart(high_inc_chart, use_container_width=True)
+    
+    with col2:
+        st.markdown("### TB Mortality (Cases)")
+        high_mort_chart = chart_gen.create_top_burden_chart(
+            indicator='e_mort_num',
+            indicator_name='TB Mortality Cases',
+            n=10,
+            year=latest_year,
+            high_burden=True
+        )
+        st.plotly_chart(high_mort_chart, use_container_width=True)
+    
+    # Top 10 Low Burden Countries
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #00CC66; margin-bottom: 1.5rem; font-size: 1.5rem;">🟢 Top 10 Low Burden Countries</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### TB Incidence (Cases)")
+        low_inc_chart = chart_gen.create_top_burden_chart(
+            indicator='e_inc_num',
+            indicator_name='TB Incidence Cases',
+            n=10,
+            year=latest_year,
+            high_burden=False
+        )
+        st.plotly_chart(low_inc_chart, use_container_width=True)
+    
+    with col2:
+        st.markdown("### TB Mortality (Cases)")
+        low_mort_chart = chart_gen.create_top_burden_chart(
+            indicator='e_mort_num',
+            indicator_name='TB Mortality Cases',
+            n=10,
+            year=latest_year,
+            high_burden=False
+        )
+        st.plotly_chart(low_mort_chart, use_container_width=True)
+    
+    # Maps Section
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">🗺️ TB Burden Maps</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    map_indicator = st.selectbox(
+        "Select Indicator for Map",
+        ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k", "cfr_pct"],
+        format_func=lambda x: {
+            "e_inc_100k": "TB Incidence Rate (per 100,000)",
+            "e_mort_100k": "TB Mortality Rate (per 100,000)",
+            "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)",
+            "cfr_pct": "Case Fatality Ratio (%)"
+        }[x]
+    )
+    
+    indicator_names = {
+        "e_inc_100k": "TB Incidence Rate (per 100,000)",
+        "e_mort_100k": "TB Mortality Rate (per 100,000)",
+        "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)",
+        "cfr_pct": "Case Fatality Ratio (%)"
+    }
+    
+    map_chart = chart_gen.create_burden_map(
+        indicator=map_indicator,
+        indicator_name=indicator_names[map_indicator],
+        year=latest_year
+    )
+    st.plotly_chart(map_chart, use_container_width=True)
+    
+    # Regional Trends
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">📈 Regional Trends</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    trend_indicator = st.selectbox(
+        "Select Indicator for Trend",
+        ["e_inc_num", "e_mort_num", "e_inc_tbhiv_num"],
+        format_func=lambda x: {
+            "e_inc_num": "TB Incidence Cases",
+            "e_mort_num": "TB Mortality Cases",
+            "e_inc_tbhiv_num": "TB/HIV Cases"
+        }[x]
+    )
+    
+    trend_names = {
+        "e_inc_num": "TB Incidence Cases",
+        "e_mort_num": "TB Mortality Cases",
+        "e_inc_tbhiv_num": "TB/HIV Cases"
+    }
+    
+    trend_chart = chart_gen.create_regional_trend_chart(
+        indicator=trend_indicator,
+        indicator_name=trend_names[trend_indicator]
+    )
+    st.plotly_chart(trend_chart, use_container_width=True)
+    
+    # Equity Analysis
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">⚖️ Equity Analysis</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    equity_indicator = st.selectbox(
+        "Select Indicator for Equity Analysis",
+        ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k"],
+        format_func=lambda x: {
+            "e_inc_100k": "TB Incidence Rate (per 100,000)",
+            "e_mort_100k": "TB Mortality Rate (per 100,000)",
+            "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)"
+        }[x],
+        key="equity_indicator"
+    )
+    
+    equity_names = {
+        "e_inc_100k": "TB Incidence Rate (per 100,000)",
+        "e_mort_100k": "TB Mortality Rate (per 100,000)",
+        "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)"
+    }
+    
+    # Show equity chart
+    equity_chart = chart_gen.create_equity_chart(
+        indicator=equity_indicator,
+        indicator_name=equity_names[equity_indicator],
+        year=latest_year
+    )
+    st.plotly_chart(equity_chart, use_container_width=True)
+    
+    # Show equity measures
+    equity_measures = burden_analytics.calculate_equity_measures(
+        indicator=equity_indicator,
+        year=latest_year
+    )
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Min Value", f"{equity_measures['min_value']:.1f}")
+    with col2:
+        st.metric("Max Value", f"{equity_measures['max_value']:.1f}")
+    with col3:
+        st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x")
+    with col4:
+        st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%")
+    
+    st.info("""
+    **Equity Measures Interpretation:**
+    - **Ratio (Max/Min)**: Higher values indicate greater inequality. A ratio of 1 would mean perfect equality.
+    - **Coefficient of Variation**: Measures relative variability. Values >50% indicate high dispersion.
+    - The box plot shows the distribution of burden across countries, with outliers indicating countries with exceptional burden.
+    """)
+
+
 def render_dashboard_page():
     """Render the modern analytics dashboard"""
     current_lang = st.session_state.get("selected_language", "English")
@@ -1586,9 +2188,16 @@ def render_chatbot_page():
     health_topic = st.session_state.get("indicator_type", "Maternal Mortality")
     selected_language = st.session_state.get("selected_language", "English")
     
-    # Display current settings
+    # Display current settings with topic-specific styling
+    topic_colors = {
+        "Tuberculosis": "#8B4513",
+        "Maternal Mortality": "#FF1493",
+        "Child Mortality": "#4169E1"
+    }
+    topic_color = topic_colors.get(health_topic, "#0066CC")
+    
     st.markdown(f"""
-    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #0066CC 0%, #004499 100%); border-radius: 10px; color: white;">
+    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, {topic_color} 0%, #004499 100%); border-radius: 10px; color: white;">
         <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
     </div>
     """, unsafe_allow_html=True)
@@ -1622,27 +2231,8 @@ def render_chatbot_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Update prompt based on health topic
-    if health_topic == "Tuberculosis":
-        prompt_text = """
-        Ask questions about TB data in natural language. The chatbot can help you:
-        - Get TB statistics for specific countries (with charts)
-        - Compare TB indicators across countries (with charts)
-        - Analyze TB trends (with charts)
-        - View TB notifications and outcomes
-        - Generate TB reports
-        """
-    else:
-        prompt_text = """
-        Ask questions about mortality data in natural language. The chatbot can help you:
-        - Get statistics for specific countries (with charts)
-        - Compare countries (with charts)
-        - Analyze trends (with charts)
-        - View projections (with charts)
-        - Generate reports
-        """
-    
-    st.markdown(prompt_text)
+    # Display topic-specific help text
+    st.markdown(get_topic_content(health_topic, "chatbot_help", current_lang))
     
     # Display chat history
     for message in st.session_state.chat_history:
@@ -1731,32 +2321,9 @@ def render_chatbot_page():
         </div>
         """, unsafe_allow_html=True)
     
-    # Example queries
+    # Example queries - topic-specific
     with st.expander("💡 Example Queries"):
-        st.markdown("""
-        **Country Statistics (with charts):**
-        - What are the statistics for Kenya?
-        - Show me charts for Angola
-        - Visualize data for Nigeria
-        
-        **Comparisons (with charts):**
-        - Compare Kenya and Uganda
-        - Compare Kenya, Uganda, and Tanzania
-        
-        **Trends (with charts):**
-        - What is the trend for neonatal mortality in Angola?
-        - Show trend chart for Kenya
-        
-        **Projections (with charts):**
-        - Show me projections for 2030
-        - Projections for Kenya
-        
-        **Top Countries (with charts):**
-        - Top 10 countries by under-five mortality rate
-        
-        **Reports:**
-        - Generate a summary report for Nigeria
-        """)
+        st.markdown(get_topic_content(health_topic, "example_queries", current_lang))
 
 
 def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indicator_type: str = "Maternal Mortality") -> Dict:
@@ -1864,10 +2431,18 @@ def render_reports_page():
     health_topic = st.session_state.get("indicator_type", "Maternal Mortality")
     selected_language = st.session_state.get("selected_language", "English")
     
-    # Display current settings
+    # Display current settings with topic-specific styling
+    topic_colors = {
+        "Tuberculosis": "#8B4513",
+        "Maternal Mortality": "#FF1493",
+        "Child Mortality": "#4169E1"
+    }
+    topic_color = topic_colors.get(health_topic, "#0066CC")
+    
     st.markdown(f"""
-    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #0066CC 0%, #004499 100%); border-radius: 10px; color: white;">
+    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, {topic_color} 0%, #004499 100%); border-radius: 10px; color: white;">
         <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
+        <br><small style="opacity: 0.9;">{get_topic_content(health_topic, "page_focus", selected_language)}</small>
     </div>
     """, unsafe_allow_html=True)
     
@@ -2089,9 +2664,16 @@ def render_visualizer_page():
     health_topic = st.session_state.get("indicator_type", "Maternal Mortality")
     selected_language = st.session_state.get("selected_language", "English")
     
-    # Display current settings
+    # Display current settings with topic-specific styling
+    topic_colors = {
+        "Tuberculosis": "#8B4513",
+        "Maternal Mortality": "#FF1493",
+        "Child Mortality": "#4169E1"
+    }
+    topic_color = topic_colors.get(health_topic, "#0066CC")
+    
     st.markdown(f"""
-    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, #0066CC 0%, #004499 100%); border-radius: 10px; color: white;">
+    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, {topic_color} 0%, #004499 100%); border-radius: 10px; color: white;">
         <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
     </div>
     """, unsafe_allow_html=True)
@@ -2120,27 +2702,8 @@ def render_visualizer_page():
         st.error(f"System not properly initialized. {get_translation('please_initialize', current_lang)}")
         return
     
-    # Update description based on health topic
-    if health_topic == "Tuberculosis":
-        description = """
-        Create customized TB visualizations with full control over:
-        - Country selection (47 AFRO countries)
-        - TB indicator selection (Notifications, Outcomes)
-        - Prediction methods
-        - Chart types (Chart or Map)
-        - Year ranges
-        """
-    else:
-        description = """
-        Create customized visualizations with full control over:
-        - Country selection
-        - Indicator selection
-        - Prediction methods
-        - Chart types (Chart or Map)
-        - Year ranges
-        """
-    
-    st.markdown(description)
+    # Display topic-specific description
+    st.markdown(get_topic_content(health_topic, "visualizer_desc", current_lang))
     
     # Control Panel
     with st.expander("⚙️ Chart Controls", expanded=True):
@@ -2387,6 +2950,12 @@ def main():
             st.session_state.current_page = 'Dashboard'
             st.rerun()
         
+        # Show TB Burden button only when Tuberculosis is selected
+        if indicator_type == "Tuberculosis":
+            if st.button("📉 TB Burden Estimates", use_container_width=True, key="nav_tb_burden"):
+                st.session_state.current_page = 'TB_Burden'
+                st.rerun()
+        
         if st.button(f"🤖 {get_translation('chatbot', current_lang)}", use_container_width=True, key="nav_chatbot"):
             st.session_state.current_page = 'Chatbot'
             st.rerun()
@@ -2526,6 +3095,8 @@ def main():
         render_home_page()
     elif st.session_state.current_page == 'Dashboard':
         render_dashboard_page()
+    elif st.session_state.current_page == 'TB_Burden':
+        render_tb_burden_dashboard()
     elif st.session_state.current_page == 'Chatbot':
         render_chatbot_page()
     elif st.session_state.current_page == 'Reports':
