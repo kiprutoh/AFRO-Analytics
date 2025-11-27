@@ -61,65 +61,41 @@ class TBBurdenChartGenerator:
         
         fig = go.Figure()
         
-        # Calculate error bars if confidence intervals exist
-        if has_ci:
-            error_minus = top_countries[indicator] - top_countries[indicator_lo]
-            error_plus = top_countries[indicator_hi] - top_countries[indicator]
-            
-            fig.add_trace(go.Bar(
-                y=top_countries['country_clean'],
-                x=top_countries[indicator],
-                orientation='h',
-                error_x=dict(
-                    type='data',
-                    symmetric=False,
-                    array=error_plus,
-                    arrayminus=error_minus,
-                    color='rgba(0,0,0,0.3)',
-                    thickness=1.5,
-                    width=4
-                ),
-                marker=dict(
-                    color=top_countries[indicator],
-                    colorscale=color_scale,
-                    showscale=True,
-                    colorbar=dict(title=indicator_name)
-                ),
-                text=top_countries[indicator].apply(lambda x: f'{x:,.0f}'),
-                textposition='auto',
-                hovertemplate='<b>%{y}</b><br>' +
-                             f'{indicator_name}: %{{x:,.0f}}<br>' +
-                             'High Bound: %{customdata[0]:,.0f}<br>' +
-                             'Low Bound: %{customdata[1]:,.0f}<br>' +
-                             '<extra></extra>',
-                customdata=top_countries[[indicator_hi, indicator_lo]].values
-            ))
-        else:
-            fig.add_trace(go.Bar(
-                y=top_countries['country_clean'],
-                x=top_countries[indicator],
-                orientation='h',
-                marker=dict(
-                    color=top_countries[indicator],
-                    colorscale=color_scale,
-                    showscale=True,
-                    colorbar=dict(title=indicator_name)
-                ),
-                text=top_countries[indicator].apply(lambda x: f'{x:,.0f}'),
-                textposition='auto',
-                hovertemplate='<b>%{y}</b><br>' +
-                             f'{indicator_name}: %{{x:,.0f}}<br>' +
-                             '<extra></extra>'
-            ))
+        # Bar charts show point estimates only (no CI error bars for clarity)
+        fig.add_trace(go.Bar(
+            y=top_countries['country_clean'],
+            x=top_countries[indicator],
+            orientation='h',
+            marker=dict(
+                color=top_countries[indicator],
+                colorscale=color_scale,
+                showscale=True,
+                colorbar=dict(title=indicator_name)
+            ),
+            text=top_countries[indicator].apply(lambda x: f'{x:,.0f}'),
+            textposition='auto',
+            hovertemplate='<b>%{y}</b><br>' +
+                         f'{indicator_name}: %{{x:,.0f}}<br>' +
+                         '<extra></extra>'
+        ))
         
         fig.update_layout(
-            title=f'{title_prefix} Burden Countries - {indicator_name} ({year})' + (' [with 95% CI]' if has_ci else ''),
+            title=f'{title_prefix} Burden Countries - {indicator_name} ({year})',
             xaxis_title=indicator_name,
             yaxis_title='',
             height=500,
             template='plotly_white',
             showlegend=False,
             yaxis={'categoryorder': 'total ascending' if not high_burden else 'total descending'}
+        )
+        
+        fig.add_annotation(
+            text="Point estimates shown. Confidence intervals displayed in trend charts.",
+            xref="paper", yref="paper",
+            x=0.5, y=-0.12,
+            showarrow=False,
+            font=dict(size=10, color="gray"),
+            xanchor='center'
         )
         
         return fig

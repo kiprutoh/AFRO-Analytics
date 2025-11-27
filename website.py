@@ -527,6 +527,7 @@ st.markdown("""
     .stat-value {
         font-size: 2.5rem;
         font-weight: 800;
+        text-align: center;
         background: linear-gradient(135deg, #0066CC 0%, #00CC66 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
@@ -540,6 +541,7 @@ st.markdown("""
         margin-top: 0.5rem;
         font-weight: 500;
         text-transform: uppercase;
+        text-align: center;
         letter-spacing: 0.5px;
     }
     
