@@ -456,6 +456,18 @@ def render_home_page():
     """Render the home page"""
     import os
     
+    # Language Selector - Initialize
+    if "selected_language" not in st.session_state:
+        st.session_state.selected_language = "English"
+    
+    current_lang = st.session_state.selected_language
+    languages = {
+        "English": ("🇬🇧", "ENG"),
+        "French": ("🇫🇷", "FR"),
+        "Portuguese": ("🇵🇹", "PT"),
+        "Spanish": ("🇪🇸", "ES")
+    }
+    
     # Header with video background
     video_file = "vid-for-rdhub-herosection.mp4"
     if os.path.exists(video_file):
@@ -504,6 +516,12 @@ def render_home_page():
             justify-content: center;
             align-items: center;
         }
+        .hero-language-selector {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 3;
+        }
         </style>
         """, unsafe_allow_html=True)
         
@@ -545,6 +563,85 @@ def render_home_page():
         </div>
         """, unsafe_allow_html=True)
         
+        # Language selector inside hero card
+        st.markdown("""
+        <style>
+        .hero-lang-container {
+            position: relative;
+            margin-top: -380px;
+            margin-bottom: 360px;
+            text-align: right;
+            padding-right: 15px;
+            z-index: 999;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Create container for language selector positioned at top-right of hero
+        col_spacer, col_lang = st.columns([10, 1])
+        with col_lang:
+            st.markdown('<div class="hero-lang-container">', unsafe_allow_html=True)
+            lang_options = list(languages.keys())
+            current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
+            
+            selected_lang = st.selectbox(
+                "",
+                options=lang_options,
+                index=current_index,
+                format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
+                key="hero_language_selector",
+                label_visibility="collapsed"
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Update session state if language changed
+            if selected_lang != current_lang:
+                st.session_state.selected_language = selected_lang
+                st.rerun()
+        
+        # Add CSS to style the hero language selector
+        st.markdown("""
+        <style>
+        div[data-testid="stSelectbox"]:has(select[id*="hero_language_selector"]) {
+            width: fit-content !important;
+            min-width: auto !important;
+            font-size: 0.7rem !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            padding: 3px 6px !important;
+            border-radius: 6px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+            backdrop-filter: blur(5px) !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="hero_language_selector"]) > div {
+            width: fit-content !important;
+            min-width: auto !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="hero_language_selector"]) > div > div {
+            font-size: 0.7rem !important;
+            padding: 3px 8px !important;
+            min-height: auto !important;
+            height: auto !important;
+            white-space: nowrap !important;
+            width: fit-content !important;
+            min-width: auto !important;
+            line-height: 1.3 !important;
+            font-weight: 600 !important;
+            color: #0066CC !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="hero_language_selector"]) select {
+            font-size: 0.7rem !important;
+            padding: 3px 6px !important;
+            width: fit-content !important;
+            min-width: auto !important;
+            height: auto !important;
+            font-weight: 600 !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="hero_language_selector"]) > label {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
         # Also add video using Streamlit's component as fallback
         with st.container():
             st.markdown("""
@@ -576,6 +673,85 @@ def render_home_page():
                 <span style="font-size: 0.85rem;">A regional platform for high-quality, timely, and actionable health intelligence</span>
             </p>
         </div>
+        """, unsafe_allow_html=True)
+        
+        # Language selector inside fallback hero card
+        st.markdown("""
+        <style>
+        .fallback-hero-lang-container {
+            position: relative;
+            margin-top: -280px;
+            margin-bottom: 260px;
+            text-align: right;
+            padding-right: 15px;
+            z-index: 999;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+        
+        # Create container for language selector positioned at top-right of fallback hero
+        col_spacer, col_lang = st.columns([10, 1])
+        with col_lang:
+            st.markdown('<div class="fallback-hero-lang-container">', unsafe_allow_html=True)
+            lang_options = list(languages.keys())
+            current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
+            
+            selected_lang = st.selectbox(
+                "",
+                options=lang_options,
+                index=current_index,
+                format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
+                key="fallback_hero_language_selector",
+                label_visibility="collapsed"
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Update session state if language changed
+            if selected_lang != current_lang:
+                st.session_state.selected_language = selected_lang
+                st.rerun()
+        
+        # Add CSS to style the fallback hero language selector
+        st.markdown("""
+        <style>
+        div[data-testid="stSelectbox"]:has(select[id*="fallback_hero_language_selector"]) {
+            width: fit-content !important;
+            min-width: auto !important;
+            font-size: 0.7rem !important;
+            background: rgba(255, 255, 255, 0.95) !important;
+            padding: 3px 6px !important;
+            border-radius: 6px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2) !important;
+            backdrop-filter: blur(5px) !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="fallback_hero_language_selector"]) > div {
+            width: fit-content !important;
+            min-width: auto !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="fallback_hero_language_selector"]) > div > div {
+            font-size: 0.7rem !important;
+            padding: 3px 8px !important;
+            min-height: auto !important;
+            height: auto !important;
+            white-space: nowrap !important;
+            width: fit-content !important;
+            min-width: auto !important;
+            line-height: 1.3 !important;
+            font-weight: 600 !important;
+            color: #0066CC !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="fallback_hero_language_selector"]) select {
+            font-size: 0.7rem !important;
+            padding: 3px 6px !important;
+            width: fit-content !important;
+            min-width: auto !important;
+            height: auto !important;
+            font-weight: 600 !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="fallback_hero_language_selector"]) > label {
+            display: none !important;
+        }
+        </style>
         """, unsafe_allow_html=True)
     
     # Get current health topic
@@ -2262,86 +2438,86 @@ def main():
         - [SDG Targets](https://www.who.int/sdg/targets/en/)
         """)
     
-    # Language Selector - Top Right Corner (small with abbreviations)
+    # Language selector - appears on all pages
     # Initialize language in session state if not exists
     if "selected_language" not in st.session_state:
         st.session_state.selected_language = "English"
     
-    current_lang = st.session_state.selected_language
-    languages = {
-        "English": "ENG",
-        "French": "FR",
-        "Portuguese": "PT",
-        "Spanish": "ES"
-    }
-    
-    # Use columns to position dropdown
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col3:
-        lang_options = list(languages.keys())
-        current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
+    # Only show top-right language selector on non-home pages (home has it in hero card)
+    if st.session_state.current_page != 'Home':
+        current_lang = st.session_state.selected_language
+        languages = {
+            "English": ("🇬🇧", "ENG"),
+            "French": ("🇫🇷", "FR"),
+            "Portuguese": ("🇵🇹", "PT"),
+            "Spanish": ("🇪🇸", "ES")
+        }
         
-        selected_lang = st.selectbox(
-            "",
-            options=lang_options,
-            index=current_index,
-            format_func=lambda x: languages[x],
-            key="language_selector_dropdown",
-            label_visibility="collapsed"
-        )
+        # Create fixed position language selector
+        col_spacer, col_lang = st.columns([10, 1])
+        with col_lang:
+            lang_options = list(languages.keys())
+            current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
+            
+            selected_lang = st.selectbox(
+                "",
+                options=lang_options,
+                index=current_index,
+                format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
+                key="global_language_selector",
+                label_visibility="collapsed"
+            )
+            
+            # Update session state if language changed
+            if selected_lang != current_lang:
+                st.session_state.selected_language = selected_lang
+                st.rerun()
         
-        # Update session state if language changed
-        if selected_lang != current_lang:
-            st.session_state.selected_language = selected_lang
-            st.rerun()
-    
-    # Add CSS to position selectbox absolutely at top right - very small, autofit size
-    st.markdown("""
-    <style>
-    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) {
-        position: fixed !important;
-        top: 8px !important;
-        right: 8px !important;
-        z-index: 9999 !important;
-        width: fit-content !important;
-        min-width: auto !important;
-        max-width: fit-content !important;
-        font-size: 0.65rem !important;
-        background: white !important;
-        padding: 2px !important;
-        border-radius: 4px !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    }
-    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div {
-        width: fit-content !important;
-        min-width: auto !important;
-    }
-    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div > div {
-        font-size: 0.65rem !important;
-        padding: 2px 6px !important;
-        min-height: auto !important;
-        height: auto !important;
-        white-space: nowrap !important;
-        width: fit-content !important;
-        min-width: auto !important;
-        line-height: 1.2 !important;
-        font-weight: 600 !important;
-        color: #0066CC !important;
-    }
-    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) select {
-        font-size: 0.65rem !important;
-        padding: 2px 4px !important;
-        width: fit-content !important;
-        min-width: auto !important;
-        height: auto !important;
-        font-weight: 600 !important;
-    }
-    /* Remove any extra spacing */
-    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > label {
-        display: none !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+        # Add CSS to style the global language selector
+        st.markdown("""
+        <style>
+        div[data-testid="stSelectbox"]:has(select[id*="global_language_selector"]) {
+            position: fixed !important;
+            top: 8px !important;
+            right: 8px !important;
+            z-index: 9999 !important;
+            width: fit-content !important;
+            min-width: auto !important;
+            font-size: 0.7rem !important;
+            background: rgba(255, 255, 255, 0.98) !important;
+            padding: 3px 6px !important;
+            border-radius: 6px !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="global_language_selector"]) > div {
+            width: fit-content !important;
+            min-width: auto !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="global_language_selector"]) > div > div {
+            font-size: 0.7rem !important;
+            padding: 3px 8px !important;
+            min-height: auto !important;
+            height: auto !important;
+            white-space: nowrap !important;
+            width: fit-content !important;
+            min-width: auto !important;
+            line-height: 1.3 !important;
+            font-weight: 600 !important;
+            color: #0066CC !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="global_language_selector"]) select {
+            font-size: 0.7rem !important;
+            padding: 3px 6px !important;
+            width: fit-content !important;
+            min-width: auto !important;
+            height: auto !important;
+            font-weight: 600 !important;
+        }
+        div[data-testid="stSelectbox"]:has(select[id*="global_language_selector"]) > label {
+            display: none !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
     
     # Render current page
     if st.session_state.current_page == 'Home':
