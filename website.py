@@ -760,14 +760,23 @@ def initialize_system(indicator_type: str = "Maternal Mortality"):
                 lookup_path = "look up file WHO_AFRO_47_Countries_ISO3_Lookup_File.csv"
                 
                 try:
-                    tb_burden_analytics = TBBurdenAnalytics(burden_path, lookup_path)
-                    tb_burden_analytics.load_data()
-                    tb_burden_chart_gen = TBBurdenChartGenerator(tb_burden_analytics)
-                    
-                    st.session_state.tb_burden_analytics = tb_burden_analytics
-                    st.session_state.tb_burden_chart_gen = tb_burden_chart_gen
+                    import os
+                    if os.path.exists(burden_path) and os.path.exists(lookup_path):
+                        tb_burden_analytics = TBBurdenAnalytics(burden_path, lookup_path)
+                        tb_burden_analytics.load_data()
+                        tb_burden_chart_gen = TBBurdenChartGenerator(tb_burden_analytics)
+                        
+                        st.session_state.tb_burden_analytics = tb_burden_analytics
+                        st.session_state.tb_burden_chart_gen = tb_burden_chart_gen
+                        st.success("✓ TB Burden data loaded successfully!")
+                    else:
+                        st.warning(f"TB Burden data files not found: {burden_path} or {lookup_path}")
+                        st.session_state.tb_burden_analytics = None
+                        st.session_state.tb_burden_chart_gen = None
                 except Exception as e:
-                    st.warning(f"TB Burden data not available: {str(e)}")
+                    st.error(f"TB Burden initialization failed: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
                     st.session_state.tb_burden_analytics = None
                     st.session_state.tb_burden_chart_gen = None
                 
@@ -1673,256 +1682,259 @@ def render_tb_dashboard(analytics, pipeline):
                 st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
             st.warning(f"Could not generate bottom countries: {str(e)}")
-
-
-def render_tb_burden_dashboard():
-    """Render TB Burden dashboard with estimates and visualizations"""
-    current_lang = st.session_state.get("selected_language", "English")
     
-    st.markdown(f'<h2 class="section-header">TB Burden Estimates - AFRO Region</h2>', unsafe_allow_html=True)
+    # ==================================================================================
+    # TB BURDEN ESTIMATES SECTION - Integrated into TB Dashboard
+    # ==================================================================================
+    
+    st.markdown("---")
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 3rem;">
+        <h2 style="color: #8B4513; margin-bottom: 1rem; font-size: 2rem;">📉 TB Burden Estimates</h2>
+        <p style="color: #666; font-size: 0.95rem;">WHO Global TB Programme burden estimates for AFRO Region</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Check if TB Burden data is loaded
-    if not hasattr(st.session_state, 'tb_burden_analytics') or st.session_state.tb_burden_analytics is None:
-        st.warning("TB Burden data not available. Please initialize the system.")
-        return
-    
-    burden_analytics = st.session_state.tb_burden_analytics
-    chart_gen = st.session_state.tb_burden_chart_gen
-    
-    # Info box about TB Burden estimates
-    st.markdown("""
-    <div class="info-box" style="margin-bottom: 2rem;">
-        <p style="margin: 0; font-size: 0.95rem;">
-            <strong>Focus:</strong> TB Burden Estimates for WHO AFRO Region (47 countries)
-            <br>Data includes incidence, TB/HIV, mortality estimates with confidence intervals
-            <br>Based on WHO Global TB Programme burden estimates
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Get latest year and summary
-    latest_year = burden_analytics.get_latest_year()
-    summary = burden_analytics.get_burden_summary(year=latest_year)
-    
-    # Regional Overview Cards
-    st.markdown(f"""
-    <div class="dashboard-card">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Burden Overview - {latest_year}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div class="stat-value">{summary['total_incident_cases']:,.0f}</div>
-            <div class="stat-label">TB Incident Cases</div>
+    if hasattr(st.session_state, 'tb_burden_analytics') and st.session_state.tb_burden_analytics is not None:
+        burden_analytics = st.session_state.tb_burden_analytics
+        burden_chart_gen = st.session_state.tb_burden_chart_gen
+        
+        # Info box
+        st.markdown("""
+        <div class="info-box" style="margin-bottom: 2rem;">
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>Focus:</strong> TB Burden Estimates including incidence, TB/HIV, mortality with confidence intervals
+                <br><strong>Data Source:</strong> WHO Global TB Programme | <strong>Coverage:</strong> 47 AFRO countries | <strong>Years:</strong> 2000-2024
+            </p>
         </div>
         """, unsafe_allow_html=True)
-    
-    with col2:
+        
+        # Get latest year and summary
+        latest_year = burden_analytics.get_latest_year()
+        burden_summary = burden_analytics.get_burden_summary(year=latest_year)
+        
+        # Regional Burden Overview Cards
         st.markdown(f"""
-        <div class="stat-card">
-            <div class="stat-value">{summary['regional_incidence_rate_100k']:.1f}</div>
-            <div class="stat-label">Incidence Rate<br>(per 100,000)</div>
+        <div class="dashboard-card">
+            <h3 style="color: #8B4513; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Burden Overview - {latest_year}</h3>
         </div>
         """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div class="stat-value">{summary['total_tb_hiv_cases']:,.0f}</div>
-            <div class="stat-label">TB/HIV Cases</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-        <div class="stat-card">
-            <div class="stat-value">{summary['total_mortality_cases']:,.0f}</div>
-            <div class="stat-label">TB Deaths</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Top 10 High Burden Countries
-    st.markdown("""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #CC0000; margin-bottom: 1.5rem; font-size: 1.5rem;">🔴 Top 10 High Burden Countries</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### TB Incidence (Cases)")
-        high_inc_chart = chart_gen.create_top_burden_chart(
-            indicator='e_inc_num',
-            indicator_name='TB Incidence Cases',
-            n=10,
-            year=latest_year,
-            high_burden=True
-        )
-        st.plotly_chart(high_inc_chart, use_container_width=True)
-    
-    with col2:
-        st.markdown("### TB Mortality (Cases)")
-        high_mort_chart = chart_gen.create_top_burden_chart(
-            indicator='e_mort_num',
-            indicator_name='TB Mortality Cases',
-            n=10,
-            year=latest_year,
-            high_burden=True
-        )
-        st.plotly_chart(high_mort_chart, use_container_width=True)
-    
-    # Top 10 Low Burden Countries
-    st.markdown("""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #00CC66; margin-bottom: 1.5rem; font-size: 1.5rem;">🟢 Top 10 Low Burden Countries</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### TB Incidence (Cases)")
-        low_inc_chart = chart_gen.create_top_burden_chart(
-            indicator='e_inc_num',
-            indicator_name='TB Incidence Cases',
-            n=10,
-            year=latest_year,
-            high_burden=False
-        )
-        st.plotly_chart(low_inc_chart, use_container_width=True)
-    
-    with col2:
-        st.markdown("### TB Mortality (Cases)")
-        low_mort_chart = chart_gen.create_top_burden_chart(
-            indicator='e_mort_num',
-            indicator_name='TB Mortality Cases',
-            n=10,
-            year=latest_year,
-            high_burden=False
-        )
-        st.plotly_chart(low_mort_chart, use_container_width=True)
-    
-    # Maps Section
-    st.markdown("""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">🗺️ TB Burden Maps</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    map_indicator = st.selectbox(
-        "Select Indicator for Map",
-        ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k", "cfr_pct"],
-        format_func=lambda x: {
-            "e_inc_100k": "TB Incidence Rate (per 100,000)",
-            "e_mort_100k": "TB Mortality Rate (per 100,000)",
-            "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)",
-            "cfr_pct": "Case Fatality Ratio (%)"
-        }[x]
-    )
-    
-    indicator_names = {
-        "e_inc_100k": "TB Incidence Rate (per 100,000)",
-        "e_mort_100k": "TB Mortality Rate (per 100,000)",
-        "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)",
-        "cfr_pct": "Case Fatality Ratio (%)"
-    }
-    
-    map_chart = chart_gen.create_burden_map(
-        indicator=map_indicator,
-        indicator_name=indicator_names[map_indicator],
-        year=latest_year
-    )
-    st.plotly_chart(map_chart, use_container_width=True)
-    
-    # Regional Trends
-    st.markdown("""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">📈 Regional Trends</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    trend_indicator = st.selectbox(
-        "Select Indicator for Trend",
-        ["e_inc_num", "e_mort_num", "e_inc_tbhiv_num"],
-        format_func=lambda x: {
-            "e_inc_num": "TB Incidence Cases",
-            "e_mort_num": "TB Mortality Cases",
-            "e_inc_tbhiv_num": "TB/HIV Cases"
-        }[x]
-    )
-    
-    trend_names = {
-        "e_inc_num": "TB Incidence Cases",
-        "e_mort_num": "TB Mortality Cases",
-        "e_inc_tbhiv_num": "TB/HIV Cases"
-    }
-    
-    trend_chart = chart_gen.create_regional_trend_chart(
-        indicator=trend_indicator,
-        indicator_name=trend_names[trend_indicator]
-    )
-    st.plotly_chart(trend_chart, use_container_width=True)
-    
-    # Equity Analysis
-    st.markdown("""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">⚖️ Equity Analysis</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    equity_indicator = st.selectbox(
-        "Select Indicator for Equity Analysis",
-        ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k"],
-        format_func=lambda x: {
-            "e_inc_100k": "TB Incidence Rate (per 100,000)",
-            "e_mort_100k": "TB Mortality Rate (per 100,000)",
-            "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)"
-        }[x],
-        key="equity_indicator"
-    )
-    
-    equity_names = {
-        "e_inc_100k": "TB Incidence Rate (per 100,000)",
-        "e_mort_100k": "TB Mortality Rate (per 100,000)",
-        "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)"
-    }
-    
-    # Show equity chart
-    equity_chart = chart_gen.create_equity_chart(
-        indicator=equity_indicator,
-        indicator_name=equity_names[equity_indicator],
-        year=latest_year
-    )
-    st.plotly_chart(equity_chart, use_container_width=True)
-    
-    # Show equity measures
-    equity_measures = burden_analytics.calculate_equity_measures(
-        indicator=equity_indicator,
-        year=latest_year
-    )
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Min Value", f"{equity_measures['min_value']:.1f}")
-    with col2:
-        st.metric("Max Value", f"{equity_measures['max_value']:.1f}")
-    with col3:
-        st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x")
-    with col4:
-        st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%")
-    
-    st.info("""
-    **Equity Measures Interpretation:**
-    - **Ratio (Max/Min)**: Higher values indicate greater inequality. A ratio of 1 would mean perfect equality.
-    - **Coefficient of Variation**: Measures relative variability. Values >50% indicate high dispersion.
-    - The box plot shows the distribution of burden across countries, with outliers indicating countries with exceptional burden.
-    """)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-value">{burden_summary['total_incident_cases']:,.0f}</div>
+                <div class="stat-label">TB Incident Cases</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-value">{burden_summary['regional_incidence_rate_100k']:.1f}</div>
+                <div class="stat-label">Incidence Rate<br>(per 100,000)</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-value">{burden_summary['total_tb_hiv_cases']:,.0f}</div>
+                <div class="stat-label">TB/HIV Cases</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-value">{burden_summary['total_mortality_cases']:,.0f}</div>
+                <div class="stat-label">TB Deaths</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Tabs for different burden visualizations
+        burden_tab1, burden_tab2, burden_tab3, burden_tab4 = st.tabs([
+            "🔴 High Burden Countries", 
+            "🟢 Low Burden Countries", 
+            "🗺️ Burden Maps",
+            "⚖️ Equity Analysis"
+        ])
+        
+        with burden_tab1:
+            st.markdown("### Top 10 High Burden Countries")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### TB Incidence (Cases)")
+                high_inc_chart = burden_chart_gen.create_top_burden_chart(
+                    indicator='e_inc_num',
+                    indicator_name='TB Incidence Cases',
+                    n=10,
+                    year=latest_year,
+                    high_burden=True
+                )
+                st.plotly_chart(high_inc_chart, use_container_width=True)
+            
+            with col2:
+                st.markdown("#### TB Mortality (Cases)")
+                high_mort_chart = burden_chart_gen.create_top_burden_chart(
+                    indicator='e_mort_num',
+                    indicator_name='TB Mortality Cases',
+                    n=10,
+                    year=latest_year,
+                    high_burden=True
+                )
+                st.plotly_chart(high_mort_chart, use_container_width=True)
+        
+        with burden_tab2:
+            st.markdown("### Top 10 Low Burden Countries")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### TB Incidence (Cases)")
+                low_inc_chart = burden_chart_gen.create_top_burden_chart(
+                    indicator='e_inc_num',
+                    indicator_name='TB Incidence Cases',
+                    n=10,
+                    year=latest_year,
+                    high_burden=False
+                )
+                st.plotly_chart(low_inc_chart, use_container_width=True)
+            
+            with col2:
+                st.markdown("#### TB Mortality (Cases)")
+                low_mort_chart = burden_chart_gen.create_top_burden_chart(
+                    indicator='e_mort_num',
+                    indicator_name='TB Mortality Cases',
+                    n=10,
+                    year=latest_year,
+                    high_burden=False
+                )
+                st.plotly_chart(low_mort_chart, use_container_width=True)
+        
+        with burden_tab3:
+            st.markdown("### TB Burden Maps")
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                map_indicator = st.selectbox(
+                    "Select Indicator for Map",
+                    ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k", "cfr_pct"],
+                    format_func=lambda x: {
+                        "e_inc_100k": "TB Incidence Rate (per 100k)",
+                        "e_mort_100k": "TB Mortality Rate (per 100k)",
+                        "e_inc_tbhiv_100k": "TB/HIV Rate (per 100k)",
+                        "cfr_pct": "Case Fatality Ratio (%)"
+                    }[x],
+                    key="burden_map_indicator"
+                )
+            
+            indicator_names = {
+                "e_inc_100k": "TB Incidence Rate (per 100,000)",
+                "e_mort_100k": "TB Mortality Rate (per 100,000)",
+                "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)",
+                "cfr_pct": "Case Fatality Ratio (%)"
+            }
+            
+            map_chart = burden_chart_gen.create_burden_map(
+                indicator=map_indicator,
+                indicator_name=indicator_names[map_indicator],
+                year=latest_year
+            )
+            st.plotly_chart(map_chart, use_container_width=True)
+            
+            # Regional trend for selected indicator
+            st.markdown("### Regional Trend Over Time")
+            
+            # Map indicator to count version for trends
+            trend_indicators = {
+                "e_inc_100k": ("e_inc_num", "TB Incidence Cases"),
+                "e_mort_100k": ("e_mort_num", "TB Mortality Cases"),
+                "e_inc_tbhiv_100k": ("e_inc_tbhiv_num", "TB/HIV Cases"),
+                "cfr_pct": ("e_inc_num", "TB Incidence Cases")
+            }
+            
+            trend_ind, trend_name = trend_indicators.get(map_indicator, ("e_inc_num", "TB Cases"))
+            trend_chart = burden_chart_gen.create_regional_trend_chart(
+                indicator=trend_ind,
+                indicator_name=trend_name
+            )
+            st.plotly_chart(trend_chart, use_container_width=True)
+        
+        with burden_tab4:
+            st.markdown("### Equity Analysis - TB Burden Distribution")
+            
+            col1, col2 = st.columns([1, 2])
+            
+            with col1:
+                equity_indicator = st.selectbox(
+                    "Select Indicator",
+                    ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k"],
+                    format_func=lambda x: {
+                        "e_inc_100k": "Incidence Rate (per 100k)",
+                        "e_mort_100k": "Mortality Rate (per 100k)",
+                        "e_inc_tbhiv_100k": "TB/HIV Rate (per 100k)"
+                    }[x],
+                    key="burden_equity_indicator"
+                )
+            
+            equity_names = {
+                "e_inc_100k": "TB Incidence Rate (per 100,000)",
+                "e_mort_100k": "TB Mortality Rate (per 100,000)",
+                "e_inc_tbhiv_100k": "TB/HIV Incidence Rate (per 100,000)"
+            }
+            
+            # Show equity chart
+            equity_chart = burden_chart_gen.create_equity_chart(
+                indicator=equity_indicator,
+                indicator_name=equity_names[equity_indicator],
+                year=latest_year
+            )
+            st.plotly_chart(equity_chart, use_container_width=True)
+            
+            # Show equity measures
+            equity_measures = burden_analytics.calculate_equity_measures(
+                indicator=equity_indicator,
+                year=latest_year
+            )
+            
+            st.markdown(f"""
+            <div class="dashboard-card" style="margin-top: 1rem;">
+                <h4 style="color: #8B4513; margin-bottom: 1rem;">Equity Measures</h4>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Min Value", f"{equity_measures['min_value']:.1f}")
+            with col2:
+                st.metric("Max Value", f"{equity_measures['max_value']:.1f}")
+            with col3:
+                st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x")
+            with col4:
+                st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%")
+            
+            st.info("""
+            **Equity Measures Interpretation:**
+            - **Ratio (Max/Min)**: Higher values indicate greater inequality. A ratio of 1 means perfect equality.
+            - **Coefficient of Variation**: Measures relative variability. Values >50% indicate high dispersion.
+            - The box plot shows the distribution across countries, with outliers indicating exceptional burden levels.
+            """)
+    else:
+        st.warning("""
+        **TB Burden data not loaded.** 
+        
+        This may have occurred during initialization. The system will continue to work with TB Notifications and Outcomes data.
+        
+        To load TB Burden data, you can re-initialize the system from the sidebar.
+        """)
 
 
 def render_dashboard_page():
@@ -2950,12 +2962,6 @@ def main():
             st.session_state.current_page = 'Dashboard'
             st.rerun()
         
-        # Show TB Burden button only when Tuberculosis is selected
-        if indicator_type == "Tuberculosis":
-            if st.button("📉 TB Burden Estimates", use_container_width=True, key="nav_tb_burden"):
-                st.session_state.current_page = 'TB_Burden'
-                st.rerun()
-        
         if st.button(f"🤖 {get_translation('chatbot', current_lang)}", use_container_width=True, key="nav_chatbot"):
             st.session_state.current_page = 'Chatbot'
             st.rerun()
@@ -2994,6 +3000,14 @@ def main():
                 st.caption(f"Indicators: {summary['indicators']}")
                 st.caption(f"Notifications Records: {summary['tb_notifications_records']:,}")
                 st.caption(f"Outcomes Records: {summary['tb_outcomes_records']:,}")
+                
+                # TB Burden status
+                if hasattr(st.session_state, 'tb_burden_analytics') and st.session_state.tb_burden_analytics is not None:
+                    burden_summary = st.session_state.tb_burden_analytics.get_data_summary()
+                    st.caption(f"✓ TB Burden Records: {burden_summary['total_records']:,}")
+                    st.caption(f"  Year Range: {burden_summary['year_range'][0]}-{burden_summary['year_range'][1]}")
+                else:
+                    st.caption("⚠️ TB Burden data: Not loaded")
             elif hasattr(st.session_state, 'pipeline') and st.session_state.pipeline:
                 summary = st.session_state.pipeline.get_data_summary()
                 st.caption(f"Countries: {summary['countries']}")
@@ -3095,8 +3109,6 @@ def main():
         render_home_page()
     elif st.session_state.current_page == 'Dashboard':
         render_dashboard_page()
-    elif st.session_state.current_page == 'TB_Burden':
-        render_tb_burden_dashboard()
     elif st.session_state.current_page == 'Chatbot':
         render_chatbot_page()
     elif st.session_state.current_page == 'Reports':

@@ -50,7 +50,7 @@ class TBBurdenAnalytics:
         self.burden_afro['country_clean'] = self.burden_afro['iso3'].map(country_mapping)
         
         # Fill any missing with original country name
-        self.burden_afro['country_clean'].fillna(self.burden_afro['country'], inplace=True)
+        self.burden_afro['country_clean'] = self.burden_afro['country_clean'].fillna(self.burden_afro['country'])
         
         print(f"Loaded data for {self.burden_afro['country_clean'].nunique()} AFRO countries")
         print(f"Year range: {self.burden_afro['year'].min()} - {self.burden_afro['year'].max()}")
