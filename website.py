@@ -1831,40 +1831,24 @@ def render_tb_burden_section(current_lang):
             </div>
             """, unsafe_allow_html=True)
         
-        # Case Detection Rate Card (with confidence intervals)
+        # Case Detection Rate Card (single card - CI shown only on line charts)
         st.markdown(f"""
-        <div class="dashboard-card" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+        <div class="dashboard-card" style="margin-top: 1rem; margin-bottom: 1rem;">
             <h4 style="color: #8B4513; margin-bottom: 0.5rem;">Case Detection Rate (Treatment Coverage)</h4>
         </div>
         """, unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown(f"""
-            <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20873a 100%);">
-                <div class="stat-value" style="color: white;">{burden_summary['case_detection_rate']:.1f}%</div>
-                <div class="stat-label" style="color: #e8f5e9;">Regional CDR</div>
-            </div>
-            """, unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
             st.markdown(f"""
-            <div class="stat-card" style="background: linear-gradient(135deg, #90ee90 0%, #76d176 100%);">
-                <div class="stat-value" style="color: #1b5e20;">{burden_summary['case_detection_rate_hi']:.1f}%</div>
-                <div class="stat-label" style="color: #2e7d32;">High Bound</div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20873a 100%);">
+                <div class="stat-value" style="color: white; font-size: 3rem;">{burden_summary['case_detection_rate']:.1f}%</div>
+                <div class="stat-label" style="color: #e8f5e9; font-size: 1.2rem;">Regional Case Detection Rate</div>
             </div>
             """, unsafe_allow_html=True)
         
-        with col3:
-            st.markdown(f"""
-            <div class="stat-card" style="background: linear-gradient(135deg, #ffeb3b 0%, #f9a825 100%);">
-                <div class="stat-value" style="color: #f57f17;">{burden_summary['case_detection_rate_lo']:.1f}%</div>
-                <div class="stat-label" style="color: #f57f17;">Low Bound</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        st.info("💡 **Case Detection Rate (CDR)** = Percentage of estimated incident TB cases that are detected and notified. Higher rates indicate better case finding.")
+        st.info("💡 **Case Detection Rate (CDR)** = Percentage of estimated incident TB cases that are detected and notified. Higher rates indicate better case finding. Confidence intervals are shown in trend charts.")
         
         # Tabs for different burden visualizations
         burden_tab1, burden_tab2, burden_tab3, burden_tab4 = st.tabs([
@@ -3020,6 +3004,237 @@ def render_reports_page():
             )
 
 
+def render_tb_burden_explorer(burden_visualizer, burden_analytics, current_lang):
+    """Render TB Burden indicator explorer with tabs"""
+    import plotly.express as px
+    import plotly.graph_objects as go
+    
+    st.markdown("### 📊 TB Burden Indicator Explorer")
+    st.info("Explore TB burden indicators across countries and over time. Confidence intervals are shown on trend charts.")
+    
+    # Indicator categories in tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📈 Incidence",
+        "💀 Mortality", 
+        "🩺 TB/HIV",
+        "🔍 Case Detection"
+    ])
+    
+    with tab1:
+        st.markdown("#### TB Incidence Indicators")
+        
+        inc_indicator = st.selectbox(
+            "Select Incidence Indicator",
+            ["e_inc_num", "e_inc_100k"],
+            format_func=lambda x: {
+                "e_inc_num": "TB Incidence (Total Cases)",
+                "e_inc_100k": "TB Incidence Rate (per 100,000)"
+            }[x],
+            key="inc_indicator"
+        )
+        
+        viz_type_inc = st.radio("Visualization Type", ["Country Comparison", "Regional Trend", "Country Trend"], horizontal=True, key="viz_inc")
+        
+        if viz_type_inc == "Country Comparison":
+            year = st.slider("Select Year", 2000, 2024, 2024, key="inc_year")
+            chart = burden_visualizer.create_burden_comparison_chart(
+                indicator=inc_indicator,
+                indicator_name="TB Incidence (Total Cases)" if inc_indicator == "e_inc_num" else "TB Incidence Rate (per 100,000)",
+                year=year
+            )
+            st.plotly_chart(chart, use_container_width=True)
+            
+        elif viz_type_inc == "Regional Trend":
+            chart = burden_visualizer.create_regional_trend_chart(
+                indicator=inc_indicator,
+                indicator_name="TB Incidence (Total Cases)" if inc_indicator == "e_inc_num" else "TB Incidence Rate (per 100,000)"
+            )
+            st.plotly_chart(chart, use_container_width=True)
+            st.info("✓ Confidence intervals shown as shaded band")
+            
+        else:  # Country Trend
+            countries = burden_analytics.burden_afro['country_clean'].unique()
+            country = st.selectbox("Select Country", sorted(countries), key="inc_country")
+            chart = burden_visualizer.create_trend_chart(
+                country=country,
+                indicator=inc_indicator,
+                indicator_name="TB Incidence"
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+                st.info("✓ Confidence intervals shown as shaded band")
+    
+    with tab2:
+        st.markdown("#### TB Mortality Indicators")
+        
+        mort_indicator = st.selectbox(
+            "Select Mortality Indicator",
+            ["e_mort_num", "e_mort_100k"],
+            format_func=lambda x: {
+                "e_mort_num": "TB Mortality (Total Deaths)",
+                "e_mort_100k": "TB Mortality Rate (per 100,000)"
+            }[x],
+            key="mort_indicator"
+        )
+        
+        viz_type_mort = st.radio("Visualization Type", ["Country Comparison", "Regional Trend", "Country Trend"], horizontal=True, key="viz_mort")
+        
+        if viz_type_mort == "Country Comparison":
+            year = st.slider("Select Year", 2000, 2024, 2024, key="mort_year")
+            chart = burden_visualizer.create_burden_comparison_chart(
+                indicator=mort_indicator,
+                indicator_name="TB Mortality (Total Deaths)" if mort_indicator == "e_mort_num" else "TB Mortality Rate (per 100,000)",
+                year=year
+            )
+            st.plotly_chart(chart, use_container_width=True)
+            
+        elif viz_type_mort == "Regional Trend":
+            chart = burden_visualizer.create_regional_trend_chart(
+                indicator=mort_indicator,
+                indicator_name="TB Mortality (Total Deaths)" if mort_indicator == "e_mort_num" else "TB Mortality Rate (per 100,000)"
+            )
+            st.plotly_chart(chart, use_container_width=True)
+            st.info("✓ Confidence intervals shown as shaded band")
+            
+        else:  # Country Trend
+            countries = burden_analytics.burden_afro['country_clean'].unique()
+            country = st.selectbox("Select Country", sorted(countries), key="mort_country")
+            chart = burden_visualizer.create_trend_chart(
+                country=country,
+                indicator=mort_indicator,
+                indicator_name="TB Mortality"
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+                st.info("✓ Confidence intervals shown as shaded band")
+    
+    with tab3:
+        st.markdown("#### TB/HIV Indicators")
+        
+        tbhiv_indicator = st.selectbox(
+            "Select TB/HIV Indicator",
+            ["e_inc_tbhiv_num", "e_mort_tbhiv_num"],
+            format_func=lambda x: {
+                "e_inc_tbhiv_num": "TB/HIV Incidence (Total Cases)",
+                "e_mort_tbhiv_num": "TB/HIV Mortality (Total Deaths)"
+            }[x],
+            key="tbhiv_indicator"
+        )
+        
+        viz_type_tbhiv = st.radio("Visualization Type", ["Country Comparison", "Regional Trend", "Country Trend"], horizontal=True, key="viz_tbhiv")
+        
+        if viz_type_tbhiv == "Country Comparison":
+            year = st.slider("Select Year", 2000, 2024, 2024, key="tbhiv_year")
+            chart = burden_visualizer.create_burden_comparison_chart(
+                indicator=tbhiv_indicator,
+                indicator_name="TB/HIV Incidence" if tbhiv_indicator == "e_inc_tbhiv_num" else "TB/HIV Mortality",
+                year=year
+            )
+            st.plotly_chart(chart, use_container_width=True)
+            
+        elif viz_type_tbhiv == "Regional Trend":
+            chart = burden_visualizer.create_regional_trend_chart(
+                indicator=tbhiv_indicator,
+                indicator_name="TB/HIV Incidence" if tbhiv_indicator == "e_inc_tbhiv_num" else "TB/HIV Mortality"
+            )
+            st.plotly_chart(chart, use_container_width=True)
+            st.info("✓ Confidence intervals shown as shaded band")
+            
+        else:  # Country Trend
+            countries = burden_analytics.burden_afro['country_clean'].unique()
+            country = st.selectbox("Select Country", sorted(countries), key="tbhiv_country")
+            chart = burden_visualizer.create_trend_chart(
+                country=country,
+                indicator=tbhiv_indicator,
+                indicator_name="TB/HIV"
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+                st.info("✓ Confidence intervals shown as shaded band")
+    
+    with tab4:
+        st.markdown("#### Case Detection Rate")
+        st.info("📊 Case Detection Rate = Percentage of estimated incident TB cases that are detected and notified")
+        
+        viz_type_cdr = st.radio("Visualization Type", ["Country Comparison", "Regional Trend"], horizontal=True, key="viz_cdr")
+        
+        if viz_type_cdr == "Country Comparison":
+            year = st.slider("Select Year", 2000, 2024, 2024, key="cdr_year")
+            
+            # Get CDR data for all countries for selected year
+            data_year = burden_analytics.burden_afro[burden_analytics.burden_afro['year'] == year].copy()
+            data_year = data_year.sort_values('c_cdr', ascending=False)
+            
+            fig = px.bar(
+                data_year,
+                x='c_cdr',
+                y='country_clean',
+                orientation='h',
+                title=f'Case Detection Rate by Country ({year})',
+                labels={'c_cdr': 'Case Detection Rate (%)', 'country_clean': 'Country'},
+                color='c_cdr',
+                color_continuous_scale='RdYlGn',
+                height=800
+            )
+            fig.update_layout(yaxis={'categoryorder': 'total ascending'})
+            st.plotly_chart(fig, use_container_width=True)
+            
+        else:  # Regional Trend
+            # Calculate regional average CDR over time
+            cdr_trend = burden_analytics.burden_afro.groupby('year').agg({
+                'c_cdr': 'mean',
+                'c_cdr_hi': 'mean',
+                'c_cdr_lo': 'mean'
+            }).reset_index()
+            
+            fig = go.Figure()
+            
+            # Add upper bound
+            fig.add_trace(go.Scatter(
+                x=cdr_trend['year'],
+                y=cdr_trend['c_cdr_hi'],
+                mode='lines',
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+            
+            # Add main line
+            fig.add_trace(go.Scatter(
+                x=cdr_trend['year'],
+                y=cdr_trend['c_cdr'],
+                mode='lines+markers',
+                name='CDR Estimate',
+                line=dict(width=3, color='#28a745'),
+                marker=dict(size=8),
+                hovertemplate='<b>Year %{x}</b><br>CDR: %{y:.1f}%<br><extra></extra>'
+            ))
+            
+            # Add lower bound with fill
+            fig.add_trace(go.Scatter(
+                x=cdr_trend['year'],
+                y=cdr_trend['c_cdr_lo'],
+                mode='lines',
+                line=dict(width=0),
+                fill='tonexty',
+                fillcolor='rgba(40, 167, 69, 0.2)',
+                name='95% CI',
+                hoverinfo='skip'
+            ))
+            
+            fig.update_layout(
+                title='Regional Case Detection Rate Trend (AFRO) [with 95% CI]',
+                xaxis_title='Year',
+                yaxis_title='Case Detection Rate (%)',
+                height=500,
+                template='plotly_white',
+                hovermode='x unified'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+            st.info("✓ Confidence intervals shown as shaded band")
+
+
 def render_visualizer_page():
     """Render the interactive visualizer page"""
     # Get current health topic and language
@@ -3118,12 +3333,16 @@ def render_visualizer_page():
         
         # Filter visualizer options based on selected subcategory
         if viz_category == 'TB Burden' and hasattr(st.session_state, 'tb_burden_analytics'):
-            # Use TB Burden visualizer
+            # Use TB Burden visualizer - special handling
             from tb_burden_chart_generator import TBBurdenChartGenerator
-            visualizer = TBBurdenChartGenerator(st.session_state.tb_burden_analytics)
-            analytics = st.session_state.tb_burden_analytics
+            burden_visualizer = TBBurdenChartGenerator(st.session_state.tb_burden_analytics)
+            burden_analytics = st.session_state.tb_burden_analytics
+            
+            # Special TB Burden exploration interface
+            render_tb_burden_explorer(burden_visualizer, burden_analytics, current_lang)
+            return  # Exit early for TB Burden
     
-    # Control Panel
+    # Control Panel (for non-TB Burden visualizations)
     with st.expander("⚙️ Chart Controls", expanded=True):
         col1, col2 = st.columns(2)
         
