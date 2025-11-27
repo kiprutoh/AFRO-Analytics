@@ -1268,7 +1268,7 @@ def render_home_page():
 
 
 def render_tb_dashboard(analytics, pipeline):
-    """Render specialized TB dashboard with interactive analytics for notifications"""
+    """Render specialized TB dashboard with sub-category selection"""
     try:
         import plotly.graph_objects as go
         import plotly.express as px
@@ -1279,15 +1279,90 @@ def render_tb_dashboard(analytics, pipeline):
     # Get current language for translations
     current_lang = st.session_state.get("selected_language", "English")
     
-    st.markdown(f'<h2 class="section-header">{get_translation("tb_notifications", current_lang)} Analytics Dashboard</h2>', unsafe_allow_html=True)
+    # Main header
+    st.markdown(f'<h2 class="section-header">Tuberculosis Analytics Dashboard</h2>', unsafe_allow_html=True)
+    
+    # Sub-category selector at the top
     st.markdown("""
-    <div class="info-box" style="margin-bottom: 2rem;">
+    <div class="info-box" style="margin-bottom: 1rem;">
         <p style="margin: 0; font-size: 0.95rem;">
-            <strong>Focus:</strong> TB Case Notifications and Treatment Outcomes for WHO AFRO Region (47 countries)
-            <br>Data based on Global Tuberculosis Report 2024 indicators
+            <strong>Select TB Data Category:</strong> Choose which aspect of TB data you want to analyze
         </p>
     </div>
     """, unsafe_allow_html=True)
+    
+    # Initialize session state for TB subcategory if not exists
+    if 'tb_subcategory' not in st.session_state:
+        st.session_state.tb_subcategory = 'TB Burden'
+    
+    # Sub-category selection buttons
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("📉 TB Burden Estimates", 
+                     use_container_width=True, 
+                     type="primary" if st.session_state.tb_subcategory == 'TB Burden' else "secondary",
+                     key="tb_burden_btn"):
+            st.session_state.tb_subcategory = 'TB Burden'
+            st.rerun()
+    
+    with col2:
+        if st.button("📊 TB Notifications", 
+                     use_container_width=True, 
+                     type="primary" if st.session_state.tb_subcategory == 'TB Notifications' else "secondary",
+                     key="tb_notif_btn"):
+            st.session_state.tb_subcategory = 'TB Notifications'
+            st.rerun()
+    
+    with col3:
+        if st.button("✅ TB Outcomes", 
+                     use_container_width=True, 
+                     type="primary" if st.session_state.tb_subcategory == 'TB Outcomes' else "secondary",
+                     key="tb_outcomes_btn"):
+            st.session_state.tb_subcategory = 'TB Outcomes'
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Render the selected sub-category
+    selected_subcategory = st.session_state.tb_subcategory
+    
+    # ==================================================================================
+    # TB BURDEN SECTION (DEFAULT/FIRST)
+    # ==================================================================================
+    if selected_subcategory == 'TB Burden':
+        render_tb_burden_section(current_lang)
+        return
+    
+    # ==================================================================================
+    # TB NOTIFICATIONS SECTION
+    # ==================================================================================
+    elif selected_subcategory == 'TB Notifications':
+        st.markdown(f'<h3 class="section-header">{get_translation("tb_notifications", current_lang)} Analytics</h3>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="info-box" style="margin-bottom: 2rem;">
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>Focus:</strong> TB Case Notifications for WHO AFRO Region (47 countries)
+                <br>Data based on Global Tuberculosis Report 2024 indicators
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        render_tb_notifications_section(analytics, pipeline, current_lang)
+        return
+    
+    # ==================================================================================
+    # TB OUTCOMES SECTION
+    # ==================================================================================
+    elif selected_subcategory == 'TB Outcomes':
+        render_tb_outcomes_section(analytics, pipeline, current_lang)
+        return
+
+
+def render_tb_notifications_section(analytics, pipeline, current_lang):
+    """Render TB Notifications section"""
+    import plotly.express as px
+    import plotly.graph_objects as go
     
     summary = analytics.get_regional_summary()
     
@@ -1682,16 +1757,17 @@ def render_tb_dashboard(analytics, pipeline):
                 st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
             st.warning(f"Could not generate bottom countries: {str(e)}")
-    
-    # ==================================================================================
-    # TB BURDEN ESTIMATES SECTION - Integrated into TB Dashboard
-    # ==================================================================================
-    
-    st.markdown("---")
+
+
+def render_tb_burden_section(current_lang):
+    """Render TB Burden Estimates section"""
+    st.markdown(f'<h3 class="section-header">📉 TB Burden Estimates</h3>', unsafe_allow_html=True)
     st.markdown("""
-    <div class="dashboard-card" style="margin-top: 3rem;">
-        <h2 style="color: #8B4513; margin-bottom: 1rem; font-size: 2rem;">📉 TB Burden Estimates</h2>
-        <p style="color: #666; font-size: 0.95rem;">WHO Global TB Programme burden estimates for AFRO Region</p>
+    <div class="info-box" style="margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Focus:</strong> TB Burden Estimates including incidence, TB/HIV, mortality with confidence intervals
+            <br><strong>Data Source:</strong> WHO Global TB Programme | <strong>Coverage:</strong> 47 AFRO countries | <strong>Years:</strong> 2000-2024
+        </p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1935,6 +2011,169 @@ def render_tb_dashboard(analytics, pipeline):
         
         To load TB Burden data, you can re-initialize the system from the sidebar.
         """)
+
+
+def render_tb_outcomes_section(analytics, pipeline, current_lang):
+    """Render TB Treatment Outcomes section"""
+    import plotly.express as px
+    import plotly.graph_objects as go
+    
+    st.markdown(f'<h3 class="section-header">✅ TB Treatment Outcomes</h3>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Focus:</strong> TB Treatment Outcomes and Success Rates for WHO AFRO Region (47 countries)
+            <br>Data includes treatment success, failure, death, and lost to follow-up rates
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Get outcomes data
+    summary = analytics.get_regional_summary()
+    countries = analytics.get_country_list()
+    
+    # Regional Overview Cards for Outcomes
+    st.markdown(f"""
+    <div class="dashboard-card">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Treatment Outcomes Overview</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Get treatment outcomes indicators
+    outcomes_indicators = [ind for ind in summary.get('indicators', {}).keys() if 'outcome' in ind.lower() or 'success' in ind.lower() or 'cured' in ind.lower()]
+    
+    if outcomes_indicators:
+        cols = st.columns(min(4, len(outcomes_indicators)))
+        for idx, indicator_name in enumerate(outcomes_indicators[:4]):
+            with cols[idx]:
+                data = summary['indicators'][indicator_name]
+                median_val = data.get('median_value', 0)
+                
+                st.markdown(f"""
+                <div class="stat-card">
+                    <div class="stat-value">{median_val:.1f}%</div>
+                    <div class="stat-label">{indicator_name.replace('_', ' ').title()}</div>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Treatment Success Rate by Country
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Treatment Success Rates by Country</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Find treatment success indicator
+    success_indicators = [ind for ind in summary.get('indicators', {}).keys() if 'success' in ind.lower()]
+    
+    if success_indicators and countries:
+        try:
+            from tb_chart_generator import TBChartGenerator
+            chart_gen = TBChartGenerator(analytics)
+            
+            # Create treatment success chart for top countries
+            success_chart = chart_gen.create_treatment_success_chart()
+            if success_chart:
+                st.plotly_chart(success_chart, use_container_width=True)
+            else:
+                st.info("Treatment success chart not available")
+        except Exception as e:
+            st.warning(f"Could not generate treatment success chart: {str(e)}")
+    
+    # Outcomes Breakdown - Interactive Selector
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Treatment Outcomes Breakdown</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        selected_country_outcomes = st.selectbox(
+            "Select Country",
+            countries,
+            index=0 if countries else None,
+            key="outcomes_country"
+        )
+    
+    if selected_country_outcomes:
+        try:
+            from tb_chart_generator import TBChartGenerator
+            chart_gen = TBChartGenerator(analytics)
+            
+            # Create outcomes breakdown chart
+            outcomes_chart = chart_gen.create_outcomes_breakdown_chart(selected_country_outcomes)
+            if outcomes_chart:
+                st.plotly_chart(outcomes_chart, use_container_width=True)
+                st.info("""
+                **Treatment Outcome Categories:**
+                - **Cured**: Completed treatment with negative bacteriology
+                - **Completed**: Completed treatment without bacteriology confirmation
+                - **Failed**: Treatment failure (remained positive)
+                - **Died**: Died during treatment
+                - **Lost**: Lost to follow-up
+                - **Not Evaluated**: Outcome not assessed
+                """)
+            else:
+                st.info(f"No treatment outcomes data available for {selected_country_outcomes}")
+        except Exception as e:
+            st.warning(f"Could not generate outcomes breakdown: {str(e)}")
+    
+    # Top and Bottom Performers
+    st.markdown("""
+    <div class="dashboard-card" style="margin-top: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Treatment Success Performance</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### Top 10 Performers")
+        if success_indicators:
+            try:
+                top_performers = analytics.get_top_countries(success_indicators[0], n=10, ascending=False)
+                if 'error' not in top_performers and top_performers.get('countries'):
+                    df_top = pd.DataFrame(top_performers['countries'])
+                    
+                    fig = px.bar(
+                        df_top,
+                        x='value',
+                        y='country',
+                        orientation='h',
+                        title='Highest Treatment Success Rates',
+                        labels={'value': 'Success Rate (%)', 'country': 'Country'},
+                        color='value',
+                        color_continuous_scale='Greens'
+                    )
+                    fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+                    st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.warning(f"Could not generate top performers chart: {str(e)}")
+    
+    with col2:
+        st.markdown("#### Countries Needing Support")
+        if success_indicators:
+            try:
+                bottom_performers = analytics.get_top_countries(success_indicators[0], n=10, ascending=True)
+                if 'error' not in bottom_performers and bottom_performers.get('countries'):
+                    df_bottom = pd.DataFrame(bottom_performers['countries'])
+                    
+                    fig = px.bar(
+                        df_bottom,
+                        x='value',
+                        y='country',
+                        orientation='h',
+                        title='Lowest Treatment Success Rates',
+                        labels={'value': 'Success Rate (%)', 'country': 'Country'},
+                        color='value',
+                        color_continuous_scale='Reds_r'
+                    )
+                    fig.update_layout(height=400, yaxis={'categoryorder': 'total descending'})
+                    st.plotly_chart(fig, use_container_width=True)
+            except Exception as e:
+                st.warning(f"Could not generate bottom performers chart: {str(e)}")
 
 
 def render_dashboard_page():
@@ -2483,6 +2722,82 @@ def render_reports_page():
     st.markdown(f"### {get_translation('generate_llm_report', current_lang)}")
     st.info(f"💡 {get_translation('reports_info', current_lang)}")
     
+    # ==================================================================================
+    # TB SUBCATEGORY AND INDICATOR SELECTION (for Tuberculosis reports)
+    # ==================================================================================
+    
+    tb_subcategory = None
+    selected_indicators_list = []
+    
+    if health_topic == "Tuberculosis":
+        st.markdown("---")
+        st.markdown("### 📊 Select TB Data Category and Indicators")
+        
+        col1, col2 = st.columns([1, 1])
+        
+        with col1:
+            tb_subcategory = st.selectbox(
+                "Select TB Data Category",
+                ["All TB Data", "TB Burden", "TB Notifications", "TB Outcomes"],
+                index=0,
+                key="report_tb_subcategory",
+                help="Choose which aspect of TB data to include in the report"
+            )
+        
+        with col2:
+            # Get available indicators based on subcategory
+            if tb_subcategory == "TB Burden" and hasattr(st.session_state, 'tb_burden_analytics'):
+                available_indicators_tb = [
+                    "e_inc_num (TB Incidence Cases)",
+                    "e_inc_100k (TB Incidence Rate per 100k)",
+                    "e_mort_num (TB Mortality Cases)",
+                    "e_mort_100k (TB Mortality Rate per 100k)",
+                    "e_inc_tbhiv_num (TB/HIV Cases)",
+                    "e_mort_tbhiv_num (TB/HIV Mortality)"
+                ]
+            elif tb_subcategory == "TB Notifications":
+                summary = analytics.get_regional_summary()
+                indicators = summary.get('indicators', {})
+                notif_indicators = [ind for ind in indicators.keys() if 'outcome' not in ind.lower() and 'success' not in ind.lower()]
+                available_indicators_tb = notif_indicators[:10]  # Limit to 10
+            elif tb_subcategory == "TB Outcomes":
+                summary = analytics.get_regional_summary()
+                indicators = summary.get('indicators', {})
+                outcome_indicators = [ind for ind in indicators.keys() if 'outcome' in ind.lower() or 'success' in ind.lower() or 'cured' in ind.lower()]
+                available_indicators_tb = outcome_indicators
+            else:  # All TB Data
+                available_indicators_tb = ["All available indicators"]
+            
+            if available_indicators_tb:
+                indicator_selection_mode = st.radio(
+                    "Indicator Selection",
+                    ["All Indicators", "Select Specific Indicators"],
+                    key="indicator_mode",
+                    horizontal=True
+                )
+                
+                if indicator_selection_mode == "Select Specific Indicators" and available_indicators_tb != ["All available indicators"]:
+                    selected_indicators_list = st.multiselect(
+                        "Choose Indicators",
+                        available_indicators_tb,
+                        default=available_indicators_tb[:3] if len(available_indicators_tb) >= 3 else available_indicators_tb,
+                        key="selected_indicators_report",
+                        help="Select which indicators to include in the report"
+                    )
+                else:
+                    selected_indicators_list = available_indicators_tb
+        
+        # Show selection summary
+        if tb_subcategory and selected_indicators_list:
+            st.info(f"""
+            **Report Configuration:**
+            - Category: {tb_subcategory}
+            - Indicators: {len(selected_indicators_list)} selected
+            - The report will focus on {tb_subcategory} data for the selected country/region
+            """)
+        
+        st.markdown("---")
+    
     # API Key configuration (load from environment variable or Streamlit secrets)
     if "openrouter_api_key" not in st.session_state:
         api_key = None
@@ -2716,6 +3031,62 @@ def render_visualizer_page():
     
     # Display topic-specific description
     st.markdown(get_topic_content(health_topic, "visualizer_desc", current_lang))
+    
+    # ==================================================================================
+    # TB SUBCATEGORY SELECTION (for Tuberculosis visualizations)
+    # ==================================================================================
+    
+    if health_topic == "Tuberculosis":
+        st.markdown("---")
+        st.markdown("### 📊 Select TB Data Category")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if st.button("📉 TB Burden", 
+                         use_container_width=True,
+                         type="primary" if st.session_state.get('viz_tb_subcategory') == 'TB Burden' else "secondary",
+                         key="viz_tb_burden"):
+                st.session_state.viz_tb_subcategory = 'TB Burden'
+                st.rerun()
+        
+        with col2:
+            if st.button("📊 TB Notifications", 
+                         use_container_width=True,
+                         type="primary" if st.session_state.get('viz_tb_subcategory') == 'TB Notifications' else "secondary",
+                         key="viz_tb_notif"):
+                st.session_state.viz_tb_subcategory = 'TB Notifications'
+                st.rerun()
+        
+        with col3:
+            if st.button("✅ TB Outcomes", 
+                         use_container_width=True,
+                         type="primary" if st.session_state.get('viz_tb_subcategory') == 'TB Outcomes' else "secondary",
+                         key="viz_tb_outcomes"):
+                st.session_state.viz_tb_subcategory = 'TB Outcomes'
+                st.rerun()
+        
+        # Initialize if not set
+        if 'viz_tb_subcategory' not in st.session_state:
+            st.session_state.viz_tb_subcategory = 'TB Burden'
+        
+        # Show selected category info
+        viz_category = st.session_state.viz_tb_subcategory
+        category_descriptions = {
+            'TB Burden': 'WHO burden estimates including incidence, mortality, and TB/HIV data',
+            'TB Notifications': 'Reported TB cases by country, type, and demographics',
+            'TB Outcomes': 'Treatment success rates, outcomes, and performance metrics'
+        }
+        
+        st.info(f"**{viz_category}**: {category_descriptions[viz_category]}")
+        st.markdown("---")
+        
+        # Filter visualizer options based on selected subcategory
+        if viz_category == 'TB Burden' and hasattr(st.session_state, 'tb_burden_analytics'):
+            # Use TB Burden visualizer
+            from tb_burden_chart_generator import TBBurdenChartGenerator
+            visualizer = TBBurdenChartGenerator(st.session_state.tb_burden_analytics)
+            analytics = st.session_state.tb_burden_analytics
     
     # Control Panel
     with st.expander("⚙️ Chart Controls", expanded=True):
