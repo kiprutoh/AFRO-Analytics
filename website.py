@@ -1781,61 +1781,9 @@ def render_reports_page():
         help="Describe what specific aspects you want the report to cover. The AI will tailor the report accordingly."
     )
     
-    # Report language selector - Top Right Corner (very small, next to main language selector)
-    language_flags = {
-        "English": "🇬🇧",
-        "French": "🇫🇷",
-        "Portuguese": "🇵🇹",
-        "Spanish": "🇪🇸"
-    }
-    lang_options = list(language_flags.keys())
-    current_lang_index = lang_options.index(selected_language) if selected_language in lang_options else 0
-    
-    # Position report language selector in top right (next to main language selector)
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col3:
-        report_language = st.selectbox(
-            "",
-            options=lang_options,
-            index=current_lang_index,
-            format_func=lambda x: language_flags[x],
-            key="report_language_selector",
-            label_visibility="collapsed"
-        )
-        
-        # Update session state if changed
-        if report_language != selected_language:
-            st.session_state.selected_language = report_language
-            selected_language = report_language
-    
-    # Add CSS to position report language selector absolutely at top right (next to main selector)
-    st.markdown("""
-    <style>
-    div[data-testid="stSelectbox"]:has(select[id*="report_language_selector"]) {
-        position: fixed !important;
-        top: 5px !important;
-        right: 50px !important;
-        z-index: 9998 !important;
-        width: 35px !important;
-        font-size: 0.5rem !important;
-        line-height: 0.5 !important;
-        height: 0.5rem !important;
-    }
-    div[data-testid="stSelectbox"]:has(select[id*="report_language_selector"]) > div > div {
-        font-size: 0.5rem !important;
-        padding: 0px 2px !important;
-        line-height: 0.5 !important;
-        min-height: 0.5rem !important;
-        height: 0.5rem !important;
-    }
-    div[data-testid="stSelectbox"]:has(select[id*="report_language_selector"]) select {
-        font-size: 0.5rem !important;
-        padding: 0px !important;
-        height: 0.5rem !important;
-        line-height: 0.5 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    # Report language selector syncs with main language selector
+    # No need for separate selector - use the main one from session state
+    report_language = selected_language
     
     col1, col2, col3 = st.columns([2, 1, 1])
     
@@ -2314,25 +2262,18 @@ def main():
         - [SDG Targets](https://www.who.int/sdg/targets/en/)
         """)
     
-    # Language Selector - Top Right Corner (small with caption)
+    # Language Selector - Top Right Corner (small with abbreviations)
     # Initialize language in session state if not exists
     if "selected_language" not in st.session_state:
         st.session_state.selected_language = "English"
     
     current_lang = st.session_state.selected_language
     languages = {
-        "English": ("🇬🇧", "English"),
-        "French": ("🇫🇷", "Français"),
-        "Portuguese": ("🇵🇹", "Português"),
-        "Spanish": ("🇪🇸", "Español")
+        "English": "ENG",
+        "French": "FR",
+        "Portuguese": "PT",
+        "Spanish": "ES"
     }
-    
-    # Create language selector in top right corner with caption - very small
-    st.markdown(f"""
-    <div style="position: fixed; top: 5px; right: 10px; z-index: 9999; background: white; padding: 2px 5px; border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border: 1px solid rgba(0,102,204,0.2);">
-        <div style="font-size: 0.45rem; color: #666; margin-bottom: 1px; text-align: center; line-height: 0.5;">{get_translation("select_language", current_lang)}</div>
-    </div>
-    """, unsafe_allow_html=True)
     
     # Use columns to position dropdown
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -2344,7 +2285,7 @@ def main():
             "",
             options=lang_options,
             index=current_index,
-            format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
+            format_func=lambda x: languages[x],
             key="language_selector_dropdown",
             label_visibility="collapsed"
         )
@@ -2359,30 +2300,45 @@ def main():
     <style>
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) {
         position: fixed !important;
-        top: 20px !important;
-        right: 10px !important;
+        top: 8px !important;
+        right: 8px !important;
         z-index: 9999 !important;
-        width: auto !important;
-        min-width: 80px !important;
-        max-width: 120px !important;
-        font-size: 0.5rem !important;
+        width: fit-content !important;
+        min-width: auto !important;
+        max-width: fit-content !important;
+        font-size: 0.65rem !important;
+        background: white !important;
+        padding: 2px !important;
+        border-radius: 4px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div {
-        width: auto !important;
+        width: fit-content !important;
+        min-width: auto !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > div > div {
-        font-size: 0.5rem !important;
-        padding: 1px 3px !important;
-        min-height: 0.9rem !important;
+        font-size: 0.65rem !important;
+        padding: 2px 6px !important;
+        min-height: auto !important;
+        height: auto !important;
         white-space: nowrap !important;
-        width: auto !important;
+        width: fit-content !important;
+        min-width: auto !important;
+        line-height: 1.2 !important;
+        font-weight: 600 !important;
+        color: #0066CC !important;
     }
     div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) select {
-        font-size: 0.5rem !important;
-        padding: 1px 3px !important;
-        width: auto !important;
-        min-width: 80px !important;
-        height: 0.9rem !important;
+        font-size: 0.65rem !important;
+        padding: 2px 4px !important;
+        width: fit-content !important;
+        min-width: auto !important;
+        height: auto !important;
+        font-weight: 600 !important;
+    }
+    /* Remove any extra spacing */
+    div[data-testid="stSelectbox"]:has(select[id*="language_selector_dropdown"]) > label {
+        display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
