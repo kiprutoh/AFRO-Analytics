@@ -348,4 +348,251 @@ class TBNotifOutcomesChartGenerator:
         )
         
         return fig
+    
+    # ==================== TREATMENT OUTCOMES CHARTS ====================
+    
+    def create_outcomes_bar_chart(self, indicator: str = 'c_new_tsr',
+                                  indicator_name: str = 'Treatment Success Rate',
+                                  n: int = 10, year: Optional[int] = None,
+                                  high: bool = True) -> go.Figure:
+        """
+        Create bar chart for top performing countries (treatment success rates)
+        
+        Args:
+            indicator: TSR indicator
+            indicator_name: Display name
+            n: Number of countries
+            year: Specific year (default: latest)
+            high: If True, show highest; if False, show lowest
+            
+        Returns:
+            Plotly figure
+        """
+        if year is None:
+            year = int(self.analytics.outcomes_afro['year'].max())
+        
+        # Get top countries
+        top_countries = self.analytics.get_top_performing_countries(
+            indicator=indicator,
+            n=n,
+            year=year,
+            ascending=not high
+        )
+        
+        if top_countries.empty:
+            return None
+        
+        # Create chart
+        title_prefix = f"Top {n} Highest" if high else f"Top {n} Lowest"
+        color_scale = 'Greens' if high else 'Reds'
+        
+        # Color based on WHO target (85%)
+        colors = []
+        for val in top_countries[indicator]:
+            if val >= 85:
+                colors.append('#27ae60')  # Green - above target
+            elif val >= 75:
+                colors.append('#f39c12')  # Orange - close to target
+            else:
+                colors.append('#e74c3c')  # Red - below target
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            y=top_countries['country_clean'],
+            x=top_countries[indicator],
+            orientation='h',
+            marker=dict(color=colors),
+            text=top_countries[indicator].apply(lambda x: f'{x:.1f}%'),
+            textposition='auto',
+            hovertemplate='<b>%{y}</b><br>' +
+                         f'{indicator_name}: %{{x:.1f}}%<br>' +
+                         '<extra></extra>'
+        ))
+        
+        # Add WHO target line
+        fig.add_vline(x=85, line_dash="dash", line_color="gray",
+                     annotation_text="WHO Target: 85%",
+                     annotation_position="top")
+        
+        fig.update_layout(
+            title=f'{title_prefix} Performing Countries - {indicator_name} ({year})',
+            xaxis_title=f'{indicator_name} (%)',
+            yaxis_title='',
+            height=500,
+            template='plotly_white',
+            showlegend=False,
+            yaxis={'categoryorder': 'total ascending' if not high else 'total descending'}
+        )
+        
+        return fig
+    
+    def create_outcomes_breakdown_chart(self, country: str, year: Optional[int] = None,
+                                       category: str = 'newrel') -> go.Figure:
+        """
+        Create pie chart for treatment outcomes breakdown
+        
+        Args:
+            country: Country name
+            year: Specific year (default: latest)
+            category: Outcome category
+            
+        Returns:
+            Plotly figure
+        """
+        if year is None:
+            year = int(self.analytics.outcomes_afro['year'].max())
+        
+        outcomes = self.analytics.get_outcomes_breakdown(country, year, category)
+        
+        if 'error' in outcomes:
+            return None
+        
+        # Prepare data
+        labels = ['Treatment Success', 'Failed', 'Died', 'Lost to Follow-up']
+        values = [outcomes['success'], outcomes['failed'], outcomes['died'], outcomes['lost']]
+        colors = ['#27ae60', '#e74c3c', '#34495e', '#f39c12']
+        
+        fig = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.4,
+            marker=dict(colors=colors),
+            textinfo='label+percent',
+            hovertemplate='<b>%{label}</b><br>Cases: %{value:,.0f}<br>Percent: %{percent}<extra></extra>'
+        )])
+        
+        category_names = {
+            'newrel': 'New and Relapse TB',
+            'ret_nrel': 'Retreatment TB',
+            'tbhiv': 'TB/HIV'
+        }
+        
+        fig.update_layout(
+            title=f'Treatment Outcomes - {country} ({year})<br>{category_names.get(category, category)}',
+            height=450,
+            template='plotly_white',
+            annotations=[dict(text=f'Cohort:<br>{outcomes["cohort"]:,.0f}', x=0.5, y=0.5, font_size=14, showarrow=False)]
+        )
+        
+        return fig
+    
+    def create_tsr_trend_chart(self, indicator: str = 'c_new_tsr',
+                               indicator_name: str = 'Treatment Success Rate') -> go.Figure:
+        """
+        Create regional TSR trend chart
+        
+        Args:
+            indicator: TSR indicator
+            indicator_name: Display name
+            
+        Returns:
+            Plotly figure
+        """
+        trend_data = self.analytics.get_outcomes_regional_trend(indicator=indicator)
+        
+        if trend_data.empty:
+            return None
+        
+        fig = go.Figure()
+        
+        # Add shaded area for uncertainty
+        fig.add_trace(go.Scatter(
+            x=trend_data['year'],
+            y=trend_data['mean_tsr'] + trend_data['std_tsr'],
+            mode='lines',
+            line=dict(width=0),
+            showlegend=False,
+            hoverinfo='skip'
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=trend_data['year'],
+            y=trend_data['mean_tsr'] - trend_data['std_tsr'],
+            mode='lines',
+            line=dict(width=0),
+            fill='tonexty',
+            fillcolor='rgba(46, 204, 113, 0.2)',
+            name='±1 Std Dev',
+            hoverinfo='skip'
+        ))
+        
+        # Add mean line
+        fig.add_trace(go.Scatter(
+            x=trend_data['year'],
+            y=trend_data['mean_tsr'],
+            mode='lines+markers',
+            name='Regional Mean',
+            line=dict(width=3, color='#27ae60'),
+            marker=dict(size=8),
+            hovertemplate='<b>Year %{x}</b><br>Mean TSR: %{y:.1f}%<br><extra></extra>'
+        ))
+        
+        # Add WHO target line
+        fig.add_hline(y=85, line_dash="dash", line_color="gray",
+                     annotation_text="WHO Target: 85%",
+                     annotation_position="right")
+        
+        fig.update_layout(
+            title=f'Regional Trend - {indicator_name} (AFRO)',
+            xaxis_title='Year',
+            yaxis_title=f'{indicator_name} (%)',
+            height=500,
+            template='plotly_white',
+            hovermode='x unified',
+            yaxis=dict(range=[0, 100])
+        )
+        
+        return fig
+    
+    def create_outcomes_equity_chart(self, indicator: str = 'c_new_tsr',
+                                    indicator_name: str = 'Treatment Success Rate',
+                                    year: Optional[int] = None) -> go.Figure:
+        """
+        Create box plot for TSR equity analysis
+        
+        Args:
+            indicator: TSR indicator
+            indicator_name: Display name
+            year: Specific year (default: latest)
+            
+        Returns:
+            Plotly figure
+        """
+        if year is None:
+            year = int(self.analytics.outcomes_afro['year'].max())
+        
+        data_year = self.analytics.outcomes_afro[self.analytics.outcomes_afro['year'] == year].copy()
+        
+        if indicator not in data_year.columns:
+            return None
+        
+        # Filter valid values
+        data_filtered = data_year[data_year[indicator] > 0]
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Box(
+            y=data_filtered[indicator],
+            name=indicator_name,
+            marker_color='#27ae60',
+            boxmean='sd',
+            hovertemplate='TSR: %{y:.1f}%<extra></extra>'
+        ))
+        
+        # Add WHO target line
+        fig.add_hline(y=85, line_dash="dash", line_color="gray",
+                     annotation_text="WHO Target: 85%",
+                     annotation_position="right")
+        
+        fig.update_layout(
+            title=f'Distribution of {indicator_name} Across AFRO Countries ({year})',
+            yaxis_title=f'{indicator_name} (%)',
+            height=500,
+            template='plotly_white',
+            showlegend=False,
+            yaxis=dict(range=[0, 100])
+        )
+        
+        return fig
 

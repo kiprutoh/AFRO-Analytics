@@ -784,13 +784,14 @@ def initialize_system(indicator_type: str = "Maternal Mortality"):
                 
                 # Initialize TB Notifications/Outcomes analytics
                 notif_path = "TB_notifications_2025-11-27.csv"
+                outcomes_path = "TB_outcomes_2025-11-27.csv"
                 
                 try:
-                    if os.path.exists(notif_path) and os.path.exists(lookup_path):
+                    if os.path.exists(notif_path) and os.path.exists(outcomes_path) and os.path.exists(lookup_path):
                         from tb_notif_outcomes_analytics import TBNotificationsOutcomesAnalytics
                         from tb_notif_outcomes_charts import TBNotifOutcomesChartGenerator
                         
-                        tb_notif_analytics = TBNotificationsOutcomesAnalytics(notif_path, lookup_path)
+                        tb_notif_analytics = TBNotificationsOutcomesAnalytics(notif_path, outcomes_path, lookup_path)
                         tb_notif_analytics.load_data()
                         tb_notif_chart_gen = TBNotifOutcomesChartGenerator(tb_notif_analytics)
                         
@@ -798,11 +799,15 @@ def initialize_system(indicator_type: str = "Maternal Mortality"):
                         st.session_state.tb_notif_chart_gen = tb_notif_chart_gen
                         st.success("✓ TB Notifications/Outcomes data loaded successfully!")
                     else:
-                        st.warning(f"TB Notifications data file not found: {notif_path}")
+                        missing = []
+                        if not os.path.exists(notif_path): missing.append(notif_path)
+                        if not os.path.exists(outcomes_path): missing.append(outcomes_path)
+                        if not os.path.exists(lookup_path): missing.append(lookup_path)
+                        st.warning(f"TB data files not found: {', '.join(missing)}")
                         st.session_state.tb_notif_analytics = None
                         st.session_state.tb_notif_chart_gen = None
                 except Exception as e:
-                    st.error(f"TB Notifications initialization failed: {str(e)}")
+                    st.error(f"TB Notifications/Outcomes initialization failed: {str(e)}")
                     import traceback
                     st.code(traceback.format_exc())
                     st.session_state.tb_notif_analytics = None
@@ -1388,403 +1393,623 @@ def render_tb_dashboard(analytics, pipeline):
 
 
 def render_tb_notifications_section(analytics, pipeline, current_lang):
-    """Render TB Notifications section"""
+    """Render TB Notifications section with WHO-compliant indicators"""
     import plotly.express as px
     import plotly.graph_objects as go
     
-    summary = analytics.get_regional_summary()
+    # Check if we have the new TB notifications analytics
+    if not hasattr(st.session_state, 'tb_notif_analytics') or st.session_state.tb_notif_analytics is None:
+        st.warning("TB Notifications analytics not loaded. Please re-initialize the system.")
+        return
     
-    # Get current language for translations
-    current_lang = st.session_state.get("selected_language", "English")
+    notif_analytics = st.session_state.tb_notif_analytics
+    chart_gen = st.session_state.tb_notif_chart_gen
     
-    # Regional Overview Cards
+    # Get notifications summary
+    notif_summary = notif_analytics.get_notifications_summary()
+    
+    # Header
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>WHO Post-2012 Definitions:</strong> Lab confirmed, Clinically diagnosed, Extrapulmonary
+            <br><strong>Note:</strong> Smear positive/negative classifications discontinued after 2012
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Regional Overview Cards - WHO Compliant
     st.markdown(f"""
     <div class="dashboard-card">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("regional_overview", current_lang)} - WHO AFRO</h3>
+        <h3 style="color: #e74c3c; margin-bottom: 1.5rem; font-size: 1.5rem;">TB Notifications Overview - {notif_summary['year']}</h3>
     </div>
     """, unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
+        total = notif_summary['total_new_relapse']
+        range_text = ""
+        if f'total_new_relapse_min' in notif_summary and f'total_new_relapse_max' in notif_summary:
+            range_text = f"<p style='margin: 0.25rem 0; font-size: 0.9rem; color: #666;'>Range: {notif_summary['total_new_relapse_min']:,.0f} - {notif_summary['total_new_relapse_max']:,.0f}</p>"
+        
         st.markdown(f"""
-        <div class="stat-card">
-            <div class="stat-value">{summary['total_countries']}</div>
-            <div class="stat-label">{get_translation("countries", current_lang)}</div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+            <div class="stat-value" style="color: white;">{total:,.0f}</div>
+            <div class="stat-label" style="color: #ecf0f1;">Total New & Relapse TB</div>
+            {range_text}
         </div>
         """, unsafe_allow_html=True)
     
     with col2:
-        latest_year = summary.get('latest_year', 'N/A')
+        lab_conf = notif_summary['pulmonary_lab_confirmed']
+        range_text = ""
+        if f'pulmonary_lab_confirmed_min' in notif_summary and f'pulmonary_lab_confirmed_max' in notif_summary:
+            range_text = f"<p style='margin: 0.25rem 0; font-size: 0.9rem; color: #666;'>Range: {notif_summary['pulmonary_lab_confirmed_min']:,.0f} - {notif_summary['pulmonary_lab_confirmed_max']:,.0f}</p>"
+        
         st.markdown(f"""
-        <div class="stat-card">
-            <div class="stat-value">{latest_year}</div>
-            <div class="stat-label">{get_translation("latest_year", current_lang)}</div>
+        <div class="stat-card" style="background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);">
+            <div class="stat-value" style="color: white;">{lab_conf:,.0f}</div>
+            <div class="stat-label" style="color: #ecf0f1;">Pulmonary Lab Confirmed</div>
+            {range_text}
         </div>
         """, unsafe_allow_html=True)
     
     with col3:
-        if summary.get('regional_totals'):
-            total_notif = summary['regional_totals'].get('total_notifications', 0)
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-value">{total_notif:,.0f}</div>
-                <div class="stat-label">{get_translation("total_notifications", current_lang)}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        clin_diag = notif_summary['pulmonary_clin_diagnosed']
+        range_text = ""
+        if f'pulmonary_clin_diagnosed_min' in notif_summary and f'pulmonary_clin_diagnosed_max' in notif_summary:
+            range_text = f"<p style='margin: 0.25rem 0; font-size: 0.9rem; color: #666;'>Range: {notif_summary['pulmonary_clin_diagnosed_min']:,.0f} - {notif_summary['pulmonary_clin_diagnosed_max']:,.0f}</p>"
+        
+        st.markdown(f"""
+        <div class="stat-card" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">
+            <div class="stat-value" style="color: white;">{clin_diag:,.0f}</div>
+            <div class="stat-label" style="color: #ecf0f1;">Pulmonary Clinically Diagnosed</div>
+            {range_text}
+        </div>
+        """, unsafe_allow_html=True)
     
     with col4:
-        if summary.get('regional_totals'):
-            total_sp = summary['regional_totals'].get('total_smear_positive', 0)
-            st.markdown(f"""
-            <div class="stat-card">
-                <div class="stat-value">{total_sp:,.0f}</div>
-                <div class="stat-label">{get_translation("smear_positive", current_lang)}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        ep = notif_summary['extrapulmonary']
+        range_text = ""
+        if f'extrapulmonary_min' in notif_summary and f'extrapulmonary_max' in notif_summary:
+            range_text = f"<p style='margin: 0.25rem 0; font-size: 0.9rem; color: #666;'>Range: {notif_summary['extrapulmonary_min']:,.0f} - {notif_summary['extrapulmonary_max']:,.0f}</p>"
+        
+        st.markdown(f"""
+        <div class="stat-card" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);">
+            <div class="stat-value" style="color: white;">{ep:,.0f}</div>
+            <div class="stat-label" style="color: #ecf0f1;">Extrapulmonary TB</div>
+            {range_text}
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Key TB Indicators from Report 2024
-    # Get current language and health topic
-    current_lang = st.session_state.get("selected_language", "English")
-    health_topic = st.session_state.get("indicator_type", "Tuberculosis")
+    st.info("💡 **WHO Definitions:** All indicators follow WHO post-2012 case definitions for TB")
     
-    st.markdown(f"""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("key_indicators", current_lang)} ({get_translation("latest_year", current_lang)})</h3>
+    # Tabs for comprehensive notifications analysis
+    notif_tab1, notif_tab2, notif_tab3, notif_tab4, notif_tab5 = st.tabs([
+        "🔴 High/Low Notifying Countries",
+        "👥 Age & Sex Distribution",
+        "📋 Notification Types",
+        "📈 Regional Trends",
+        "⚖️ Equity Analysis"
+    ])
+    
+    with notif_tab1:
+        st.markdown("### Top Notifying Countries")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Highest Notifying Countries")
+            high_chart = chart_gen.create_top_notifying_chart(
+                indicator='c_newinc',
+                indicator_name='Total New & Relapse TB Cases',
+                n=10,
+                year=notif_summary['year'],
+                high=True
+            )
+            if high_chart:
+                st.plotly_chart(high_chart, use_container_width=True)
+        
+        with col2:
+            st.markdown("#### Lowest Notifying Countries")
+            low_chart = chart_gen.create_top_notifying_chart(
+                indicator='c_newinc',
+                indicator_name='Total New & Relapse TB Cases',
+                n=10,
+                year=notif_summary['year'],
+                high=False
+            )
+            if low_chart:
+                st.plotly_chart(low_chart, use_container_width=True)
+    
+    with notif_tab2:
+        st.markdown("### Age and Sex Distribution of TB Cases")
+        
+        age_chart = chart_gen.create_age_distribution_chart(year=notif_summary['year'])
+        if age_chart:
+            st.plotly_chart(age_chart, use_container_width=True)
+            
+            # Show age distribution table
+            age_dist = notif_analytics.get_age_distribution(year=notif_summary['year'])
+            
+            st.markdown("#### Age Distribution Summary")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.dataframe(
+                    age_dist[['age_group', 'male', 'female', 'total', 'percent']].style.format({
+                        'male': '{:,.0f}',
+                        'female': '{:,.0f}',
+                        'total': '{:,.0f}',
+                        'percent': '{:.1f}%'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            
+            with col2:
+                # Key insights
+                if not age_dist.empty:
+                    most_affected = age_dist.loc[age_dist['total'].idxmax()]
+                    st.info(f"""
+                    **Key Insights:**
+                    - Most affected age group: **{most_affected['age_group']}** ({most_affected['percent']:.1f}%)
+                    - Total cases: {most_affected['total']:,.0f}
+                    - Male cases: {most_affected['male']:,.0f}
+                    - Female cases: {most_affected['female']:,.0f}
+                    """)
+        else:
+            st.warning("Age distribution data not available for selected year")
+    
+    with notif_tab3:
+        st.markdown("### Notification Types by Country")
+        
+        countries = notif_analytics.get_country_list()
+        
+        selected_country = st.selectbox(
+            "Select Country for Notification Types",
+            countries,
+            key="notif_types_country"
+        )
+        
+        if selected_country:
+            types_chart = chart_gen.create_notification_types_chart(
+                country=selected_country,
+                year=notif_summary['year']
+            )
+            
+            if types_chart:
+                st.plotly_chart(types_chart, use_container_width=True)
+                
+                # Show breakdown
+                types_data = notif_analytics.get_notification_types_breakdown(selected_country, notif_summary['year'])
+                
+                if 'error' not in types_data:
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.metric("Lab Confirmed", f"{types_data['pulmonary_lab_confirmed']:,.0f}")
+                    with col2:
+                        st.metric("Clinically Diagnosed", f"{types_data['pulmonary_clin_diagnosed']:,.0f}")
+                    with col3:
+                        st.metric("Extrapulmonary", f"{types_data['extrapulmonary']:,.0f}")
+                    
+                    st.info("""
+                    **WHO Case Definitions (Post-2012):**
+                    - **Lab Confirmed:** Bacteriologically confirmed pulmonary TB
+                    - **Clinically Diagnosed:** Pulmonary TB diagnosed by clinical criteria
+                    - **Extrapulmonary:** TB in organs other than lungs
+                    """)
+            else:
+                st.warning(f"Notification types data not available for {selected_country}")
+    
+    with notif_tab4:
+        st.markdown("### Regional Notification Trends")
+        
+        trend_indicator = st.selectbox(
+            "Select Indicator",
+            ["c_newinc", "new_labconf", "new_clindx", "new_ep"],
+            format_func=lambda x: {
+                "c_newinc": "Total New & Relapse TB",
+                "new_labconf": "Pulmonary Lab Confirmed",
+                "new_clindx": "Pulmonary Clinically Diagnosed",
+                "new_ep": "Extrapulmonary TB"
+            }[x],
+            key="notif_trend_indicator"
+        )
+        
+        indicator_names = {
+            "c_newinc": "Total New & Relapse TB Cases",
+            "new_labconf": "Pulmonary Lab Confirmed Cases",
+            "new_clindx": "Pulmonary Clinically Diagnosed Cases",
+            "new_ep": "Extrapulmonary TB Cases"
+        }
+        
+        trend_chart = chart_gen.create_regional_trend_chart(
+            indicator=trend_indicator,
+            indicator_name=indicator_names[trend_indicator]
+        )
+        
+        if trend_chart:
+            st.plotly_chart(trend_chart, use_container_width=True)
+    
+    with notif_tab5:
+        st.markdown("### Equity Analysis")
+        
+        equity_indicator = st.selectbox(
+            "Select Indicator for Equity Analysis",
+            ["c_newinc", "new_labconf", "new_clindx", "new_ep"],
+            format_func=lambda x: {
+                "c_newinc": "Total New & Relapse TB",
+                "new_labconf": "Pulmonary Lab Confirmed",
+                "new_clindx": "Pulmonary Clinically Diagnosed",
+                "new_ep": "Extrapulmonary TB"
+            }[x],
+            key="notif_equity_indicator"
+        )
+        
+        indicator_names_equity = {
+            "c_newinc": "Total New & Relapse TB Cases",
+            "new_labconf": "Pulmonary Lab Confirmed Cases",
+            "new_clindx": "Pulmonary Clinically Diagnosed Cases",
+            "new_ep": "Extrapulmonary TB Cases"
+        }
+        
+        # Show equity chart
+        equity_chart = chart_gen.create_equity_chart(
+            indicator=equity_indicator,
+            indicator_name=indicator_names_equity[equity_indicator],
+            year=notif_summary['year']
+        )
+        
+        if equity_chart:
+            st.plotly_chart(equity_chart, use_container_width=True)
+            
+            # Show equity measures
+            equity_measures = notif_analytics.calculate_equity_measures(
+                indicator=equity_indicator,
+                year=notif_summary['year']
+            )
+            
+            if 'error' not in equity_measures:
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Min Value", f"{equity_measures['min_value']:,.0f}")
+                with col2:
+                    st.metric("Max Value", f"{equity_measures['max_value']:,.0f}")
+                with col3:
+                    st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x")
+                with col4:
+                    st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%")
+                
+                st.info("""
+                **Equity Measures Interpretation:**
+                - **Ratio (Max/Min):** Higher values indicate greater inequality
+                - **Coefficient of Variation:** >50% indicates high dispersion
+                - Box plot shows distribution with outliers
+                """)
+
+
+def render_tb_outcomes_section(analytics, pipeline, current_lang):
+    """Render TB Treatment Outcomes section following TB Burden framework"""
+    import plotly.express as px
+    import plotly.graph_objects as go
+    
+    # Check if we have the TB outcomes analytics
+    if not hasattr(st.session_state, 'tb_notif_analytics') or st.session_state.tb_notif_analytics is None:
+        st.warning("TB Outcomes analytics not loaded. Please re-initialize the system.")
+        return
+    
+    outcomes_analytics = st.session_state.tb_notif_analytics
+    chart_gen = st.session_state.tb_notif_chart_gen
+    
+    # Category selector
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Focus:</strong> TB Treatment Outcomes and Success Rates for WHO AFRO Region (47 countries)
+            <br><strong>Data includes:</strong> Treatment success, failure, death, and lost to follow-up rates
+            <br><strong>WHO Target:</strong> ≥85% treatment success rate
+        </p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Display key indicators in a grid
-    indicators_list = list(summary.get('indicators', {}).items())
-    if indicators_list:
-        cols = st.columns(2)
-        for idx, (indicator_name, data) in enumerate(indicators_list[:6]):
-            col_idx = idx % 2
-            with cols[col_idx]:
-                mean_val = data.get('mean_value', 0)
-                median_val = data.get('median_value', 0)
-                total_regional = data.get('total_regional', 0)
-                
-                # For TB notifications: Show only total cases (no mean/median)
-                # For TB treatment outcomes: Show percentages (median)
-                # For Mortality: Show only median (not mean)
-                is_percentage = '%' in indicator_name or 'Rate' in indicator_name
-                is_tb_notification = health_topic == "Tuberculosis" and not is_percentage
-                
-                st.markdown(f"""
-                <div class="info-box hover-lift">
-                    <h4 style="color: #0066CC; margin-bottom: 0.5rem; font-size: 1.1rem;">{indicator_name}</h4>
-                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>{get_translation("total_new_cases", current_lang)}:</strong> <span style="color: #0066CC; font-weight: 600;">{total_regional:,.0f}</span></p>' if total_regional > 0 and is_tb_notification else ''}
-                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Median:</strong> <span style="color: #0066CC; font-weight: 600;">{median_val:.2f}%</span></p>' if is_percentage and health_topic == "Tuberculosis" else ''}
-                    {f'<p style="margin: 0.25rem 0; font-size: 0.95rem;"><strong>Median:</strong> <span style="color: #0066CC; font-weight: 600;">{median_val:.2f}</span></p>' if not is_tb_notification and health_topic != "Tuberculosis" else ''}
-                    <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #666;">
-                        Range: {data.get('min_value', 0):.2f}{'%' if is_percentage else ''} - {data.get('max_value', 0):.2f}{'%' if is_percentage else ''}
-                    </p>
-                </div>
-                """, unsafe_allow_html=True)
-    
-    # Get current language for translations
-    current_lang = st.session_state.get("selected_language", "English")
-    
-    # Interactive Trend Analysis
-    st.markdown(f"""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("trend_analysis", current_lang)}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([2, 1, 1])
+    # Outcome category selector
+    col1, col2 = st.columns([2, 1])
     
     with col1:
-        available_indicators = [
-            "TB Notifications (Total New Cases)",
-            "New Smear-Positive Cases",
-            "New Smear-Negative Cases",
-            "New Extrapulmonary Cases",
-            "Treatment Success Rate - New Cases (%)",
-            "Treatment Success Rate (%)"
-        ]
-        selected_indicator = st.selectbox(
-            get_translation("select_indicator", current_lang),
-            available_indicators,
-            index=0
+        outcome_category = st.selectbox(
+            "Select Patient Category",
+            ["newrel", "ret_nrel", "tbhiv"],
+            format_func=lambda x: {
+                "newrel": "New and Relapse TB Cases",
+                "ret_nrel": "Retreatment TB Cases",
+                "tbhiv": "TB/HIV Co-infected Cases"
+            }[x],
+            key="outcomes_category"
         )
     
+    # Get outcomes summary for selected category
+    outcomes_summary = outcomes_analytics.get_outcomes_summary(category=outcome_category)
+    
+    # Regional Overview Cards
+    st.markdown(f"""
+    <div class="dashboard-card">
+        <h3 style="color: #27ae60; margin-bottom: 1.5rem; font-size: 1.5rem;">Treatment Outcomes Overview - {outcomes_summary['category']} ({outcomes_summary['year']})</h3>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        cohort = outcomes_summary['cohort']
+        st.markdown(f"""
+        <div class="stat-card" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);">
+            <div class="stat-value" style="color: white;">{cohort:,.0f}</div>
+            <div class="stat-label" style="color: #ecf0f1;">Total Cohort</div>
+        </div>
+        """, unsafe_allow_html=True)
+    
     with col2:
-        chart_type = st.selectbox(
-            get_translation("chart_type", current_lang),
-            ["Line Chart", "Bar Chart"],
-            index=0
-        )
+        success = outcomes_summary['success']
+        success_pct = outcomes_summary['success_pct']
+        color = '#27ae60' if success_pct >= 85 else ('#f39c12' if success_pct >= 75 else '#e74c3c')
+        st.markdown(f"""
+        <div class="stat-card" style="background: linear-gradient(135deg, {color} 0%, {color}dd 100%);">
+            <div class="stat-value" style="color: white;">{success_pct:.1f}%</div>
+            <div class="stat-label" style="color: #ecf0f1;">Treatment Success</div>
+            <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #ecf0f1;">({success:,.0f} cases)</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     with col3:
-        year_range = st.slider(
-            get_translation("year_range", current_lang),
-            min_value=2000,
-            max_value=2023,
-            value=(2015, 2023)
-        )
+        died = outcomes_summary['died']
+        died_pct = outcomes_summary['died_pct']
+        st.markdown(f"""
+        <div class="stat-card" style="background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);">
+            <div class="stat-value" style="color: white;">{died_pct:.1f}%</div>
+            <div class="stat-label" style="color: #ecf0f1;">Died</div>
+            <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #ecf0f1;">({died:,.0f} cases)</p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Get trend analysis
-    try:
-        if hasattr(analytics, 'get_trend_analysis'):
-            trend_data = analytics.get_trend_analysis(
-                selected_indicator,
-                start_year=year_range[0],
-                end_year=year_range[1]
-            )
-        else:
-            st.warning("Trend analysis not available for this health topic.")
-            trend_data = {"error": "Method not available"}
-        
-        if 'error' not in trend_data and trend_data.get('yearly_totals'):
-            # Create trend chart
-            df_trend = pd.DataFrame(trend_data['yearly_totals'])
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(
-                x=df_trend['year'],
-                y=df_trend['total_value'],
-                mode='lines+markers',
-                name='Regional Total',
-                line=dict(color='#0066CC', width=3),
-                marker=dict(size=8)
-            ))
-            
-            fig.update_layout(
-                title=f'{selected_indicator} - Regional Trend (AFRO)',
-                xaxis_title='Year',
-                yaxis_title='Value',
-                hovermode='x unified',
-                template='plotly_white',
-                height=400,
-                showlegend=True
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Display trend summary
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("Percentage Change", f"{trend_data.get('percentage_change', 0):.1f}%")
-            with col2:
-                st.metric("Trend Direction", trend_data.get('trend', 'N/A'))
-            with col3:
-                st.metric("Period", f"{trend_data.get('start_year', 'N/A')} - {trend_data.get('end_year', 'N/A')}")
-        else:
-            st.info(f"No trend data available for {selected_indicator}")
-    except Exception as e:
-        st.warning(f"Could not generate trend analysis: {str(e)}")
+    with col4:
+        lost = outcomes_summary['lost']
+        lost_pct = outcomes_summary['lost_pct']
+        st.markdown(f"""
+        <div class="stat-card" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">
+            <div class="stat-value" style="color: white;">{lost_pct:.1f}%</div>
+            <div class="stat-label" style="color: #ecf0f1;">Lost to Follow-up</div>
+            <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #ecf0f1;">({lost:,.0f} cases)</p>
+        </div>
+        """, unsafe_allow_html=True)
     
-    # Regional Outlook Section
-    st.markdown("""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Regional Outlook - WHO AFRO</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    try:
-        if hasattr(analytics, 'get_regional_outlook'):
-            outlook = analytics.get_regional_outlook()
-        else:
-            outlook = {"error": "Method not available"}
-        
-        if 'error' not in outlook:
-            # Regional Performance Summary
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                if outlook.get('regional_totals', {}).get('total_notifications'):
-                    st.metric(
-                        "Total Notifications",
-                        f"{outlook['regional_totals']['total_notifications']:,.0f}",
-                        help="Total TB cases notified in AFRO region"
-                    )
-            
-            with col2:
-                if outlook.get('countries_with_data', {}).get('notifications'):
-                    st.metric(
-                        "Countries Reporting",
-                        f"{outlook['countries_with_data']['notifications']}/{outlook['total_countries']}",
-                        help="Number of countries with notification data"
-                    )
-            
-            with col3:
-                if outlook.get('performance_summary', {}).get('treatment_success_rate'):
-                    tsr = outlook['performance_summary']['treatment_success_rate']
-                    st.metric(
-                        "Mean Treatment Success Rate",
-                        f"{tsr['mean']:.1f}%",
-                        help=f"Range: {tsr['min']:.1f}% - {tsr['max']:.1f}%"
-                    )
-            
-            with col4:
-                if outlook.get('performance_summary', {}).get('treatment_success_rate'):
-                    tsr = outlook['performance_summary']['treatment_success_rate']
-                    above_target = tsr.get('countries_above_85', 0)
-                    st.metric(
-                        "Countries ≥85% TSR",
-                        f"{above_target}/{outlook['total_countries']}",
-                        help="WHO target: ≥85% treatment success rate"
-                    )
-            
-            # Trend Analysis
-            if outlook.get('trends', {}).get('notifications_5year'):
-                trend_5y = outlook['trends']['notifications_5year']
-                st.markdown("### 5-Year Trend Analysis")
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("5-Year Change", f"{trend_5y['percentage_change']:.1f}%")
-                with col2:
-                    st.metric("Direction", trend_5y['direction'])
-                with col3:
-                    st.metric("5 Years Ago", f"{trend_5y['value_5y_ago']:,.0f}")
-            
-            # Performance Distribution
-            if outlook.get('performance_summary', {}).get('notification_distribution'):
-                dist = outlook['performance_summary']['notification_distribution']
-                st.markdown("### Country Performance Distribution")
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("Low", dist['low'])
-                with col2:
-                    st.metric("Medium-Low", dist['medium_low'])
-                with col3:
-                    st.metric("Medium-High", dist['medium_high'])
-                with col4:
-                    st.metric("High", dist['high'])
-    except Exception as e:
-            st.warning(f"Could not generate regional outlook: {str(e)}")
-    
-    # Age Group Analysis (Post-2011)
-    st.markdown(f"""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("age_groups", current_lang)} - TB Cases by Age Group (Post-2011)</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Country selection for age group chart
-    countries = pipeline.get_countries()
-    selected_country_age = st.selectbox(
-        f"{get_translation('select_country', current_lang)} for Age Group Analysis",
-        countries,
-        index=0 if countries else None,
-        key="age_group_country"
-    )
-    
-    if selected_country_age:
-        try:
-            from tb_chart_generator import TBChartGenerator
-            chart_gen = TBChartGenerator(analytics)
-            age_chart = chart_gen.create_age_group_chart(selected_country_age)
-            if age_chart:
-                st.plotly_chart(age_chart, use_container_width=True)
-            else:
-                st.info(f"No age group data available for {selected_country_age} (data available post-2011)")
-        except AttributeError as e:
-            if "'TBChartGenerator' object has no attribute" in str(e):
-                st.error(f"Chart generator method missing. Please ensure tb_chart_generator.py has the create_age_group_chart method.")
-            else:
-                st.warning(f"Could not generate age group chart: {str(e)}")
-        except Exception as e:
-            st.warning(f"Could not generate age group chart: {str(e)}")
-    
-    # Notification Types Breakdown
-    st.markdown(f"""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">{get_translation("notification_types", current_lang)} - Breakdown</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Country selection for notification types
-    selected_country_notif = st.selectbox(
-        f"{get_translation('select_country', current_lang)} for Notification Types",
-        countries,
-        index=0 if countries else None,
-        key="notif_types_country"
-    )
-    
-    if selected_country_notif:
-        try:
-            from tb_chart_generator import TBChartGenerator
-            chart_gen = TBChartGenerator(analytics)
-            notif_chart = chart_gen.create_notification_types_chart(selected_country_notif)
-            if notif_chart:
-                st.plotly_chart(notif_chart, use_container_width=True)
-                st.info("Note: Notification types should sum to c_newinc (Total New Cases). Note: Case definition for new smear-positive changed after 2012.")
-            else:
-                st.info(f"No notification type data available for {selected_country_notif}")
-        except AttributeError as e:
-            if "'TBChartGenerator' object has no attribute" in str(e):
-                st.error(f"Chart generator method missing. Please ensure tb_chart_generator.py has the create_notification_types_chart method.")
-            else:
-                st.warning(f"Could not generate notification types chart: {str(e)}")
-        except Exception as e:
-            st.warning(f"Could not generate notification types chart: {str(e)}")
-    
-    # Top Countries Analysis
-    st.markdown("""
-    <div class="dashboard-card" style="margin-top: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1.5rem; font-size: 1.5rem;">Top Countries Analysis</h3>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns(2)
+    # Additional metrics row
+    col1, col2, col3 = st.columns(3)
     
     with col1:
-        top_indicator = st.selectbox(
-            "Select Indicator",
-            available_indicators[:4],  # Only notifications indicators
-            index=0,
-            key="top_indicator"
-        )
-        
-        try:
-            if hasattr(analytics, 'get_top_countries'):
-                top_countries = analytics.get_top_countries(top_indicator, n=10, ascending=False)
-            else:
-                top_countries = {"error": "Method not available"}
-            if 'error' not in top_countries and top_countries.get('countries'):
-                df_top = pd.DataFrame(top_countries['countries'])
-                
-                fig = px.bar(
-                    df_top,
-                    x='value',
-                    y='country',
-                    orientation='h',
-                    title=f'Top 10 Countries - {top_indicator}',
-                    labels={'value': 'Value', 'country': 'Country'},
-                    color='value',
-                    color_continuous_scale='Blues'
-                )
-                fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
-                st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.warning(f"Could not generate top countries: {str(e)}")
+        failed = outcomes_summary['failed']
+        failed_pct = outcomes_summary['failed_pct']
+        st.metric("Treatment Failed", f"{failed_pct:.1f}% ({failed:,.0f} cases)")
     
     with col2:
-        try:
-            if hasattr(analytics, 'get_top_countries'):
-                bottom_countries = analytics.get_top_countries(top_indicator, n=10, ascending=True)
-            else:
-                bottom_countries = {"error": "Method not available"}
-            if 'error' not in bottom_countries and bottom_countries.get('countries'):
-                df_bottom = pd.DataFrame(bottom_countries['countries'])
+        if 'tsr_mean' in outcomes_summary:
+            st.metric("Mean TSR Across Countries", f"{outcomes_summary['tsr_mean']:.1f}%",
+                     delta=f"{outcomes_summary['tsr_mean'] - 85:.1f}% vs WHO target")
+    
+    with col3:
+        if 'countries_above_85' in outcomes_summary:
+            st.metric("Countries Above WHO Target (≥85%)", 
+                     f"{outcomes_summary['countries_above_85']}/{outcomes_summary['total_countries']}")
+    
+    # Tabs for comprehensive outcomes analysis
+    out_tab1, out_tab2, out_tab3, out_tab4, out_tab5 = st.tabs([
+        "🎯 High/Low Performing Countries",
+        "📊 Country Outcomes Breakdown",
+        "📈 Regional TSR Trends",
+        "⚖️ Equity Analysis",
+        "📋 WHO Performance Summary"
+    ])
+    
+    # Map category to TSR indicator
+    tsr_indicators = {
+        'newrel': 'c_new_tsr',
+        'ret_nrel': 'c_ret_tsr',
+        'tbhiv': 'c_tbhiv_tsr'
+    }
+    tsr_indicator = tsr_indicators.get(outcome_category, 'c_new_tsr')
+    
+    with out_tab1:
+        st.markdown("### Treatment Success Rate by Country")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Highest Performing Countries")
+            high_chart = chart_gen.create_outcomes_bar_chart(
+                indicator=tsr_indicator,
+                indicator_name='Treatment Success Rate',
+                n=10,
+                year=outcomes_summary['year'],
+                high=True
+            )
+            if high_chart:
+                st.plotly_chart(high_chart, use_container_width=True)
+        
+        with col2:
+            st.markdown("#### Lowest Performing Countries")
+            low_chart = chart_gen.create_outcomes_bar_chart(
+                indicator=tsr_indicator,
+                indicator_name='Treatment Success Rate',
+                n=10,
+                year=outcomes_summary['year'],
+                high=False
+            )
+            if low_chart:
+                st.plotly_chart(low_chart, use_container_width=True)
+    
+    with out_tab2:
+        st.markdown("### Detailed Outcomes Breakdown by Country")
+        
+        countries = outcomes_analytics.get_country_list()
+        
+        selected_country = st.selectbox(
+            "Select Country",
+            countries,
+            key="outcomes_country"
+        )
+        
+        if selected_country:
+            breakdown_chart = chart_gen.create_outcomes_breakdown_chart(
+                country=selected_country,
+                year=outcomes_summary['year'],
+                category=outcome_category
+            )
+            
+            if breakdown_chart:
+                st.plotly_chart(breakdown_chart, use_container_width=True)
                 
-                fig = px.bar(
-                    df_bottom,
-                    x='value',
-                    y='country',
-                    orientation='h',
-                    title=f'Bottom 10 Countries - {top_indicator}',
-                    labels={'value': 'Value', 'country': 'Country'},
-                    color='value',
-                    color_continuous_scale='Reds_r'
+                # Show detailed numbers
+                breakdown_data = outcomes_analytics.get_outcomes_breakdown(
+                    selected_country, outcomes_summary['year'], outcome_category
                 )
-                fig.update_layout(height=400, yaxis={'categoryorder': 'total descending'})
-                st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.warning(f"Could not generate bottom countries: {str(e)}")
+                
+                if 'error' not in breakdown_data:
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    
+                    with col1:
+                        st.metric("Cohort", f"{breakdown_data['cohort']:,.0f}")
+                    with col2:
+                        st.metric("Success", f"{breakdown_data['success']:,.0f}")
+                    with col3:
+                        st.metric("Failed", f"{breakdown_data['failed']:,.0f}")
+                    with col4:
+                        st.metric("Died", f"{breakdown_data['died']:,.0f}")
+                    with col5:
+                        st.metric("Lost", f"{breakdown_data['lost']:,.0f}")
+                    
+                    if breakdown_data['tsr'] > 0:
+                        tsr_val = breakdown_data['tsr']
+                        st.info(f"""
+                        **Treatment Success Rate:** {tsr_val:.1f}%
+                        {"✅ Above WHO target (≥85%)" if tsr_val >= 85 else "⚠️ Below WHO target (≥85%)"}
+                        """)
+            else:
+                st.warning(f"Outcomes data not available for {selected_country}")
+    
+    with out_tab3:
+        st.markdown("### Regional Treatment Success Rate Trends")
+        
+        trend_chart = chart_gen.create_tsr_trend_chart(
+            indicator=tsr_indicator,
+            indicator_name='Treatment Success Rate'
+        )
+        
+        if trend_chart:
+            st.plotly_chart(trend_chart, use_container_width=True)
+            
+            # Show trend statistics
+            trend_data = outcomes_analytics.get_outcomes_regional_trend(tsr_indicator)
+            if not trend_data.empty:
+                latest = trend_data.iloc[-1]
+                earliest = trend_data.iloc[0]
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Latest Year TSR", f"{latest['mean_tsr']:.1f}%")
+                with col2:
+                    change = latest['mean_tsr'] - earliest['mean_tsr']
+                    st.metric("Change Since First Year", f"{change:+.1f}%")
+                with col3:
+                    st.metric("Standard Deviation", f"{latest['std_tsr']:.1f}%")
+    
+    with out_tab4:
+        st.markdown("### Equity in Treatment Success Rates")
+        
+        equity_chart = chart_gen.create_outcomes_equity_chart(
+            indicator=tsr_indicator,
+            indicator_name='Treatment Success Rate',
+            year=outcomes_summary['year']
+        )
+        
+        if equity_chart:
+            st.plotly_chart(equity_chart, use_container_width=True)
+            
+            # Show equity measures
+            equity_measures = outcomes_analytics.calculate_outcomes_equity(
+                indicator=tsr_indicator,
+                year=outcomes_summary['year']
+            )
+            
+            if 'error' not in equity_measures:
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Min TSR", f"{equity_measures['min_value']:.1f}%")
+                with col2:
+                    st.metric("Max TSR", f"{equity_measures['max_value']:.1f}%")
+                with col3:
+                    st.metric("Range", f"{equity_measures['range']:.1f}%")
+                with col4:
+                    st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%")
+                
+                st.info(f"""
+                **WHO Target Performance:**
+                - Countries at or above target (≥85%): **{equity_measures['countries_above_target']}** ({equity_measures['percent_above_target']:.1f}%)
+                - Countries below target (<85%): **{equity_measures['countries_below_target']}**
+                - Mean TSR: **{equity_measures['mean']:.1f}%**
+                - Median TSR: **{equity_measures['median']:.1f}%**
+                """)
+    
+    with out_tab5:
+        st.markdown("### WHO Treatment Success Rate Benchmarking")
+        
+        st.info("""
+        **WHO Global TB Programme Targets:**
+        - Treatment Success Rate: **≥85%** for all patient categories
+        - Death Rate: **<5%**
+        - Lost to Follow-up Rate: **<5%**
+        """)
+        
+        # Performance summary
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("#### Regional Performance")
+            perf_data = {
+                'Metric': ['Treatment Success', 'Died', 'Lost to Follow-up', 'Failed'],
+                'Regional %': [
+                    f"{outcomes_summary['success_pct']:.1f}%",
+                    f"{outcomes_summary['died_pct']:.1f}%",
+                    f"{outcomes_summary['lost_pct']:.1f}%",
+                    f"{outcomes_summary['failed_pct']:.1f}%"
+                ],
+                'WHO Target': ['≥85%', '<5%', '<5%', 'N/A']
+            }
+            st.dataframe(pd.DataFrame(perf_data), hide_index=True, use_container_width=True)
+        
+        with col2:
+            st.markdown("#### Key Insights")
+            success_above = outcomes_summary['success_pct'] >= 85
+            died_below = outcomes_summary['died_pct'] < 5
+            lost_below = outcomes_summary['lost_pct'] < 5
+            
+            st.markdown(f"""
+            {'✅' if success_above else '⚠️'} Treatment success rate {'meets' if success_above else 'does not meet'} WHO target
+            
+            {'✅' if died_below else '⚠️'} Death rate {'meets' if died_below else 'does not meet'} WHO target
+            
+            {'✅' if lost_below else '⚠️'} Lost to follow-up rate {'meets' if lost_below else 'does not meet'} WHO target
+            
+            **Overall Assessment:** {
+                'EXCELLENT - All targets met!' if (success_above and died_below and lost_below)
+                else 'GOOD - Most targets met' if sum([success_above, died_below, lost_below]) >= 2
+                else 'NEEDS IMPROVEMENT - Targets not met'
+            }
+            """)
 
 
 def render_tb_burden_section(current_lang):
