@@ -1315,7 +1315,7 @@ def render_tb_dashboard(analytics, pipeline):
             st.rerun()
     
     with col3:
-        if st.button("✅ TB Outcomes", 
+        if st.button("🏥 TB Outcomes", 
                      use_container_width=True, 
                      type="primary" if st.session_state.tb_subcategory == 'TB Outcomes' else "secondary",
                      key="tb_outcomes_btn"):
@@ -1830,6 +1830,41 @@ def render_tb_burden_section(current_lang):
                 <div class="stat-label">TB Deaths</div>
             </div>
             """, unsafe_allow_html=True)
+        
+        # Case Detection Rate Card (with confidence intervals)
+        st.markdown(f"""
+        <div class="dashboard-card" style="margin-top: 1rem; margin-bottom: 1.5rem;">
+            <h4 style="color: #8B4513; margin-bottom: 0.5rem;">Case Detection Rate (Treatment Coverage)</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20873a 100%);">
+                <div class="stat-value" style="color: white;">{burden_summary['case_detection_rate']:.1f}%</div>
+                <div class="stat-label" style="color: #e8f5e9;">Regional CDR</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="stat-card" style="background: linear-gradient(135deg, #90ee90 0%, #76d176 100%);">
+                <div class="stat-value" style="color: #1b5e20;">{burden_summary['case_detection_rate_hi']:.1f}%</div>
+                <div class="stat-label" style="color: #2e7d32;">High Bound</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="stat-card" style="background: linear-gradient(135deg, #ffeb3b 0%, #f9a825 100%);">
+                <div class="stat-value" style="color: #f57f17;">{burden_summary['case_detection_rate_lo']:.1f}%</div>
+                <div class="stat-label" style="color: #f57f17;">Low Bound</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        st.info("💡 **Case Detection Rate (CDR)** = Percentage of estimated incident TB cases that are detected and notified. Higher rates indicate better case finding.")
         
         # Tabs for different burden visualizations
         burden_tab1, burden_tab2, burden_tab3, burden_tab4 = st.tabs([
@@ -3059,7 +3094,7 @@ def render_visualizer_page():
                 st.rerun()
         
         with col3:
-            if st.button("✅ TB Outcomes", 
+            if st.button("🏥 TB Outcomes", 
                          use_container_width=True,
                          type="primary" if st.session_state.get('viz_tb_subcategory') == 'TB Outcomes' else "secondary",
                          key="viz_tb_outcomes"):

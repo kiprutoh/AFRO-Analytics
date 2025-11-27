@@ -26,7 +26,7 @@ class TBBurdenChartGenerator:
                                 n: int = 10, year: Optional[int] = None,
                                 high_burden: bool = True) -> go.Figure:
         """
-        Create horizontal bar chart for top burden countries
+        Create horizontal bar chart for top burden countries with confidence intervals
         
         Args:
             indicator: Burden indicator column
@@ -41,13 +41,19 @@ class TBBurdenChartGenerator:
         if year is None:
             year = self.analytics.get_latest_year()
         
-        # Get top countries
-        top_countries = self.analytics.get_top_burden_countries(
-            indicator=indicator,
-            n=n,
-            year=year,
-            ascending=not high_burden
-        )
+        # Get full data for year to access confidence intervals
+        data_year = self.analytics.burden_afro[self.analytics.burden_afro['year'] == year].copy()
+        
+        # Sort and get top N
+        data_sorted = data_year.sort_values(by=indicator, ascending=not high_burden)
+        top_countries = data_sorted.head(n)
+        
+        # Determine confidence interval columns
+        indicator_hi = f"{indicator}_hi"
+        indicator_lo = f"{indicator}_lo"
+        
+        # Check if confidence intervals exist
+        has_ci = indicator_hi in top_countries.columns and indicator_lo in top_countries.columns
         
         # Create chart
         title_prefix = "Top 10 High" if high_burden else "Top 10 Low"
@@ -55,25 +61,59 @@ class TBBurdenChartGenerator:
         
         fig = go.Figure()
         
-        fig.add_trace(go.Bar(
-            y=top_countries['country_clean'],
-            x=top_countries[indicator],
-            orientation='h',
-            marker=dict(
-                color=top_countries[indicator],
-                colorscale=color_scale,
-                showscale=True,
-                colorbar=dict(title=indicator_name)
-            ),
-            text=top_countries[indicator].apply(lambda x: f'{x:,.0f}'),
-            textposition='auto',
-            hovertemplate='<b>%{y}</b><br>' +
-                         f'{indicator_name}: %{{x:,.0f}}<br>' +
-                         '<extra></extra>'
-        ))
+        # Calculate error bars if confidence intervals exist
+        if has_ci:
+            error_minus = top_countries[indicator] - top_countries[indicator_lo]
+            error_plus = top_countries[indicator_hi] - top_countries[indicator]
+            
+            fig.add_trace(go.Bar(
+                y=top_countries['country_clean'],
+                x=top_countries[indicator],
+                orientation='h',
+                error_x=dict(
+                    type='data',
+                    symmetric=False,
+                    array=error_plus,
+                    arrayminus=error_minus,
+                    color='rgba(0,0,0,0.3)',
+                    thickness=1.5,
+                    width=4
+                ),
+                marker=dict(
+                    color=top_countries[indicator],
+                    colorscale=color_scale,
+                    showscale=True,
+                    colorbar=dict(title=indicator_name)
+                ),
+                text=top_countries[indicator].apply(lambda x: f'{x:,.0f}'),
+                textposition='auto',
+                hovertemplate='<b>%{y}</b><br>' +
+                             f'{indicator_name}: %{{x:,.0f}}<br>' +
+                             'High Bound: %{customdata[0]:,.0f}<br>' +
+                             'Low Bound: %{customdata[1]:,.0f}<br>' +
+                             '<extra></extra>',
+                customdata=top_countries[[indicator_hi, indicator_lo]].values
+            ))
+        else:
+            fig.add_trace(go.Bar(
+                y=top_countries['country_clean'],
+                x=top_countries[indicator],
+                orientation='h',
+                marker=dict(
+                    color=top_countries[indicator],
+                    colorscale=color_scale,
+                    showscale=True,
+                    colorbar=dict(title=indicator_name)
+                ),
+                text=top_countries[indicator].apply(lambda x: f'{x:,.0f}'),
+                textposition='auto',
+                hovertemplate='<b>%{y}</b><br>' +
+                             f'{indicator_name}: %{{x:,.0f}}<br>' +
+                             '<extra></extra>'
+            ))
         
         fig.update_layout(
-            title=f'{title_prefix} Burden Countries - {indicator_name} ({year})',
+            title=f'{title_prefix} Burden Countries - {indicator_name} ({year})' + (' [with 95% CI]' if has_ci else ''),
             xaxis_title=indicator_name,
             yaxis_title='',
             height=500,
@@ -228,7 +268,7 @@ class TBBurdenChartGenerator:
     def create_regional_trend_chart(self, indicator: str = 'e_inc_num',
                                    indicator_name: str = 'TB Incidence (Cases)') -> go.Figure:
         """
-        Create regional aggregate trend chart
+        Create regional aggregate trend chart with confidence intervals
         
         Args:
             indicator: Burden indicator
@@ -237,26 +277,83 @@ class TBBurdenChartGenerator:
         Returns:
             Plotly figure
         """
-        trend_data = self.analytics.get_regional_trends(indicator=indicator)
+        # Get regional trend data
+        data = self.analytics.burden_afro.copy()
+        
+        # Determine confidence interval columns
+        indicator_hi = f"{indicator}_hi"
+        indicator_lo = f"{indicator}_lo"
+        has_ci = indicator_hi in data.columns and indicator_lo in data.columns
+        
+        # Calculate regional totals per year
+        if has_ci:
+            regional_trend = data.groupby('year').agg({
+                indicator: 'sum',
+                indicator_hi: 'sum',
+                indicator_lo: 'sum'
+            }).reset_index()
+        else:
+            regional_trend = data.groupby('year')[indicator].sum().reset_index()
+            regional_trend.columns = ['year', 'regional_total']
         
         fig = go.Figure()
         
-        fig.add_trace(go.Scatter(
-            x=trend_data['year'],
-            y=trend_data['regional_total'],
-            mode='lines+markers',
-            fill='tozeroy',
-            name='AFRO Region',
-            line=dict(width=3, color='#FF6600'),
-            marker=dict(size=8),
-            fillcolor='rgba(255, 102, 0, 0.2)',
-            hovertemplate='<b>Year %{x}</b><br>' +
-                         f'Regional Total: %{{y:,.0f}}<br>' +
-                         '<extra></extra>'
-        ))
+        # Add confidence interval band if available
+        if has_ci:
+            # Add upper bound
+            fig.add_trace(go.Scatter(
+                x=regional_trend['year'],
+                y=regional_trend[indicator_hi],
+                mode='lines',
+                line=dict(width=0),
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+            
+            # Add main line with fill to lower bound
+            fig.add_trace(go.Scatter(
+                x=regional_trend['year'],
+                y=regional_trend[indicator],
+                mode='lines+markers',
+                name='Estimate',
+                line=dict(width=3, color='#FF6600'),
+                marker=dict(size=8),
+                hovertemplate='<b>Year %{x}</b><br>' +
+                             f'{indicator_name}: %{{y:,.0f}}<br>' +
+                             'High Bound: %{customdata[0]:,.0f}<br>' +
+                             'Low Bound: %{customdata[1]:,.0f}<br>' +
+                             '<extra></extra>',
+                customdata=regional_trend[[indicator_hi, indicator_lo]].values
+            ))
+            
+            # Add lower bound with fill to main line
+            fig.add_trace(go.Scatter(
+                x=regional_trend['year'],
+                y=regional_trend[indicator_lo],
+                mode='lines',
+                line=dict(width=0),
+                fill='tonexty',
+                fillcolor='rgba(255, 102, 0, 0.2)',
+                name='95% CI',
+                hoverinfo='skip'
+            ))
+        else:
+            fig.add_trace(go.Scatter(
+                x=regional_trend['year'],
+                y=regional_trend['regional_total'],
+                mode='lines+markers',
+                fill='tozeroy',
+                name='AFRO Region',
+                line=dict(width=3, color='#FF6600'),
+                marker=dict(size=8),
+                fillcolor='rgba(255, 102, 0, 0.2)',
+                hovertemplate='<b>Year %{x}</b><br>' +
+                             f'Regional Total: %{{y:,.0f}}<br>' +
+                             '<extra></extra>'
+            ))
         
         fig.update_layout(
-            title=f'Regional Trend - {indicator_name} (AFRO)',
+            title=f'Regional Trend - {indicator_name} (AFRO)' + (' [with 95% CI]' if has_ci else ''),
             xaxis_title='Year',
             yaxis_title=indicator_name,
             height=500,

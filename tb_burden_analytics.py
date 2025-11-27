@@ -76,6 +76,13 @@ class TBBurdenAnalytics:
         
         data_year = self.burden_afro[self.burden_afro['year'] == year].copy()
         
+        # Calculate case detection rate (weighted average across countries)
+        # CDR = (notified cases / estimated incident cases) * 100
+        # For regional CDR, we need to account for population weighting
+        cdr_values = data_year['c_cdr'].replace([np.inf, -np.inf], np.nan).dropna()
+        cdr_hi_values = data_year['c_cdr_hi'].replace([np.inf, -np.inf], np.nan).dropna()
+        cdr_lo_values = data_year['c_cdr_lo'].replace([np.inf, -np.inf], np.nan).dropna()
+        
         summary = {
             'year': year,
             'total_countries': len(data_year),
@@ -85,7 +92,10 @@ class TBBurdenAnalytics:
             'total_mortality_cases': data_year['e_mort_num'].sum(),
             'regional_incidence_rate_100k': (data_year['e_inc_num'].sum() / data_year['e_pop_num'].sum()) * 100000,
             'regional_mortality_rate_100k': (data_year['e_mort_num'].sum() / data_year['e_pop_num'].sum()) * 100000,
-            'regional_tbhiv_percent': (data_year['e_inc_tbhiv_num'].sum() / data_year['e_inc_num'].sum()) * 100 if data_year['e_inc_num'].sum() > 0 else 0
+            'regional_tbhiv_percent': (data_year['e_inc_tbhiv_num'].sum() / data_year['e_inc_num'].sum()) * 100 if data_year['e_inc_num'].sum() > 0 else 0,
+            'case_detection_rate': cdr_values.mean() if len(cdr_values) > 0 else 0,
+            'case_detection_rate_hi': cdr_hi_values.mean() if len(cdr_hi_values) > 0 else 0,
+            'case_detection_rate_lo': cdr_lo_values.mean() if len(cdr_lo_values) > 0 else 0
         }
         
         return summary
