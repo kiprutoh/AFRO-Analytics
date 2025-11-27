@@ -5,7 +5,6 @@ Provides translations for all website content
 
 TRANSLATIONS = {
     "English": {
-        # Navigation & General
         "home_title": "Regional Health Data Hub",
         "home_subtitle": "Analytics Section",
         "dashboard": "Dashboard",
@@ -23,7 +22,6 @@ TRANSLATIONS = {
         "quick_links": "Quick Links",
         "home": "Home",
         
-        # Home Page
         "transforming_data": "TRANSFORMING Health Data into Actionable Insights",
         "for_africa": "for AFRICA'S FUTURE",
         "platform_description": "A regional platform for high-quality, timely, and actionable health intelligence",
@@ -57,7 +55,6 @@ TRANSLATIONS = {
         "getting_started_2": "Use the AI Chatbot to ask questions about the data",
         "getting_started_3": "Generate Reports for specific countries or regions",
         
-        # Dashboard
         "analytics_dashboard": "Analytics Dashboard",
         "please_initialize": "Please initialize the system first from the sidebar.",
         "regional_overview": "Regional Overview",
@@ -79,7 +76,6 @@ TRANSLATIONS = {
         "select_countries_compare": "Select countries to compare",
         "select_indicator": "Select indicator",
         
-        # TB Dashboard
         "tb_notifications": "TB Notifications",
         "tb_outcomes": "TB Treatment Outcomes",
         "tb_analytics_dashboard": "TB Notifications Analytics Dashboard",
@@ -102,7 +98,6 @@ TRANSLATIONS = {
         "top_countries": "Top Countries",
         "bottom_countries": "Bottom Countries",
         
-        # Chatbot
         "ai_chatbot_title": "AI Chatbot",
         "ask_questions": "Ask questions about mortality data in natural language. The chatbot can help you:",
         "ask_questions_tb": "Ask questions about TB data in natural language. The chatbot can help you:",
@@ -123,7 +118,6 @@ TRANSLATIONS = {
         "top_countries_queries": "Top Countries (with charts):",
         "reports_queries": "Reports:",
         
-        # Reports
         "generate_reports": "Generate Reports",
         "generate_llm_report": "Generate LLM-Powered Report",
         "reports_info": "Reports are generated using Gemini 2.5 Flash AI model for comprehensive analysis and insights.",
@@ -143,7 +137,6 @@ TRANSLATIONS = {
         "report_basic": "Report (Basic)",
         "report_content": "Report Content",
         
-        # Visualizer
         "interactive_visualizer": "Interactive Chart Visualizer",
         "create_visualizations": "Create customized visualizations with full control over:",
         "create_visualizations_tb": "Create customized TB visualizations with full control over:",
@@ -181,7 +174,6 @@ TRANSLATIONS = {
         "select_countries": "Select Countries to Compare",
         "no_data_available": "No data available",
         
-        # About Page
         "about_who_afro_title": "About WHO AFRO Data Hub",
         "mission": "Mission",
         "mission_desc": "The WHO AFRO Data Hub provides comprehensive analytics and insights into health data across the African continent, with a focus on maternal and child mortality indicators.",
@@ -215,7 +207,6 @@ TRANSLATIONS = {
         "analytics_engine": "Analytics Engine",
         "ai_chatbot_tech": "AI Chatbot",
         
-        # Common Terms
         "tuberculosis": "Tuberculosis",
         "maternal_mortality_topic": "Maternal Mortality",
         "child_mortality": "Child Mortality",
@@ -254,7 +245,6 @@ TRANSLATIONS = {
         "moving_average": "Moving Average"
     },
     "French": {
-        # Navigation & Général
         "home_title": "Centre de Données Sanitaires Régional",
         "home_subtitle": "Section Analytique",
         "dashboard": "Tableau de Bord",
@@ -272,7 +262,6 @@ TRANSLATIONS = {
         "quick_links": "Liens Rapides",
         "home": "Accueil",
         
-        # Page d'Accueil
         "transforming_data": "TRANSFORMER les Données de Santé en Informations Exploitables",
         "for_africa": "pour l'AVENIR de l'AFRIQUE",
         "platform_description": "Une plateforme régionale pour une intelligence sanitaire de haute qualité, opportune et exploitable",
@@ -306,7 +295,6 @@ TRANSLATIONS = {
         "getting_started_2": "Utilisez le Chatbot IA pour poser des questions sur les données",
         "getting_started_3": "Générez des Rapports pour des pays ou régions spécifiques",
         
-        # Tableau de Bord
         "analytics_dashboard": "Tableau de Bord Analytique",
         "please_initialize": "Veuillez d'abord initialiser le système à partir de la barre latérale.",
         "regional_overview": "Vue d'Ensemble Régionale",
@@ -328,7 +316,6 @@ TRANSLATIONS = {
         "select_countries_compare": "Sélectionner les pays à comparer",
         "select_indicator": "Sélectionner l'indicateur",
         
-        # Tableau de Bord TB
         "tb_notifications": "Notifications TB",
         "tb_outcomes": "Résultats du Traitement TB",
         "tb_analytics_dashboard": "Tableau de Bord Analytique des Notifications TB",
@@ -351,7 +338,6 @@ TRANSLATIONS = {
         "top_countries": "Pays en Tête",
         "bottom_countries": "Pays en Queue",
         
-        # Chatbot
         "ai_chatbot_title": "Chatbot IA",
         "ask_questions": "Posez des questions sur les données de mortalité en langage naturel. Le chatbot peut vous aider à :",
         "ask_questions_tb": "Posez des questions sur les données TB en langage naturel. Le chatbot peut vous aider à :",
@@ -372,7 +358,6 @@ TRANSLATIONS = {
         "top_countries_queries": "Meilleurs Pays (avec graphiques) :",
         "reports_queries": "Rapports :",
         
-        # Rapports
         "generate_reports": "Générer des Rapports",
         "generate_llm_report": "Générer un Rapport Alimenté par LLM",
         "reports_info": "Les rapports sont générés à l'aide du modèle IA Gemini 2.5 Flash pour une analyse et des informations complètes.",
@@ -392,7 +377,6 @@ TRANSLATIONS = {
         "report_basic": "Rapport (Basique)",
         "report_content": "Contenu du Rapport",
         
-        # Visualiseur
         "interactive_visualizer": "Visualiseur de Graphiques Interactifs",
         "create_visualizations": "Créez des visualisations personnalisées avec un contrôle total sur :",
         "create_visualizations_tb": "Créez des visualisations TB personnalisées avec un contrôle total sur :",
@@ -430,7 +414,6 @@ TRANSLATIONS = {
         "select_countries": "Sélectionner les Pays à Comparer",
         "no_data_available": "Aucune donnée disponible",
         
-        # Page À Propos
         "about_who_afro_title": "À Propos du Centre de Données OMS AFRO",
         "mission": "Mission",
         "mission_desc": "Le Centre de Données OMS AFRO fournit des analyses et des informations complètes sur les données de santé à travers le continent africain, en mettant l'accent sur les indicateurs de mortalité maternelle et infantile.",
@@ -464,7 +447,6 @@ TRANSLATIONS = {
         "analytics_engine": "Moteur d'Analyse",
         "ai_chatbot_tech": "Chatbot IA",
         
-        # Termes Communs
         "tuberculosis": "Tuberculose",
         "maternal_mortality_topic": "Mortalité Maternelle",
         "child_mortality": "Mortalité Infantile",
@@ -503,7 +485,6 @@ TRANSLATIONS = {
         "moving_average": "Moyenne Mobile"
     },
     "Portuguese": {
-        # Navegação e Geral
         "home_title": "Centro de Dados de Saúde Regional",
         "home_subtitle": "Seção de Análise",
         "dashboard": "Painel",
@@ -521,7 +502,6 @@ TRANSLATIONS = {
         "quick_links": "Links Rápidos",
         "home": "Início",
         
-        # Página Inicial
         "transforming_data": "TRANSFORMANDO Dados de Saúde em Insights Acionáveis",
         "for_africa": "para o FUTURO da ÁFRICA",
         "platform_description": "Uma plataforma regional para inteligência de saúde de alta qualidade, oportuna e acionável",
@@ -555,7 +535,6 @@ TRANSLATIONS = {
         "getting_started_2": "Use o Chatbot IA para fazer perguntas sobre os dados",
         "getting_started_3": "Gere Relatórios para países ou regiões específicas",
         
-        # Painel
         "analytics_dashboard": "Painel de Análise",
         "please_initialize": "Por favor, inicialize o sistema primeiro na barra lateral.",
         "regional_overview": "Visão Geral Regional",
@@ -577,7 +556,6 @@ TRANSLATIONS = {
         "select_countries_compare": "Selecione países para comparar",
         "select_indicator": "Selecione o indicador",
         
-        # Painel de TB
         "tb_notifications": "Notificações de TB",
         "tb_outcomes": "Resultados do Tratamento de TB",
         "tb_analytics_dashboard": "Painel de Análise de Notificações de TB",
@@ -600,7 +578,6 @@ TRANSLATIONS = {
         "top_countries": "Países Principais",
         "bottom_countries": "Países Inferiores",
         
-        # Chatbot
         "ai_chatbot_title": "Chatbot IA",
         "ask_questions": "Faça perguntas sobre dados de mortalidade em linguagem natural. O chatbot pode ajudá-lo a:",
         "ask_questions_tb": "Faça perguntas sobre dados de TB em linguagem natural. O chatbot pode ajudá-lo a:",
@@ -621,7 +598,6 @@ TRANSLATIONS = {
         "top_countries_queries": "Principais Países (com gráficos):",
         "reports_queries": "Relatórios:",
         
-        # Relatórios
         "generate_reports": "Gerar Relatórios",
         "generate_llm_report": "Gerar Relatório Alimentado por LLM",
         "reports_info": "Os relatórios são gerados usando o modelo de IA Gemini 2.5 Flash para análise e insights abrangentes.",
@@ -641,7 +617,6 @@ TRANSLATIONS = {
         "report_basic": "Relatório (Básico)",
         "report_content": "Conteúdo do Relatório",
         
-        # Visualizador
         "interactive_visualizer": "Visualizador de Gráficos Interativos",
         "create_visualizations": "Crie visualizações personalizadas com controle total sobre:",
         "create_visualizations_tb": "Crie visualizações de TB personalizadas com controle total sobre:",
@@ -679,7 +654,6 @@ TRANSLATIONS = {
         "select_countries": "Selecionar Países para Comparar",
         "no_data_available": "Nenhum dado disponível",
         
-        # Página Sobre
         "about_who_afro_title": "Sobre o Centro de Dados da OMS AFRO",
         "mission": "Missão",
         "mission_desc": "O Centro de Dados da OMS AFRO fornece análises e insights abrangentes sobre dados de saúde em todo o continente africano, com foco em indicadores de mortalidade materna e infantil.",
@@ -713,7 +687,6 @@ TRANSLATIONS = {
         "analytics_engine": "Motor de Análise",
         "ai_chatbot_tech": "Chatbot IA",
         
-        # Termos Comuns
         "tuberculosis": "Tuberculose",
         "maternal_mortality_topic": "Mortalidade Materna",
         "child_mortality": "Mortalidade Infantil",
@@ -752,7 +725,6 @@ TRANSLATIONS = {
         "moving_average": "Média Móvel"
     },
     "Spanish": {
-        # Navegación y General
         "home_title": "Centro de Datos de Salud Regional",
         "home_subtitle": "Sección de Análisis",
         "dashboard": "Panel",
@@ -770,7 +742,6 @@ TRANSLATIONS = {
         "quick_links": "Enlaces Rápidos",
         "home": "Inicio",
         
-        # Página de Inicio
         "transforming_data": "TRANSFORMANDO Datos de Salud en Información Accionable",
         "for_africa": "para el FUTURO de ÁFRICA",
         "platform_description": "Una plataforma regional para inteligencia de salud de alta calidad, oportuna y accionable",
@@ -804,7 +775,6 @@ TRANSLATIONS = {
         "getting_started_2": "Use el Chatbot IA para hacer preguntas sobre los datos",
         "getting_started_3": "Genere Informes para países o regiones específicas",
         
-        # Panel
         "analytics_dashboard": "Panel de Análisis",
         "please_initialize": "Por favor, inicialice el sistema primero desde la barra lateral.",
         "regional_overview": "Resumen Regional",
@@ -826,7 +796,6 @@ TRANSLATIONS = {
         "select_countries_compare": "Seleccione países para comparar",
         "select_indicator": "Seleccione el indicador",
         
-        # Panel de TB
         "tb_notifications": "Notificaciones de TB",
         "tb_outcomes": "Resultados del Tratamiento de TB",
         "tb_analytics_dashboard": "Panel de Análisis de Notificaciones de TB",
@@ -849,7 +818,6 @@ TRANSLATIONS = {
         "top_countries": "Países Principales",
         "bottom_countries": "Países Inferiores",
         
-        # Chatbot
         "ai_chatbot_title": "Chatbot IA",
         "ask_questions": "Haga preguntas sobre datos de mortalidad en lenguaje natural. El chatbot puede ayudarle a:",
         "ask_questions_tb": "Haga preguntas sobre datos de TB en lenguaje natural. El chatbot puede ayudarle a:",
@@ -870,7 +838,6 @@ TRANSLATIONS = {
         "top_countries_queries": "Países Principales (con gráficos):",
         "reports_queries": "Informes:",
         
-        # Informes
         "generate_reports": "Generar Informes",
         "generate_llm_report": "Generar Informe Potenciado por LLM",
         "reports_info": "Los informes se generan utilizando el modelo de IA Gemini 2.5 Flash para análisis e información integral.",
@@ -890,7 +857,6 @@ TRANSLATIONS = {
         "report_basic": "Informe (Básico)",
         "report_content": "Contenido del Informe",
         
-        # Visualizador
         "interactive_visualizer": "Visualizador de Gráficos Interactivos",
         "create_visualizations": "Cree visualizaciones personalizadas con control total sobre:",
         "create_visualizations_tb": "Cree visualizaciones de TB personalizadas con control total sobre:",
@@ -928,7 +894,6 @@ TRANSLATIONS = {
         "select_countries": "Seleccionar Países para Comparar",
         "no_data_available": "No hay datos disponibles",
         
-        # Página Acerca de
         "about_who_afro_title": "Acerca del Centro de Datos de la OMS AFRO",
         "mission": "Misión",
         "mission_desc": "El Centro de Datos de la OMS AFRO proporciona análisis e información integral sobre datos de salud en todo el continente africano, con enfoque en indicadores de mortalidad materna e infantil.",
@@ -962,7 +927,6 @@ TRANSLATIONS = {
         "analytics_engine": "Motor de Análisis",
         "ai_chatbot_tech": "Chatbot IA",
         
-        # Términos Comunes
         "tuberculosis": "Tuberculosis",
         "maternal_mortality_topic": "Mortalidad Materna",
         "child_mortality": "Mortalidad Infantil",
