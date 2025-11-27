@@ -782,6 +782,32 @@ def initialize_system(indicator_type: str = "Maternal Mortality"):
                     st.session_state.tb_burden_analytics = None
                     st.session_state.tb_burden_chart_gen = None
                 
+                # Initialize TB Notifications/Outcomes analytics
+                notif_path = "TB_notifications_2025-11-27.csv"
+                
+                try:
+                    if os.path.exists(notif_path) and os.path.exists(lookup_path):
+                        from tb_notif_outcomes_analytics import TBNotificationsOutcomesAnalytics
+                        from tb_notif_outcomes_charts import TBNotifOutcomesChartGenerator
+                        
+                        tb_notif_analytics = TBNotificationsOutcomesAnalytics(notif_path, lookup_path)
+                        tb_notif_analytics.load_data()
+                        tb_notif_chart_gen = TBNotifOutcomesChartGenerator(tb_notif_analytics)
+                        
+                        st.session_state.tb_notif_analytics = tb_notif_analytics
+                        st.session_state.tb_notif_chart_gen = tb_notif_chart_gen
+                        st.success("✓ TB Notifications/Outcomes data loaded successfully!")
+                    else:
+                        st.warning(f"TB Notifications data file not found: {notif_path}")
+                        st.session_state.tb_notif_analytics = None
+                        st.session_state.tb_notif_chart_gen = None
+                except Exception as e:
+                    st.error(f"TB Notifications initialization failed: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
+                    st.session_state.tb_notif_analytics = None
+                    st.session_state.tb_notif_chart_gen = None
+                
                 # Store TB components
                 st.session_state.tb_pipeline = pipeline
                 st.session_state.tb_analytics = analytics
