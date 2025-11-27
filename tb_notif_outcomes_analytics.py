@@ -89,7 +89,11 @@ class TBNotificationsOutcomesAnalytics:
     
     def get_notifications_summary(self, year: Optional[int] = None) -> Dict:
         """
-        Get regional TB notifications summary
+        Get regional TB notifications summary following WHO definitions
+        
+        NOTE: After 2012, WHO changed case definitions:
+        - Smear positive/negative no longer used
+        - Use: Lab confirmed, Clinically diagnosed, Extrapulmonary
         
         Args:
             year: Specific year (default: latest)
@@ -102,21 +106,38 @@ class TBNotificationsOutcomesAnalytics:
         
         data_year = self.notif_afro[self.notif_afro['year'] == year].copy()
         
-        # WHO-defined indicators
+        # WHO-defined indicators (post-2012 definitions)
         summary = {
             'year': year,
             'total_countries': len(data_year),
-            'total_new_relapse': data_year['c_newinc'].sum(),  # Main indicator
+            # Main indicator: Total new and relapse TB cases
+            'total_new_relapse': data_year['c_newinc'].sum(),
+            # Pulmonary cases (bacteriologically confirmed)
             'pulmonary_lab_confirmed': data_year['new_labconf'].sum() if 'new_labconf' in data_year.columns else 0,
+            # Pulmonary cases (clinically diagnosed)
             'pulmonary_clin_diagnosed': data_year['new_clindx'].sum() if 'new_clindx' in data_year.columns else 0,
+            # Extrapulmonary TB
             'extrapulmonary': data_year['new_ep'].sum() if 'new_ep' in data_year.columns else 0,
         }
         
-        # Notification by type (if available)
-        if 'new_sp' in data_year.columns:
-            summary['smear_positive'] = data_year['new_sp'].sum()
-        if 'new_sn' in data_year.columns:
-            summary['smear_negative'] = data_year['new_sn'].sum()
+        # Calculate ranges for each indicator
+        for key in ['total_new_relapse', 'pulmonary_lab_confirmed', 'pulmonary_clin_diagnosed', 'extrapulmonary']:
+            if key == 'total_new_relapse':
+                col = 'c_newinc'
+            elif key == 'pulmonary_lab_confirmed':
+                col = 'new_labconf'
+            elif key == 'pulmonary_clin_diagnosed':
+                col = 'new_clindx'
+            else:
+                col = 'new_ep'
+            
+            if col in data_year.columns:
+                values = data_year[col].replace([np.inf, -np.inf], np.nan).dropna()
+                values = values[values > 0]
+                if len(values) > 0:
+                    summary[f'{key}_min'] = values.min()
+                    summary[f'{key}_max'] = values.max()
+                    summary[f'{key}_median'] = values.median()
         
         return summary
     
@@ -201,14 +222,16 @@ class TBNotificationsOutcomesAnalytics:
     
     def get_notification_types_breakdown(self, country: str, year: Optional[int] = None) -> Dict:
         """
-        Get notification types breakdown for a country
+        Get notification types breakdown for a country (WHO post-2012 definitions)
+        
+        NOTE: Smear positive/negative not used after 2012
         
         Args:
             country: Country name
             year: Specific year (default: latest)
             
         Returns:
-            Dictionary with notification types
+            Dictionary with notification types (WHO-compliant)
         """
         if year is None:
             year = self.get_latest_year()
@@ -230,8 +253,6 @@ class TBNotificationsOutcomesAnalytics:
             'pulmonary_lab_confirmed': row['new_labconf'] if 'new_labconf' in row else 0,
             'pulmonary_clin_diagnosed': row['new_clindx'] if 'new_clindx' in row else 0,
             'extrapulmonary': row['new_ep'] if 'new_ep' in row else 0,
-            'smear_positive': row['new_sp'] if 'new_sp' in row else 0,
-            'smear_negative': row['new_sn'] if 'new_sn' in row else 0,
         }
     
     def get_regional_trend(self, indicator: str = 'c_newinc') -> pd.DataFrame:
