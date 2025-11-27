@@ -3189,17 +3189,31 @@ def render_tb_burden_explorer(burden_visualizer, burden_analytics, current_lang)
             
             fig = go.Figure()
             
-            # Add upper bound
+            # Add upper bound (invisible line)
             fig.add_trace(go.Scatter(
                 x=cdr_trend['year'],
                 y=cdr_trend['c_cdr_hi'],
                 mode='lines',
                 line=dict(width=0),
                 showlegend=False,
+                name='Upper Bound',
                 hoverinfo='skip'
             ))
             
-            # Add main line
+            # Add lower bound with fill to upper bound (creates CI band)
+            fig.add_trace(go.Scatter(
+                x=cdr_trend['year'],
+                y=cdr_trend['c_cdr_lo'],
+                mode='lines',
+                line=dict(width=0),
+                fill='tonexty',  # Fill to previous trace (upper bound)
+                fillcolor='rgba(40, 167, 69, 0.2)',
+                name='95% CI',
+                showlegend=True,
+                hoverinfo='skip'
+            ))
+            
+            # Add main estimate line on top
             fig.add_trace(go.Scatter(
                 x=cdr_trend['year'],
                 y=cdr_trend['c_cdr'],
@@ -3207,19 +3221,12 @@ def render_tb_burden_explorer(burden_visualizer, burden_analytics, current_lang)
                 name='CDR Estimate',
                 line=dict(width=3, color='#28a745'),
                 marker=dict(size=8),
-                hovertemplate='<b>Year %{x}</b><br>CDR: %{y:.1f}%<br><extra></extra>'
-            ))
-            
-            # Add lower bound with fill
-            fig.add_trace(go.Scatter(
-                x=cdr_trend['year'],
-                y=cdr_trend['c_cdr_lo'],
-                mode='lines',
-                line=dict(width=0),
-                fill='tonexty',
-                fillcolor='rgba(40, 167, 69, 0.2)',
-                name='95% CI',
-                hoverinfo='skip'
+                hovertemplate='<b>Year %{x}</b><br>' +
+                             'CDR: %{y:.1f}%<br>' +
+                             'High Bound: %{customdata[0]:.1f}%<br>' +
+                             'Low Bound: %{customdata[1]:.1f}%<br>' +
+                             '<extra></extra>',
+                customdata=cdr_trend[['c_cdr_hi', 'c_cdr_lo']].values
             ))
             
             fig.update_layout(

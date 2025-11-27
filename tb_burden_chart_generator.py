@@ -228,7 +228,7 @@ class TBBurdenChartGenerator:
     def create_trend_chart(self, country: str, indicator: str = 'e_inc_num',
                           indicator_name: str = 'TB Incidence (Cases)') -> go.Figure:
         """
-        Create trend chart for a specific country
+        Create trend chart for a specific country with confidence intervals
         
         Args:
             country: Country name
@@ -240,22 +240,69 @@ class TBBurdenChartGenerator:
         """
         trend_data = self.analytics.get_indicator_over_time(country, indicator)
         
+        # Check for confidence interval columns
+        indicator_hi = f"{indicator}_hi"
+        indicator_lo = f"{indicator}_lo"
+        has_ci = indicator_hi in trend_data.columns and indicator_lo in trend_data.columns
+        
         fig = go.Figure()
         
-        fig.add_trace(go.Scatter(
-            x=trend_data['year'],
-            y=trend_data[indicator],
-            mode='lines+markers',
-            name=indicator_name,
-            line=dict(width=3, color='#0066CC'),
-            marker=dict(size=8),
-            hovertemplate='<b>Year %{x}</b><br>' +
-                         f'{indicator_name}: %{{y:,.0f}}<br>' +
-                         '<extra></extra>'
-        ))
+        if has_ci:
+            # Add upper bound (invisible line)
+            fig.add_trace(go.Scatter(
+                x=trend_data['year'],
+                y=trend_data[indicator_hi],
+                mode='lines',
+                line=dict(width=0),
+                showlegend=False,
+                name='Upper Bound',
+                hoverinfo='skip'
+            ))
+            
+            # Add lower bound with fill to upper bound (creates CI band)
+            fig.add_trace(go.Scatter(
+                x=trend_data['year'],
+                y=trend_data[indicator_lo],
+                mode='lines',
+                line=dict(width=0),
+                fill='tonexty',  # Fill to previous trace (upper bound)
+                fillcolor='rgba(0, 102, 204, 0.2)',
+                name='95% CI',
+                showlegend=True,
+                hoverinfo='skip'
+            ))
+            
+            # Add main estimate line on top
+            fig.add_trace(go.Scatter(
+                x=trend_data['year'],
+                y=trend_data[indicator],
+                mode='lines+markers',
+                name=indicator_name,
+                line=dict(width=3, color='#0066CC'),
+                marker=dict(size=8),
+                hovertemplate='<b>Year %{x}</b><br>' +
+                             f'{indicator_name}: %{{y:,.0f}}<br>' +
+                             'High Bound: %{customdata[0]:,.0f}<br>' +
+                             'Low Bound: %{customdata[1]:,.0f}<br>' +
+                             '<extra></extra>',
+                customdata=trend_data[[indicator_hi, indicator_lo]].values
+            ))
+        else:
+            # No CI available
+            fig.add_trace(go.Scatter(
+                x=trend_data['year'],
+                y=trend_data[indicator],
+                mode='lines+markers',
+                name=indicator_name,
+                line=dict(width=3, color='#0066CC'),
+                marker=dict(size=8),
+                hovertemplate='<b>Year %{x}</b><br>' +
+                             f'{indicator_name}: %{{y:,.0f}}<br>' +
+                             '<extra></extra>'
+            ))
         
         fig.update_layout(
-            title=f'{indicator_name} Trend - {country}',
+            title=f'{indicator_name} Trend - {country}' + (' [with 95% CI]' if has_ci else ''),
             xaxis_title='Year',
             yaxis_title=indicator_name,
             height=400,
@@ -300,17 +347,31 @@ class TBBurdenChartGenerator:
         
         # Add confidence interval band if available
         if has_ci:
-            # Add upper bound
+            # Add upper bound (invisible line)
             fig.add_trace(go.Scatter(
                 x=regional_trend['year'],
                 y=regional_trend[indicator_hi],
                 mode='lines',
                 line=dict(width=0),
                 showlegend=False,
+                name='Upper Bound',
                 hoverinfo='skip'
             ))
             
-            # Add main line with fill to lower bound
+            # Add lower bound with fill to upper bound (creates the CI band)
+            fig.add_trace(go.Scatter(
+                x=regional_trend['year'],
+                y=regional_trend[indicator_lo],
+                mode='lines',
+                line=dict(width=0),
+                fill='tonexty',  # Fill to previous trace (upper bound)
+                fillcolor='rgba(255, 102, 0, 0.2)',
+                name='95% CI',
+                showlegend=True,
+                hoverinfo='skip'
+            ))
+            
+            # Add main estimate line on top
             fig.add_trace(go.Scatter(
                 x=regional_trend['year'],
                 y=regional_trend[indicator],
@@ -324,18 +385,6 @@ class TBBurdenChartGenerator:
                              'Low Bound: %{customdata[1]:,.0f}<br>' +
                              '<extra></extra>',
                 customdata=regional_trend[[indicator_hi, indicator_lo]].values
-            ))
-            
-            # Add lower bound with fill to main line
-            fig.add_trace(go.Scatter(
-                x=regional_trend['year'],
-                y=regional_trend[indicator_lo],
-                mode='lines',
-                line=dict(width=0),
-                fill='tonexty',
-                fillcolor='rgba(255, 102, 0, 0.2)',
-                name='95% CI',
-                hoverinfo='skip'
             ))
         else:
             fig.add_trace(go.Scatter(
