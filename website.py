@@ -668,9 +668,9 @@ def render_home_page():
             <h1>{get_translation("home_title", current_lang)}</h1>
             <p style="font-size: 1.1rem; opacity: 0.95; font-weight: 600;">{get_translation("home_subtitle", current_lang)}</p>
             <p style="font-size: 0.95rem; opacity: 0.9; margin: 1rem 0; line-height: 1.6;">
-                TRANSFORMING Health Data into Actionable Insights<br>
-                <strong>for AFRICA'S FUTURE</strong><br>
-                <span style="font-size: 0.85rem;">A regional platform for high-quality, timely, and actionable health intelligence</span>
+                {get_translation("transforming_data", current_lang)}<br>
+                <strong>{get_translation("for_africa", current_lang)}</strong><br>
+                <span style="font-size: 0.85rem;">{get_translation("platform_description", current_lang)}</span>
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -1346,11 +1346,13 @@ def render_dashboard_page():
         analytics = st.session_state.analytics
         pipeline = st.session_state.pipeline
     else:
-        st.error(f"Analytics system not initialized for {indicator_type}. Please initialize from the sidebar.")
+        current_lang = st.session_state.get("selected_language", "English")
+        st.error(f"Analytics system not initialized for {indicator_type}. {get_translation('please_initialize', current_lang)}")
         return
     
     if analytics is None:
-        st.error("Analytics object is None. Please initialize the system from the sidebar.")
+        current_lang = st.session_state.get("selected_language", "English")
+        st.error(f"Analytics object is None. {get_translation('please_initialize', current_lang)}")
         return
     
     # Regional Summary with Modern Cards
@@ -1608,7 +1610,7 @@ def render_chatbot_page():
         chatbot = st.session_state.chatbot
     
     if chatbot is None:
-        st.error("Chatbot not initialized. Please initialize the system from the sidebar.")
+        st.error(f"{get_translation('chatbot', current_lang)} not initialized. {get_translation('please_initialize', current_lang)}")
         return
     
     # Link to Interactive Visualizer
@@ -1869,10 +1871,11 @@ def render_reports_page():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<h2 class="section-header">Generate Reports</h2>', unsafe_allow_html=True)
+    current_lang = st.session_state.get("selected_language", "English")
+    st.markdown(f'<h2 class="section-header">{get_translation("generate_reports", current_lang)}</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
-        st.warning("Please initialize the system first from the sidebar.")
+        st.warning(get_translation("please_initialize", current_lang))
         return
     
     # Get analytics and pipeline based on health topic
@@ -1883,15 +1886,15 @@ def render_reports_page():
         analytics = st.session_state.analytics
         pipeline = st.session_state.pipeline
     else:
-        st.error(f"Analytics system not initialized for {health_topic}. Please initialize from the sidebar.")
+        st.error(f"Analytics system not initialized for {health_topic}. {get_translation('please_initialize', current_lang)}")
         return
     
     if analytics is None or pipeline is None:
-        st.error("Analytics or Pipeline object is None. Please initialize the system from the sidebar.")
+        st.error(f"Analytics or Pipeline object is None. {get_translation('please_initialize', current_lang)}")
         return
     
-    st.markdown("### Generate LLM-Powered Report")
-    st.info("💡 Reports are generated using Gemini 2.5 Flash AI model for comprehensive analysis and insights.")
+    st.markdown(f"### {get_translation('generate_llm_report', current_lang)}")
+    st.info(f"💡 {get_translation('reports_info', current_lang)}")
     
     # API Key configuration (load from environment variable or Streamlit secrets)
     if "openrouter_api_key" not in st.session_state:
@@ -2093,10 +2096,11 @@ def render_visualizer_page():
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown('<h2 class="section-header">Interactive Chart Visualizer</h2>', unsafe_allow_html=True)
+    current_lang = st.session_state.get("selected_language", "English")
+    st.markdown(f'<h2 class="section-header">{get_translation("interactive_visualizer", current_lang)}</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
-        st.warning("Please initialize the system first from the sidebar.")
+        st.warning(get_translation("please_initialize", current_lang))
         return
     
     # Get visualizer, analytics, and pipeline based on health topic
@@ -2109,11 +2113,11 @@ def render_visualizer_page():
         analytics = st.session_state.analytics
         pipeline = st.session_state.pipeline
     else:
-        st.error(f"Visualizer system not initialized for {health_topic}. Please initialize from the sidebar.")
+        st.error(f"Visualizer system not initialized for {health_topic}. {get_translation('please_initialize', current_lang)}")
         return
     
     if visualizer is None or analytics is None or pipeline is None:
-        st.error("System not properly initialized. Please initialize from the sidebar.")
+        st.error(f"System not properly initialized. {get_translation('please_initialize', current_lang)}")
         return
     
     # Update description based on health topic
