@@ -967,13 +967,14 @@ TRANSLATIONS = {
 }
 
 
-def get_translation(key: str, language: str = "English") -> str:
+def get_translation(key: str, language: str = "English", auto_translate: bool = True) -> str:
     """
-    Get translation for a key in the specified language
+    Get translation for a key in the specified language with automatic LLM translation fallback
     
     Args:
         key: Translation key
         language: Language code (English, French, Portuguese, Spanish)
+        auto_translate: If True, automatically translate missing translations using LLM
     
     Returns:
         Translated string or key if translation not found
@@ -981,7 +982,32 @@ def get_translation(key: str, language: str = "English") -> str:
     if language not in TRANSLATIONS:
         language = "English"
     
-    return TRANSLATIONS.get(language, {}).get(key, key)
+    # Try to get existing translation
+    translation = TRANSLATIONS.get(language, {}).get(key)
+    
+    if translation:
+        return translation
+    
+    # If not found and auto_translate is enabled, use LLM
+    if auto_translate and language != "English":
+        try:
+            from auto_translator import auto_translate as llm_translate
+            # Get English version first
+            english_text = TRANSLATIONS.get("English", {}).get(key, key)
+            # Translate using LLM
+            translation = llm_translate(english_text, language, context="health data dashboard")
+            
+            # Cache the translation (optional - you could save this back to TRANSLATIONS)
+            if language not in TRANSLATIONS:
+                TRANSLATIONS[language] = {}
+            TRANSLATIONS[language][key] = translation
+            
+            return translation
+        except Exception as e:
+            print(f"Auto-translation failed for '{key}': {e}")
+            return key
+    
+    return key
 
 
 def translate(text: str, language: str = "English") -> str:

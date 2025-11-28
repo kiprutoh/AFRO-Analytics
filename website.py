@@ -2029,16 +2029,6 @@ def render_tb_burden_section(current_lang):
         burden_analytics = st.session_state.tb_burden_analytics
         burden_chart_gen = st.session_state.tb_burden_chart_gen
         
-        # Info box
-        st.markdown("""
-        <div class="info-box" style="margin-bottom: 2rem;">
-            <p style="margin: 0; font-size: 0.95rem;">
-                <strong>Focus:</strong> TB Burden Estimates including incidence, TB/HIV, mortality with confidence intervals
-                <br><strong>Data Source:</strong> WHO Global TB Programme | <strong>Coverage:</strong> 47 AFRO countries | <strong>Years:</strong> 2000-2024
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
         # Get latest year and summary
         latest_year = burden_analytics.get_latest_year()
         burden_summary = burden_analytics.get_burden_summary(year=latest_year)
@@ -3335,6 +3325,525 @@ def render_tb_burden_explorer(burden_visualizer, burden_analytics, current_lang)
             st.info("✓ Confidence intervals shown as shaded band")
 
 
+def render_tb_notifications_explorer(notif_analytics, chart_gen, current_lang):
+    """Render TB Notifications indicator explorer with tabs"""
+    import plotly.express as px
+    import plotly.graph_objects as go
+    
+    st.markdown("### 📊 TB Notifications Indicator Explorer")
+    st.info("Explore TB notification indicators from dashboard across countries and over time.")
+    
+    # Indicator categories in tabs - matching dashboard indicators
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📈 Total Notifications",
+        "🔬 By Diagnosis Method",
+        "👥 Age & Sex Distribution",
+        "📋 Notification Types"
+    ])
+    
+    latest_year = notif_analytics.get_latest_year()
+    countries = notif_analytics.get_country_list()
+    
+    # TAB 1: Total Notifications (c_newinc)
+    with tab1:
+        st.markdown("#### Total New & Relapse TB Cases")
+        
+        viz_type = st.radio(
+            "Visualization Type",
+            ["Country Comparison", "Regional Trend", "Country Trend"],
+            horizontal=True,
+            key="notif_total_viz"
+        )
+        
+        if viz_type == "Country Comparison":
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("##### Top 10 Highest")
+                chart = chart_gen.create_top_notifying_chart(
+                    indicator='c_newinc',
+                    indicator_name='Total New & Relapse TB',
+                    n=10,
+                    year=latest_year,
+                    high=True
+                )
+                if chart:
+                    st.plotly_chart(chart, use_container_width=True)
+            
+            with col2:
+                st.markdown("##### Top 10 Lowest")
+                chart = chart_gen.create_top_notifying_chart(
+                    indicator='c_newinc',
+                    indicator_name='Total New & Relapse TB',
+                    n=10,
+                    year=latest_year,
+                    high=False
+                )
+                if chart:
+                    st.plotly_chart(chart, use_container_width=True)
+        
+        elif viz_type == "Regional Trend":
+            chart = chart_gen.create_regional_trend_chart(
+                indicator='c_newinc',
+                indicator_name='Total New & Relapse TB Cases'
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+        
+        elif viz_type == "Country Trend":
+            selected_country = st.selectbox(
+                "Select Country",
+                countries,
+                key="notif_total_country"
+            )
+            
+            # Create simple country trend
+            country_data = notif_analytics.notif_afro[
+                notif_analytics.notif_afro['country_clean'] == selected_country
+            ][['year', 'c_newinc']].sort_values('year')
+            
+            if not country_data.empty:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=country_data['year'],
+                    y=country_data['c_newinc'],
+                    mode='lines+markers',
+                    name=selected_country,
+                    line=dict(width=3, color='#3498db'),
+                    marker=dict(size=8)
+                ))
+                fig.update_layout(
+                    title=f'Total Notifications Trend - {selected_country}',
+                    xaxis_title='Year',
+                    yaxis_title='Total Cases',
+                    height=500,
+                    template='plotly_white'
+                )
+                st.plotly_chart(fig, use_container_width=True)
+    
+    # TAB 2: By Diagnosis Method
+    with tab2:
+        st.markdown("#### Notifications by Diagnosis Method")
+        
+        viz_type = st.radio(
+            "Visualization Type",
+            ["Country Comparison", "Regional Trend"],
+            horizontal=True,
+            key="notif_diagnosis_viz"
+        )
+        
+        indicator_select = st.selectbox(
+            "Select Indicator",
+            ["new_labconf", "new_clindx", "new_ep"],
+            format_func=lambda x: {
+                "new_labconf": "Pulmonary Lab Confirmed",
+                "new_clindx": "Pulmonary Clinically Diagnosed",
+                "new_ep": "Extrapulmonary TB"
+            }[x],
+            key="notif_diagnosis_indicator"
+        )
+        
+        indicator_names = {
+            "new_labconf": "Pulmonary Lab Confirmed Cases",
+            "new_clindx": "Pulmonary Clinically Diagnosed Cases",
+            "new_ep": "Extrapulmonary TB Cases"
+        }
+        
+        if viz_type == "Country Comparison":
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("##### Top 10 Countries")
+                chart = chart_gen.create_top_notifying_chart(
+                    indicator=indicator_select,
+                    indicator_name=indicator_names[indicator_select],
+                    n=10,
+                    year=latest_year,
+                    high=True
+                )
+                if chart:
+                    st.plotly_chart(chart, use_container_width=True)
+            
+            with col2:
+                st.markdown("##### Bottom 10 Countries")
+                chart = chart_gen.create_top_notifying_chart(
+                    indicator=indicator_select,
+                    indicator_name=indicator_names[indicator_select],
+                    n=10,
+                    year=latest_year,
+                    high=False
+                )
+                if chart:
+                    st.plotly_chart(chart, use_container_width=True)
+        
+        elif viz_type == "Regional Trend":
+            chart = chart_gen.create_regional_trend_chart(
+                indicator=indicator_select,
+                indicator_name=indicator_names[indicator_select]
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+    
+    # TAB 3: Age & Sex Distribution
+    with tab3:
+        st.markdown("#### TB Cases by Age Group and Sex")
+        
+        year_select = st.slider(
+            "Select Year",
+            min_value=int(notif_analytics.notif_afro['year'].min()),
+            max_value=latest_year,
+            value=latest_year,
+            key="notif_age_year"
+        )
+        
+        age_chart = chart_gen.create_age_distribution_chart(year=year_select)
+        if age_chart:
+            st.plotly_chart(age_chart, use_container_width=True)
+            
+            # Show data table
+            age_dist = notif_analytics.get_age_distribution(year=year_select)
+            if not age_dist.empty:
+                st.markdown("##### Age Distribution Summary")
+                st.dataframe(
+                    age_dist[['age_group', 'male', 'female', 'total', 'percent']].style.format({
+                        'male': '{:,.0f}',
+                        'female': '{:,.0f}',
+                        'total': '{:,.0f}',
+                        'percent': '{:.1f}%'
+                    }),
+                    use_container_width=True,
+                    hide_index=True
+                )
+        else:
+            st.warning("Age distribution data not available for selected year")
+    
+    # TAB 4: Notification Types
+    with tab4:
+        st.markdown("#### Notification Types Breakdown by Country")
+        
+        selected_country = st.selectbox(
+            "Select Country",
+            countries,
+            key="notif_types_country"
+        )
+        
+        year_select = st.slider(
+            "Select Year",
+            min_value=int(notif_analytics.notif_afro['year'].min()),
+            max_value=latest_year,
+            value=latest_year,
+            key="notif_types_year"
+        )
+        
+        types_chart = chart_gen.create_notification_types_chart(
+            country=selected_country,
+            year=year_select
+        )
+        
+        if types_chart:
+            st.plotly_chart(types_chart, use_container_width=True)
+            
+            # Show breakdown metrics
+            types_data = notif_analytics.get_notification_types_breakdown(selected_country, year_select)
+            
+            if 'error' not in types_data:
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Lab Confirmed", f"{types_data['pulmonary_lab_confirmed']:,.0f}")
+                with col2:
+                    st.metric("Clinically Diagnosed", f"{types_data['pulmonary_clin_diagnosed']:,.0f}")
+                with col3:
+                    st.metric("Extrapulmonary", f"{types_data['extrapulmonary']:,.0f}")
+        else:
+            st.warning(f"Notification types data not available for {selected_country}")
+
+
+def render_tb_outcomes_explorer(outcomes_analytics, chart_gen, current_lang):
+    """Render TB Outcomes indicator explorer with tabs"""
+    import plotly.express as px
+    import plotly.graph_objects as go
+    
+    st.markdown("### 🏥 TB Treatment Outcomes Indicator Explorer")
+    st.info("Explore TB treatment outcomes from dashboard with WHO targets.")
+    
+    # Category selector
+    outcome_category = st.selectbox(
+        "Patient Category",
+        ["newrel", "ret_nrel", "tbhiv"],
+        format_func=lambda x: {
+            "newrel": "New and Relapse TB Cases",
+            "ret_nrel": "Retreatment TB Cases",
+            "tbhiv": "TB/HIV Co-infected Cases"
+        }[x],
+        key="outcomes_explorer_category"
+    )
+    
+    # Indicator categories in tabs - matching dashboard
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "🎯 Treatment Success Rate",
+        "📊 Outcomes Breakdown",
+        "📈 TSR Trends",
+        "⚖️ WHO Performance"
+    ])
+    
+    latest_year = int(outcomes_analytics.outcomes_afro['year'].max())
+    countries = outcomes_analytics.get_country_list()
+    
+    # Map category to TSR indicator
+    tsr_indicators = {
+        'newrel': 'c_new_tsr',
+        'ret_nrel': 'c_ret_tsr',
+        'tbhiv': 'c_tbhiv_tsr'
+    }
+    tsr_indicator = tsr_indicators.get(outcome_category, 'c_new_tsr')
+    
+    # TAB 1: Treatment Success Rate
+    with tab1:
+        st.markdown("#### Treatment Success Rate by Country")
+        
+        viz_type = st.radio(
+            "Visualization Type",
+            ["Top Performers", "Bottom Performers", "All Countries Distribution"],
+            horizontal=True,
+            key="outcomes_tsr_viz"
+        )
+        
+        if viz_type == "Top Performers":
+            chart = chart_gen.create_outcomes_bar_chart(
+                indicator=tsr_indicator,
+                indicator_name='Treatment Success Rate',
+                n=15,
+                year=latest_year,
+                high=True
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+        
+        elif viz_type == "Bottom Performers":
+            chart = chart_gen.create_outcomes_bar_chart(
+                indicator=tsr_indicator,
+                indicator_name='Treatment Success Rate',
+                n=15,
+                year=latest_year,
+                high=False
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+        
+        elif viz_type == "All Countries Distribution":
+            chart = chart_gen.create_outcomes_equity_chart(
+                indicator=tsr_indicator,
+                indicator_name='Treatment Success Rate',
+                year=latest_year
+            )
+            if chart:
+                st.plotly_chart(chart, use_container_width=True)
+                
+                # Show equity measures
+                equity = outcomes_analytics.calculate_outcomes_equity(tsr_indicator, latest_year)
+                if 'error' not in equity:
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("Min TSR", f"{equity['min_value']:.1f}%")
+                    with col2:
+                        st.metric("Max TSR", f"{equity['max_value']:.1f}%")
+                    with col3:
+                        st.metric("Range", f"{equity['range']:.1f}%")
+                    with col4:
+                        st.metric("Above WHO Target", f"{equity['countries_above_target']}")
+    
+    # TAB 2: Outcomes Breakdown
+    with tab2:
+        st.markdown("#### Treatment Outcomes by Country")
+        
+        selected_country = st.selectbox(
+            "Select Country",
+            countries,
+            key="outcomes_breakdown_country"
+        )
+        
+        year_select = st.slider(
+            "Select Year",
+            min_value=int(outcomes_analytics.outcomes_afro['year'].min()),
+            max_value=latest_year,
+            value=latest_year,
+            key="outcomes_breakdown_year"
+        )
+        
+        breakdown_chart = chart_gen.create_outcomes_breakdown_chart(
+            country=selected_country,
+            year=year_select,
+            category=outcome_category
+        )
+        
+        if breakdown_chart:
+            st.plotly_chart(breakdown_chart, use_container_width=True)
+            
+            # Show detailed metrics
+            breakdown_data = outcomes_analytics.get_outcomes_breakdown(
+                selected_country, year_select, outcome_category
+            )
+            
+            if 'error' not in breakdown_data:
+                col1, col2, col3, col4, col5 = st.columns(5)
+                
+                with col1:
+                    st.metric("Cohort", f"{breakdown_data['cohort']:,.0f}")
+                with col2:
+                    st.metric("Success", f"{breakdown_data['success']:,.0f}")
+                with col3:
+                    st.metric("Failed", f"{breakdown_data['failed']:,.0f}")
+                with col4:
+                    st.metric("Died", f"{breakdown_data['died']:,.0f}")
+                with col5:
+                    st.metric("Lost", f"{breakdown_data['lost']:,.0f}")
+                
+                if breakdown_data['tsr'] > 0:
+                    tsr_val = breakdown_data['tsr']
+                    st.info(f"""
+                    **Treatment Success Rate:** {tsr_val:.1f}%
+                    {"✅ Above WHO target (≥85%)" if tsr_val >= 85 else "⚠️ Below WHO target (≥85%)"}
+                    """)
+        else:
+            st.warning(f"Outcomes data not available for {selected_country}")
+    
+    # TAB 3: TSR Trends
+    with tab3:
+        st.markdown("#### Treatment Success Rate Trends")
+        
+        viz_type = st.radio(
+            "Visualization Type",
+            ["Regional Trend", "Country Trend"],
+            horizontal=True,
+            key="outcomes_trend_viz"
+        )
+        
+        if viz_type == "Regional Trend":
+            trend_chart = chart_gen.create_tsr_trend_chart(
+                indicator=tsr_indicator,
+                indicator_name='Treatment Success Rate'
+            )
+            if trend_chart:
+                st.plotly_chart(trend_chart, use_container_width=True)
+                
+                # Show trend statistics
+                trend_data = outcomes_analytics.get_outcomes_regional_trend(tsr_indicator)
+                if not trend_data.empty:
+                    latest = trend_data.iloc[-1]
+                    earliest = trend_data.iloc[0]
+                    change = latest['mean_tsr'] - earliest['mean_tsr']
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Latest Year TSR", f"{latest['mean_tsr']:.1f}%")
+                    with col2:
+                        st.metric("Change Since First Year", f"{change:+.1f}%")
+                    with col3:
+                        st.metric("Standard Deviation", f"{latest['std_tsr']:.1f}%")
+        
+        elif viz_type == "Country Trend":
+            selected_country = st.selectbox(
+                "Select Country",
+                countries,
+                key="outcomes_trend_country"
+            )
+            
+            # Get country-specific trend
+            country_data = outcomes_analytics.outcomes_afro[
+                outcomes_analytics.outcomes_afro['country_clean'] == selected_country
+            ][['year', tsr_indicator]].sort_values('year')
+            
+            if not country_data.empty and country_data[tsr_indicator].sum() > 0:
+                fig = go.Figure()
+                
+                fig.add_trace(go.Scatter(
+                    x=country_data['year'],
+                    y=country_data[tsr_indicator],
+                    mode='lines+markers',
+                    name=selected_country,
+                    line=dict(width=3, color='#27ae60'),
+                    marker=dict(size=8)
+                ))
+                
+                # Add WHO target line
+                fig.add_hline(y=85, line_dash="dash", line_color="gray",
+                             annotation_text="WHO Target: 85%",
+                             annotation_position="right")
+                
+                fig.update_layout(
+                    title=f'Treatment Success Rate Trend - {selected_country}',
+                    xaxis_title='Year',
+                    yaxis_title='TSR (%)',
+                    height=500,
+                    template='plotly_white',
+                    yaxis=dict(range=[0, 100])
+                )
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning(f"TSR trend data not available for {selected_country}")
+    
+    # TAB 4: WHO Performance
+    with tab4:
+        st.markdown("#### WHO Target Performance Summary")
+        
+        # Get outcomes summary
+        outcomes_summary = outcomes_analytics.get_outcomes_summary(category=outcome_category)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### Regional Performance")
+            perf_data = {
+                'Metric': ['Treatment Success', 'Died', 'Lost to Follow-up', 'Failed'],
+                'Regional %': [
+                    f"{outcomes_summary['success_pct']:.1f}%",
+                    f"{outcomes_summary['died_pct']:.1f}%",
+                    f"{outcomes_summary['lost_pct']:.1f}%",
+                    f"{outcomes_summary['failed_pct']:.1f}%"
+                ],
+                'WHO Target': ['≥85%', '<5%', '<5%', 'N/A'],
+                'Status': [
+                    '✅' if outcomes_summary['success_pct'] >= 85 else '⚠️',
+                    '✅' if outcomes_summary['died_pct'] < 5 else '⚠️',
+                    '✅' if outcomes_summary['lost_pct'] < 5 else '⚠️',
+                    'N/A'
+                ]
+            }
+            st.dataframe(pd.DataFrame(perf_data), hide_index=True, use_container_width=True)
+        
+        with col2:
+            st.markdown("##### Key Statistics")
+            col2_1, col2_2 = st.columns(2)
+            
+            with col2_1:
+                st.metric("Total Cohort", f"{outcomes_summary['cohort']:,.0f}")
+                st.metric("Success Cases", f"{outcomes_summary['success']:,.0f}")
+            
+            with col2_2:
+                if 'countries_above_85' in outcomes_summary:
+                    st.metric("Countries ≥85%", 
+                             f"{outcomes_summary['countries_above_85']}/{outcomes_summary['total_countries']}")
+                if 'tsr_mean' in outcomes_summary:
+                    st.metric("Mean TSR", f"{outcomes_summary['tsr_mean']:.1f}%")
+        
+        # Overall assessment
+        success_above = outcomes_summary['success_pct'] >= 85
+        died_below = outcomes_summary['died_pct'] < 5
+        lost_below = outcomes_summary['lost_pct'] < 5
+        
+        st.markdown("---")
+        st.markdown("##### Overall Assessment")
+        assessment = (
+            'EXCELLENT - All targets met!' if (success_above and died_below and lost_below)
+            else 'GOOD - Most targets met' if sum([success_above, died_below, lost_below]) >= 2
+            else 'NEEDS IMPROVEMENT - Targets not met'
+        )
+        
+        color = '#27ae60' if assessment.startswith('EXCELLENT') else '#f39c12' if assessment.startswith('GOOD') else '#e74c3c'
+        st.markdown(f"<div style='padding: 1rem; background: {color}; color: white; border-radius: 5px; text-align: center; font-weight: bold;'>{assessment}</div>", unsafe_allow_html=True)
+
+
 def render_visualizer_page():
     """Render the interactive visualizer page"""
     # Get current health topic and language
@@ -3441,6 +3950,16 @@ def render_visualizer_page():
             # Special TB Burden exploration interface
             render_tb_burden_explorer(burden_visualizer, burden_analytics, current_lang)
             return  # Exit early for TB Burden
+        
+        elif viz_category == 'TB Notifications' and hasattr(st.session_state, 'tb_notif_analytics'):
+            # Use TB Notifications visualizer
+            render_tb_notifications_explorer(st.session_state.tb_notif_analytics, st.session_state.tb_notif_chart_gen, current_lang)
+            return  # Exit early for TB Notifications
+        
+        elif viz_category == 'TB Outcomes' and hasattr(st.session_state, 'tb_notif_analytics'):
+            # Use TB Outcomes visualizer
+            render_tb_outcomes_explorer(st.session_state.tb_notif_analytics, st.session_state.tb_notif_chart_gen, current_lang)
+            return  # Exit early for TB Outcomes
     
     # Control Panel (for non-TB Burden visualizations)
     with st.expander("⚙️ Chart Controls", expanded=True):
