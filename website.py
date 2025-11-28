@@ -2911,6 +2911,65 @@ def render_reports_page():
             - The report will focus on {tb_subcategory} data for the selected country/region
             """)
         
+        # ==================================================================================
+        # CHART SELECTION (use dashboard/interactive chart generators)
+        # ==================================================================================
+        
+        st.markdown("### 📈 Select Charts to Include in Report")
+        st.info("💡 These charts are generated using the same data as the Dashboard and Interactive Charts")
+        
+        # Generate available chart options based on category and indicators
+        available_charts = {}
+        
+        if tb_subcategory == "TB Burden" and hasattr(st.session_state, 'tb_burden_analytics'):
+            burden_analytics = st.session_state.tb_burden_analytics
+            burden_chart_gen = st.session_state.tb_burden_chart_gen
+            
+            chart_options = {
+                "Regional Trend": "Show regional trends over time with confidence intervals",
+                "Top 10 High Burden": "Countries with highest burden",
+                "Top 10 Low Burden": "Countries with lowest burden",
+                "Geographic Map": "Interactive map showing burden distribution"
+            }
+            
+        elif tb_subcategory == "TB Notifications" and hasattr(st.session_state, 'tb_notif_analytics'):
+            notif_analytics = st.session_state.tb_notif_analytics
+            notif_chart_gen = st.session_state.tb_notif_chart_gen
+            
+            chart_options = {
+                "Top Notifying Countries": "Countries with highest notifications",
+                "Regional Trend": "Notification trends over time",
+                "Age & Sex Distribution": "Breakdown by demographics",
+                "Notification Types": "Distribution by diagnosis method"
+            }
+            
+        elif tb_subcategory == "TB Outcomes" and hasattr(st.session_state, 'tb_notif_analytics'):
+            notif_analytics = st.session_state.tb_notif_analytics
+            notif_chart_gen = st.session_state.tb_notif_chart_gen
+            
+            chart_options = {
+                "Treatment Success Rates": "TSR by country with WHO targets",
+                "Outcomes Breakdown": "Distribution of treatment outcomes",
+                "TSR Trends": "Treatment success trends over time",
+                "WHO Performance": "Performance against WHO benchmarks"
+            }
+        else:
+            chart_options = {
+                "Summary Charts": "Key overview charts for selected indicators"
+            }
+        
+        selected_chart_types = st.multiselect(
+            "Select chart types to include",
+            options=list(chart_options.keys()),
+            default=list(chart_options.keys())[:3],  # Default to first 3
+            format_func=lambda x: f"{x}: {chart_options[x]}",
+            key="selected_chart_types",
+            help="Choose which visualizations to include in your report"
+        )
+        
+        if selected_chart_types:
+            st.success(f"✅ {len(selected_chart_types)} chart type(s) selected. Charts will be generated using dashboard data.")
+        
         st.markdown("---")
     
     # API Key configuration (load from environment variable or Streamlit secrets)
@@ -3017,79 +3076,221 @@ def render_reports_page():
             if selected_indicators_list and selected_indicators_list != ["All available indicators"]:
                 statistics = llm_generator.filter_statistics_by_indicators(statistics, selected_indicators_list)
             
-            # GENERATE RELEVANT CHARTS
+            # GENERATE CHARTS USING DASHBOARD/INTERACTIVE CHART SYSTEM
             report_charts = {}
             report_charts_metadata = {}
             
-            with st.spinner("Generating charts for report..."):
-                if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_notif_analytics'):
-                    # Generate charts based on selected indicators
-                    notif_analytics = st.session_state.tb_notif_analytics
-                    chart_gen = st.session_state.tb_notif_chart_gen
+            with st.spinner("🎨 Generating charts using dashboard data..."):
+                # TB BURDEN CHARTS
+                if tb_subcategory == "TB Burden" and hasattr(st.session_state, 'tb_burden_analytics'):
+                    burden_analytics = st.session_state.tb_burden_analytics
+                    burden_chart_gen = st.session_state.tb_burden_chart_gen
                     
-                    if selected_indicators_list:
-                        for indicator in selected_indicators_list[:5]:  # Limit to 5 charts
-                            try:
-                                # Extract indicator code
-                                ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
-                                
-                                # Generate appropriate chart based on indicator type
-                                if 'tsr' in ind_code.lower() or 'success' in ind_code.lower():
-                                    # Treatment success chart
-                                    fig = chart_gen.create_outcomes_bar_chart(
+                    for chart_type in selected_chart_types:
+                        try:
+                            if chart_type == "Regional Trend" and selected_indicators_list:
+                                # Generate trend chart for each selected indicator
+                                for indicator in selected_indicators_list[:3]:  # Limit
+                                    ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
+                                    fig = burden_chart_gen.create_regional_trend_chart(
+                                        indicator=ind_code,
+                                        indicator_name=indicator
+                                    )
+                                    if fig:
+                                        chart_key = f"Regional Trend - {indicator}"
+                                        report_charts[chart_key] = fig
+                                        report_charts_metadata[chart_key] = {
+                                            'title': f'Regional Trend: {indicator}',
+                                            'type': 'line_chart',
+                                            'description': f'AFRO regional trend with 95% confidence intervals from dashboard data',
+                                            'key_insights': f'Shows temporal pattern and uncertainty ranges for {indicator}'
+                                        }
+                            
+                            elif chart_type == "Top 10 High Burden" and selected_indicators_list:
+                                for indicator in selected_indicators_list[:2]:
+                                    ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
+                                    fig = burden_chart_gen.create_top_burden_chart(
                                         indicator=ind_code,
                                         indicator_name=indicator,
                                         n=10,
                                         high=True
                                     )
                                     if fig:
-                                        report_charts[indicator] = fig
-                                        report_charts_metadata[indicator] = {
-                                            'title': indicator,
+                                        chart_key = f"Top 10 High - {indicator}"
+                                        report_charts[chart_key] = fig
+                                        report_charts_metadata[chart_key] = {
+                                            'title': f'Top 10 High Burden: {indicator}',
                                             'type': 'bar_chart',
-                                            'description': f'Top performing countries for {indicator}'
+                                            'description': f'Countries with highest {indicator} (same as dashboard)',
+                                            'key_insights': f'Identifies priority countries for intervention'
                                         }
-                                elif any(x in ind_code for x in ['c_newinc', 'new_labconf', 'new_clindx', 'new_ep']):
-                                    # Notification chart
-                                    fig = chart_gen.create_regional_trend_chart(
+                            
+                            elif chart_type == "Top 10 Low Burden" and selected_indicators_list:
+                                ind_code = selected_indicators_list[0].split('(')[0].strip() if '(' in selected_indicators_list[0] else selected_indicators_list[0]
+                                fig = burden_chart_gen.create_top_burden_chart(
+                                    indicator=ind_code,
+                                    indicator_name=selected_indicators_list[0],
+                                    n=10,
+                                    high=False
+                                )
+                                if fig:
+                                    chart_key = "Top 10 Low Burden"
+                                    report_charts[chart_key] = fig
+                                    report_charts_metadata[chart_key] = {
+                                        'title': 'Top 10 Low Burden Countries',
+                                        'type': 'bar_chart',
+                                        'description': 'Countries with lowest burden (dashboard data)',
+                                        'key_insights': 'Shows countries with best performance'
+                                    }
+                            
+                            elif chart_type == "Geographic Map" and selected_indicators_list:
+                                ind_code = selected_indicators_list[0].split('(')[0].strip() if '(' in selected_indicators_list[0] else selected_indicators_list[0]
+                                fig = burden_chart_gen.create_map(
+                                    indicator=ind_code,
+                                    indicator_name=selected_indicators_list[0]
+                                )
+                                if fig:
+                                    chart_key = "Geographic Distribution"
+                                    report_charts[chart_key] = fig
+                                    report_charts_metadata[chart_key] = {
+                                        'title': 'Geographic Distribution Map',
+                                        'type': 'map',
+                                        'description': 'Spatial distribution across AFRO region (interactive map from dashboard)',
+                                        'key_insights': 'Visualizes geographic patterns'
+                                    }
+                        except Exception as e:
+                            st.warning(f"Could not generate {chart_type}: {e}")
+                
+                # TB NOTIFICATIONS CHARTS
+                elif tb_subcategory == "TB Notifications" and hasattr(st.session_state, 'tb_notif_analytics'):
+                    notif_analytics = st.session_state.tb_notif_analytics
+                    notif_chart_gen = st.session_state.tb_notif_chart_gen
+                    
+                    for chart_type in selected_chart_types:
+                        try:
+                            if chart_type == "Top Notifying Countries" and selected_indicators_list:
+                                for indicator in selected_indicators_list[:2]:
+                                    ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
+                                    top_countries = notif_analytics.get_top_countries(ind_code, n=10, category='notifications')
+                                    if top_countries:
+                                        fig = notif_chart_gen.create_top_notifying_countries_chart(
+                                            top_countries, ind_code, indicator
+                                        )
+                                        if fig:
+                                            chart_key = f"Top Countries - {indicator}"
+                                            report_charts[chart_key] = fig
+                                            report_charts_metadata[chart_key] = {
+                                                'title': f'Top 10 Countries: {indicator}',
+                                                'type': 'bar_chart',
+                                                'description': f'Countries with highest {indicator} (dashboard data)',
+                                                'key_insights': f'Identifies countries with highest case notifications'
+                                            }
+                            
+                            elif chart_type == "Regional Trend" and selected_indicators_list:
+                                for indicator in selected_indicators_list[:3]:
+                                    ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
+                                    fig = notif_chart_gen.create_regional_trend_chart(
                                         indicator=ind_code,
                                         indicator_name=indicator
                                     )
                                     if fig:
-                                        report_charts[indicator] = fig
-                                        report_charts_metadata[indicator] = {
-                                            'title': indicator,
-                                            'type': 'trend_chart',
-                                            'description': f'Regional trend for {indicator}'
+                                        chart_key = f"Regional Trend - {indicator}"
+                                        report_charts[chart_key] = fig
+                                        report_charts_metadata[chart_key] = {
+                                            'title': f'Regional Trend: {indicator}',
+                                            'type': 'line_chart',
+                                            'description': f'AFRO regional notification trend (from interactive charts)',
+                                            'key_insights': f'Shows temporal patterns for {indicator}'
                                         }
-                            except Exception as e:
-                                print(f"Could not generate chart for {indicator}: {e}")
-                
-                # Add burden charts if TB Burden selected
-                if tb_subcategory == "TB Burden" and hasattr(st.session_state, 'tb_burden_analytics'):
-                    burden_analytics = st.session_state.tb_burden_analytics
-                    burden_chart_gen = st.session_state.tb_burden_chart_gen
-                    
-                    if selected_indicators_list:
-                        for indicator in selected_indicators_list[:5]:
-                            ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
-                            try:
-                                # Generate trend chart
-                                fig = burden_chart_gen.create_regional_trend_chart(
-                                    indicator=ind_code,
-                                    indicator_name=indicator
-                                )
+                            
+                            elif chart_type == "Age & Sex Distribution":
+                                fig = notif_chart_gen.create_age_group_chart()
                                 if fig:
-                                    report_charts[indicator] = fig
-                                    report_charts_metadata[indicator] = {
-                                        'title': indicator,
-                                        'type': 'trend_chart',
-                                        'description': f'Regional trend with confidence intervals'
+                                    chart_key = "Age Sex Distribution"
+                                    report_charts[chart_key] = fig
+                                    report_charts_metadata[chart_key] = {
+                                        'title': 'Age and Sex Distribution',
+                                        'type': 'population_pyramid',
+                                        'description': 'Demographics of TB notifications (dashboard visualization)',
+                                        'key_insights': 'Shows age and sex patterns'
                                     }
-                            except Exception as e:
-                                print(f"Could not generate chart for {indicator}: {e}")
+                            
+                            elif chart_type == "Notification Types":
+                                fig = notif_chart_gen.create_notification_types_chart()
+                                if fig:
+                                    chart_key = "Notification Types"
+                                    report_charts[chart_key] = fig
+                                    report_charts_metadata[chart_key] = {
+                                        'title': 'TB Notification Types',
+                                        'type': 'pie_chart',
+                                        'description': 'Breakdown by diagnosis method (dashboard chart)',
+                                        'key_insights': 'Distribution of diagnostic methods'
+                                    }
+                        except Exception as e:
+                            st.warning(f"Could not generate {chart_type}: {e}")
+                
+                # TB OUTCOMES CHARTS
+                elif tb_subcategory == "TB Outcomes" and hasattr(st.session_state, 'tb_notif_analytics'):
+                    notif_analytics = st.session_state.tb_notif_analytics
+                    notif_chart_gen = st.session_state.tb_notif_chart_gen
+                    
+                    for chart_type in selected_chart_types:
+                        try:
+                            if chart_type == "Treatment Success Rates":
+                                # Generate TSR chart with WHO target
+                                top_performers = notif_analytics.get_top_countries('c_new_tsr', n=10, category='outcomes')
+                                if top_performers:
+                                    fig = notif_chart_gen.create_treatment_success_chart(
+                                        top_performers, 'c_new_tsr', 'Treatment Success Rate (New/Relapse)'
+                                    )
+                                    if fig:
+                                        chart_key = "Treatment Success Rates"
+                                        report_charts[chart_key] = fig
+                                        report_charts_metadata[chart_key] = {
+                                            'title': 'Treatment Success Rates by Country',
+                                            'type': 'bar_chart',
+                                            'description': 'TSR with WHO target line (dashboard visualization)',
+                                            'key_insights': 'Performance against WHO 85% target'
+                                        }
+                            
+                            elif chart_type == "Outcomes Breakdown":
+                                fig = notif_chart_gen.create_outcomes_breakdown_chart()
+                                if fig:
+                                    chart_key = "Outcomes Breakdown"
+                                    report_charts[chart_key] = fig
+                                    report_charts_metadata[chart_key] = {
+                                        'title': 'Treatment Outcomes Distribution',
+                                        'type': 'pie_chart',
+                                        'description': 'Distribution of treatment results (dashboard chart)',
+                                        'key_insights': 'Breakdown: Cured, Completed, Failed, Died, Lost'
+                                    }
+                            
+                            elif chart_type == "TSR Trends":
+                                fig = notif_chart_gen.create_regional_tsr_trend_chart('c_new_tsr', 'New/Relapse TSR')
+                                if fig:
+                                    chart_key = "TSR Trends"
+                                    report_charts[chart_key] = fig
+                                    report_charts_metadata[chart_key] = {
+                                        'title': 'Treatment Success Rate Trends',
+                                        'type': 'line_chart',
+                                        'description': 'Regional TSR trends with WHO target (from interactive charts)',
+                                        'key_insights': 'Shows progress toward WHO benchmarks over time'
+                                    }
+                        except Exception as e:
+                            st.warning(f"Could not generate {chart_type}: {e}")
             
-            # Generate report using LLM with selected indicators and charts
+            # Show chart preview if charts were generated
+            if report_charts:
+                with st.expander(f"📊 Preview {len(report_charts)} Chart(s) - These use Dashboard Data", expanded=False):
+                    st.info("These charts are generated using the same data and generators as the Dashboard and Interactive Charts")
+                    for idx, (chart_name, fig) in enumerate(list(report_charts.items())[:3]):  # Show first 3
+                        st.plotly_chart(fig, use_container_width=True, key=f"preview_{idx}")
+                        if idx < len(report_charts) - 1:
+                            st.markdown("---")
+                    if len(report_charts) > 3:
+                        st.caption(f"... and {len(report_charts) - 3} more chart(s)")
+            
+            # Generate report using LLM with selected indicators and dashboard charts
             with st.spinner(f"🤖 Generating AI-powered report in {selected_language}... This may take a moment."):
                 report = llm_generator.generate_report(
                     statistics=statistics,
@@ -3221,7 +3422,7 @@ def render_reports_page():
                     st.button("📕 PDF (Install pdfkit)", disabled=True, use_container_width=True,
                              help=f"Error: {str(e)}")
             
-            st.success(f"✅ Report generated successfully! {len(report_charts)} chart(s) included.")
+            st.success(f"✅ Report generated successfully! {len(report_charts)} chart(s) from dashboard data included.")
             
         except Exception as e:
             st.error(f"Error generating report: {str(e)}")
