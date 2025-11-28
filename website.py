@@ -525,7 +525,7 @@ st.markdown("""
         opacity: 1;
     }
     .stat-value {
-        font-size: 2.8rem;
+        font-size: 2.2rem;
         font-weight: 900;
         text-align: center;
         color: #ffffff;
@@ -1217,7 +1217,11 @@ def render_home_page():
             
             with col4:
                 year_range = summary.get('year_range', (None, None))
-                year_text = f"{year_range[0]}-{year_range[1]}" if year_range[0] and year_range[1] else "N/A"
+                # Auto-detect from data, default to 1980-2024 if not available
+                if year_range[0] and year_range[1]:
+                    year_text = f"{year_range[0]}-{year_range[1]}"
+                else:
+                    year_text = "1980-2024"
                 st.markdown(f"""
                 <div class="stat-card">
                     <div class="stat-value">{year_text}</div>
@@ -2912,63 +2916,20 @@ def render_reports_page():
             """)
         
         # ==================================================================================
-        # CHART SELECTION (use dashboard/interactive chart generators)
+        # AUTO-GENERATE CHARTS (based on category and indicators)
         # ==================================================================================
         
-        st.markdown("### 📈 Select Charts to Include in Report")
-        st.info("💡 These charts are generated using the same data as the Dashboard and Interactive Charts")
-        
-        # Generate available chart options based on category and indicators
-        available_charts = {}
+        # Automatically determine which charts to generate based on category
+        selected_chart_types = []
         
         if tb_subcategory == "TB Burden" and hasattr(st.session_state, 'tb_burden_analytics'):
-            burden_analytics = st.session_state.tb_burden_analytics
-            burden_chart_gen = st.session_state.tb_burden_chart_gen
-            
-            chart_options = {
-                "Regional Trend": "Show regional trends over time with confidence intervals",
-                "Top 10 High Burden": "Countries with highest burden",
-                "Top 10 Low Burden": "Countries with lowest burden",
-                "Geographic Map": "Interactive map showing burden distribution"
-            }
+            selected_chart_types = ["Regional Trend", "Top 10 High Burden"]
             
         elif tb_subcategory == "TB Notifications" and hasattr(st.session_state, 'tb_notif_analytics'):
-            notif_analytics = st.session_state.tb_notif_analytics
-            notif_chart_gen = st.session_state.tb_notif_chart_gen
-            
-            chart_options = {
-                "Top Notifying Countries": "Countries with highest notifications",
-                "Regional Trend": "Notification trends over time",
-                "Age & Sex Distribution": "Breakdown by demographics",
-                "Notification Types": "Distribution by diagnosis method"
-            }
+            selected_chart_types = ["Top Notifying Countries", "Regional Trend"]
             
         elif tb_subcategory == "TB Outcomes" and hasattr(st.session_state, 'tb_notif_analytics'):
-            notif_analytics = st.session_state.tb_notif_analytics
-            notif_chart_gen = st.session_state.tb_notif_chart_gen
-            
-            chart_options = {
-                "Treatment Success Rates": "TSR by country with WHO targets",
-                "Outcomes Breakdown": "Distribution of treatment outcomes",
-                "TSR Trends": "Treatment success trends over time",
-                "WHO Performance": "Performance against WHO benchmarks"
-            }
-        else:
-            chart_options = {
-                "Summary Charts": "Key overview charts for selected indicators"
-            }
-        
-        selected_chart_types = st.multiselect(
-            "Select chart types to include",
-            options=list(chart_options.keys()),
-            default=list(chart_options.keys())[:3],  # Default to first 3
-            format_func=lambda x: f"{x}: {chart_options[x]}",
-            key="selected_chart_types",
-            help="Choose which visualizations to include in your report"
-        )
-        
-        if selected_chart_types:
-            st.success(f"✅ {len(selected_chart_types)} chart type(s) selected. Charts will be generated using dashboard data.")
+            selected_chart_types = ["Treatment Success Rates", "TSR Trends"]
         
         st.markdown("---")
     
