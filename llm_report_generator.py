@@ -33,7 +33,9 @@ class LLMReportGenerator:
         report_type: str = "comprehensive",
         country: Optional[str] = None,
         custom_requirements: Optional[str] = None,
-        language: str = "English"
+        language: str = "English",
+        selected_indicators: Optional[List[str]] = None,
+        charts: Optional[Dict] = None
     ) -> str:
         """
         Generate a report using LLM based on provided statistics
@@ -44,12 +46,17 @@ class LLMReportGenerator:
             country: Optional country name for country-specific reports
             custom_requirements: Optional custom requirements from user
             language: Language for the report (default: English)
+            selected_indicators: Optional list of specific indicators to focus on
+            charts: Optional dictionary of chart data to include
         
         Returns:
             Generated report text
         """
         # Build prompt with key statistics
-        prompt = self._build_prompt(statistics, report_type, country, custom_requirements, language)
+        prompt = self._build_prompt(
+            statistics, report_type, country, custom_requirements, 
+            language, selected_indicators, charts
+        )
         
         try:
             response = self.client.chat.completions.create(
@@ -65,10 +72,14 @@ class LLMReportGenerator:
                     }
                 ],
                 temperature=0.7,
-                max_tokens=3000
+                max_tokens=4000  # Increased for charts
             )
             
             report = response.choices[0].message.content.strip()
+            
+            # Add chart placeholders if charts provided
+            if charts:
+                report = self._integrate_charts(report, charts)
             
             # Add AI-generated content disclaimer
             disclaimer = self._get_ai_disclaimer(language)
@@ -142,7 +153,9 @@ IMPORTANT:
         report_type: str,
         country: Optional[str],
         custom_requirements: Optional[str] = None,
-        language: str = "English"
+        language: str = "English",
+        selected_indicators: Optional[List[str]] = None,
+        charts: Optional[Dict] = None
     ) -> str:
         """Build the user prompt with statistics"""
         
@@ -157,6 +170,21 @@ IMPORTANT:
         prompt_parts.append("Do NOT use information from other sources.")
         prompt_parts.append("=" * 80)
         prompt_parts.append("")
+        
+        # STRICT INDICATOR CONSTRAINT
+        if selected_indicators and selected_indicators != ["All available indicators"]:
+            prompt_parts.append("=" * 80)
+            prompt_parts.append("CRITICAL: INDICATOR CONSTRAINT")
+            prompt_parts.append("=" * 80)
+            prompt_parts.append("You MUST ONLY analyze and report on the following indicators:")
+            for ind in selected_indicators:
+                prompt_parts.append(f"  ✓ {ind}")
+            prompt_parts.append("")
+            prompt_parts.append("DO NOT include any other indicators in your analysis.")
+            prompt_parts.append("DO NOT mention or discuss indicators not in the above list.")
+            prompt_parts.append("Focus EXCLUSIVELY on these selected indicators.")
+            prompt_parts.append("=" * 80)
+            prompt_parts.append("")
         
         # Language instruction
         prompt_parts.append(f"LANGUAGE REQUIREMENT: Generate the entire report in {language}. All content must be in {language}.")
@@ -263,26 +291,42 @@ IMPORTANT:
             for indicator, target_info in statistics["sdg_targets"].items():
                 prompt_parts.append(f"- {indicator}: {target_info['target']} {target_info['unit']} - {target_info['description']}")
         
+        # Add chart information if provided
+        if charts:
+            prompt_parts.append("\n## 📊 Charts to Reference in Report:")
+            for chart_name, chart_info in charts.items():
+                prompt_parts.append(f"\n**{chart_info.get('title', chart_name)}**")
+                prompt_parts.append(f"- Description: {chart_info.get('description', 'N/A')}")
+                prompt_parts.append(f"- Type: {chart_info.get('type', 'N/A')}")
+                if 'key_insights' in chart_info:
+                    prompt_parts.append(f"- Key Insights: {chart_info['key_insights']}")
+            prompt_parts.append("\nWhen referencing these charts, use: [CHART: chart_name]")
+        
         prompt_parts.append("\n\nPlease generate a well-structured, professional report based on this data. Include:")
-        prompt_parts.append("1. Executive Summary - Provide a high-level overview with key takeaways")
-        prompt_parts.append("2. Key Findings - List important statistics WITH interpretation explaining what they mean")
-        prompt_parts.append("3. Statistical Summary and Interpretation - For each key statistic:")
-        prompt_parts.append("   - Present the number")
-        prompt_parts.append("   - Explain what it means in practical terms")
-        prompt_parts.append("   - Compare against targets or benchmarks")
-        prompt_parts.append("   - Discuss implications")
-        prompt_parts.append("4. Trends and Patterns Analysis - Explain what trends indicate and their significance")
-        prompt_parts.append("5. SDG 2030 Progress Assessment - Detailed analysis of progress toward targets (do NOT repeat 'Gap to target' information)")
-        prompt_parts.append("6. Recommendations (if applicable) - Actionable insights based on the data")
+        prompt_parts.append("1. Executive Summary - Provide a high-level overview with key takeaways FOR SELECTED INDICATORS ONLY")
+        prompt_parts.append("2. Key Findings - List important statistics WITH interpretation FOR SELECTED INDICATORS ONLY")
+        prompt_parts.append("3. Detailed Indicator Analysis - For EACH SELECTED INDICATOR:")
+        prompt_parts.append("   - Present the key statistics")
+        prompt_parts.append("   - Explain what they mean in practical terms")
+        prompt_parts.append("   - Compare against WHO targets or benchmarks")
+        prompt_parts.append("   - Discuss implications and trends")
+        prompt_parts.append("   - Reference relevant charts using [CHART: name] notation")
+        prompt_parts.append("4. Visual Analytics Section - Describe insights from charts")
+        prompt_parts.append("5. Trends and Patterns - Explain what trends indicate FOR SELECTED INDICATORS ONLY")
+        prompt_parts.append("6. Performance Assessment - Against WHO targets")
+        prompt_parts.append("7. Recommendations - Actionable insights based on the SELECTED INDICATORS")
         prompt_parts.append("\nCRITICAL REQUIREMENTS:")
+        if selected_indicators and selected_indicators != ["All available indicators"]:
+            prompt_parts.append("⚠️ MOST IMPORTANT: ONLY analyze the indicators explicitly listed above. DO NOT mention other indicators.")
         prompt_parts.append("- Do not just list statistics. For every number, provide:")
         prompt_parts.append("  * Clear interpretation of what it means")
         prompt_parts.append("  * Context (is this good/bad, improving/declining)")
-        prompt_parts.append("  * Comparison to relevant benchmarks or targets")
-        prompt_parts.append("  * Practical implications")
+        prompt_parts.append("  * Comparison to WHO benchmarks or targets")
+        prompt_parts.append("  * Practical implications for health outcomes")
+        prompt_parts.append("- Reference charts where appropriate using [CHART: name]")
+        prompt_parts.append("- Structure the report with markdown headings (##, ###)")
+        prompt_parts.append("- Be specific and data-driven")
         prompt_parts.append("- ONLY use information from WHO's official website (https://www.who.int/)")
-        prompt_parts.append("- If any requested information is not available on WHO's website, politely decline that specific part")
-        prompt_parts.append("- When referencing WHO content, mention it comes from WHO sources")
         prompt_parts.append("\nUse markdown formatting for headings and structure.")
         
         return "\n".join(prompt_parts)
@@ -338,4 +382,123 @@ Este informe fue generado usando inteligencia artificial. Por favor, revise todo
         report_lines.append(f"\n\n---\n\n{disclaimer}")
         
         return "\n".join(report_lines)
+    
+    def _integrate_charts(self, report: str, charts: Dict) -> str:
+        """
+        Integrate chart placeholders into report
+        
+        Args:
+            report: Generated report text
+            charts: Dictionary with chart information
+            
+        Returns:
+            Report with chart placeholders
+        """
+        if not charts:
+            return report
+        
+        # Add chart section
+        chart_section = "\n\n## 📊 Visual Analytics\n\n"
+        chart_section += "_[Charts will be displayed when viewing in the application]_\n\n"
+        
+        for chart_name, chart_info in charts.items():
+            chart_section += f"### {chart_info.get('title', chart_name)}\n"
+            chart_section += f"_{chart_info.get('description', 'Visualization for ' + chart_name)}_\n\n"
+            chart_section += f"**[CHART: {chart_name}]**\n\n"
+        
+        # Insert before disclaimer
+        if "---" in report and "AI-Generated Content" in report:
+            parts = report.rsplit("---", 1)
+            report = parts[0] + chart_section + "---" + parts[1]
+        else:
+            report += chart_section
+        
+        return report
+    
+    def filter_statistics_by_indicators(
+        self,
+        statistics: Dict,
+        selected_indicators: List[str]
+    ) -> Dict:
+        """
+        Filter statistics to only include selected indicators
+        
+        Args:
+            statistics: Full statistics dictionary
+            selected_indicators: List of indicator names to keep
+            
+        Returns:
+            Filtered statistics dictionary
+        """
+        if not selected_indicators or selected_indicators == ["All available indicators"]:
+            return statistics
+        
+        filtered = statistics.copy()
+        
+        # Extract indicator names from formatted strings (e.g., "e_inc_num (TB Incidence Cases)" -> "e_inc_num")
+        clean_indicators = []
+        for ind in selected_indicators:
+            if '(' in ind:
+                clean_indicators.append(ind.split('(')[0].strip())
+            else:
+                clean_indicators.append(ind.strip())
+        
+        # Filter regional summary indicators
+        if "regional_summary" in filtered and "indicators" in filtered["regional_summary"]:
+            original_indicators = filtered["regional_summary"]["indicators"]
+            filtered_indicators = {}
+            
+            for key in clean_indicators:
+                if key in original_indicators:
+                    filtered_indicators[key] = original_indicators[key]
+                # Also check if the key is in the formatted name
+                for orig_key, orig_value in original_indicators.items():
+                    if key in orig_key or orig_key in selected_indicators:
+                        filtered_indicators[orig_key] = orig_value
+            
+            filtered["regional_summary"]["indicators"] = filtered_indicators
+        
+        # Filter country stats indicators
+        if "country_stats" in filtered and "indicators" in filtered["country_stats"]:
+            original_indicators = filtered["country_stats"]["indicators"]
+            filtered_indicators = {}
+            
+            for key in clean_indicators:
+                if key in original_indicators:
+                    filtered_indicators[key] = original_indicators[key]
+                for orig_key, orig_value in original_indicators.items():
+                    if key in orig_key or orig_key in selected_indicators:
+                        filtered_indicators[orig_key] = orig_value
+            
+            filtered["country_stats"]["indicators"] = filtered_indicators
+        
+        # Filter trend analyses
+        if "trend_analyses" in filtered:
+            original_trends = filtered["trend_analyses"]
+            filtered_trends = {}
+            
+            for key in clean_indicators:
+                if key in original_trends:
+                    filtered_trends[key] = original_trends[key]
+                for orig_key, orig_value in original_trends.items():
+                    if key in orig_key or orig_key in selected_indicators:
+                        filtered_trends[orig_key] = orig_value
+            
+            filtered["trend_analyses"] = filtered_trends
+        
+        # Filter top countries
+        if "top_countries" in filtered:
+            original_top = filtered["top_countries"]
+            filtered_top = {}
+            
+            for key in clean_indicators:
+                if key in original_top:
+                    filtered_top[key] = original_top[key]
+                for orig_key, orig_value in original_top.items():
+                    if key in orig_key or orig_key in selected_indicators:
+                        filtered_top[orig_key] = orig_value
+            
+            filtered["top_countries"] = filtered_top
+        
+        return filtered
 

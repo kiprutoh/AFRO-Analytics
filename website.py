@@ -496,13 +496,13 @@ st.markdown("""
     
     /* Modern Stat Cards */
     .stat-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem;
         border-radius: 20px;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
         border: none;
         margin: 1rem 0;
-        transition: all 0.3s ease;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
         overflow: hidden;
     }
@@ -512,37 +512,50 @@ st.markdown("""
         top: 0;
         left: 0;
         width: 100%;
-        height: 4px;
-        background: linear-gradient(90deg, #0066CC, #00CC66, #FF6600);
-        transform: scaleX(0);
-        transition: transform 0.3s ease;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
+        opacity: 0;
+        transition: opacity 0.4s ease;
     }
     .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 35px rgba(0,102,204,0.2);
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(102, 126, 234, 0.4);
     }
     .stat-card:hover::before {
-        transform: scaleX(1);
+        opacity: 1;
     }
     .stat-value {
-        font-size: 2.5rem;
-        font-weight: 800;
+        font-size: 2.8rem;
+        font-weight: 900;
         text-align: center;
-        background: linear-gradient(135deg, #0066CC 0%, #00CC66 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: #ffffff;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         margin: 0.5rem 0;
         letter-spacing: -1px;
     }
     .stat-label {
-        color: #666;
-        font-size: 0.95rem;
-        margin-top: 0.5rem;
-        font-weight: 500;
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 0.85rem;
+        margin-top: 0.75rem;
+        font-weight: 600;
         text-transform: uppercase;
         text-align: center;
-        letter-spacing: 0.5px;
+        letter-spacing: 1.2px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Card Color Variations */
+    .stColumn:nth-child(1) .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .stColumn:nth-child(2) .stat-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .stColumn:nth-child(3) .stat-card {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .stColumn:nth-child(4) .stat-card {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
     }
     
     /* Section Headers */
@@ -3000,14 +3013,92 @@ def render_reports_page():
             with st.spinner("Collecting statistics..."):
                 statistics = _collect_statistics_for_llm(analytics, pipeline, selected_country, health_topic)
             
-            # Generate report using LLM with selected language from session state
+            # FILTER STATISTICS BASED ON SELECTED INDICATORS
+            if selected_indicators_list and selected_indicators_list != ["All available indicators"]:
+                statistics = llm_generator.filter_statistics_by_indicators(statistics, selected_indicators_list)
+            
+            # GENERATE RELEVANT CHARTS
+            report_charts = {}
+            report_charts_metadata = {}
+            
+            with st.spinner("Generating charts for report..."):
+                if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_notif_analytics'):
+                    # Generate charts based on selected indicators
+                    notif_analytics = st.session_state.tb_notif_analytics
+                    chart_gen = st.session_state.tb_notif_chart_gen
+                    
+                    if selected_indicators_list:
+                        for indicator in selected_indicators_list[:5]:  # Limit to 5 charts
+                            try:
+                                # Extract indicator code
+                                ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
+                                
+                                # Generate appropriate chart based on indicator type
+                                if 'tsr' in ind_code.lower() or 'success' in ind_code.lower():
+                                    # Treatment success chart
+                                    fig = chart_gen.create_outcomes_bar_chart(
+                                        indicator=ind_code,
+                                        indicator_name=indicator,
+                                        n=10,
+                                        high=True
+                                    )
+                                    if fig:
+                                        report_charts[indicator] = fig
+                                        report_charts_metadata[indicator] = {
+                                            'title': indicator,
+                                            'type': 'bar_chart',
+                                            'description': f'Top performing countries for {indicator}'
+                                        }
+                                elif any(x in ind_code for x in ['c_newinc', 'new_labconf', 'new_clindx', 'new_ep']):
+                                    # Notification chart
+                                    fig = chart_gen.create_regional_trend_chart(
+                                        indicator=ind_code,
+                                        indicator_name=indicator
+                                    )
+                                    if fig:
+                                        report_charts[indicator] = fig
+                                        report_charts_metadata[indicator] = {
+                                            'title': indicator,
+                                            'type': 'trend_chart',
+                                            'description': f'Regional trend for {indicator}'
+                                        }
+                            except Exception as e:
+                                print(f"Could not generate chart for {indicator}: {e}")
+                
+                # Add burden charts if TB Burden selected
+                if tb_subcategory == "TB Burden" and hasattr(st.session_state, 'tb_burden_analytics'):
+                    burden_analytics = st.session_state.tb_burden_analytics
+                    burden_chart_gen = st.session_state.tb_burden_chart_gen
+                    
+                    if selected_indicators_list:
+                        for indicator in selected_indicators_list[:5]:
+                            ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
+                            try:
+                                # Generate trend chart
+                                fig = burden_chart_gen.create_regional_trend_chart(
+                                    indicator=ind_code,
+                                    indicator_name=indicator
+                                )
+                                if fig:
+                                    report_charts[indicator] = fig
+                                    report_charts_metadata[indicator] = {
+                                        'title': indicator,
+                                        'type': 'trend_chart',
+                                        'description': f'Regional trend with confidence intervals'
+                                    }
+                            except Exception as e:
+                                print(f"Could not generate chart for {indicator}: {e}")
+            
+            # Generate report using LLM with selected indicators and charts
             with st.spinner(f"🤖 Generating AI-powered report in {selected_language}... This may take a moment."):
                 report = llm_generator.generate_report(
                     statistics=statistics,
                     report_type=report_type,
                     country=selected_country,
                     custom_requirements=custom_prompt if custom_prompt else None,
-                    language=selected_language  # Use language from session state
+                    language=selected_language,
+                    selected_indicators=selected_indicators_list,
+                    charts=report_charts_metadata
                 )
             
             st.markdown("### Generated Report")
@@ -3057,16 +3148,80 @@ def render_reports_page():
                 except Exception as e:
                     pass  # Charts optional
             
-            # Display report with markdown rendering
-            st.markdown(report)
+            # Display report with markdown rendering and embedded charts
+            report_lines = report.split('\n')
+            current_section = []
             
-            # Download button
-            st.download_button(
-                label="📥 Download Report",
-                data=report,
-                file_name=f"mortality_report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.txt",
-                mime="text/plain"
-            )
+            for line in report_lines:
+                # Check for chart placeholder
+                if '[CHART:' in line and ']' in line:
+                    # Display accumulated text
+                    if current_section:
+                        st.markdown('\n'.join(current_section))
+                        current_section = []
+                    
+                    # Extract and display chart
+                    chart_name = line[line.find('[CHART:')+7:line.find(']')].strip()
+                    if chart_name in report_charts:
+                        st.plotly_chart(report_charts[chart_name], use_container_width=True)
+                else:
+                    current_section.append(line)
+            
+            # Display remaining text
+            if current_section:
+                st.markdown('\n'.join(current_section))
+            
+            # Download buttons - Word and PDF
+            st.markdown("---")
+            st.markdown("### 📥 Download Report")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            # Prepare report for export
+            from report_exporter import ReportExporter
+            exporter = ReportExporter()
+            
+            with col1:
+                # Text download
+                st.download_button(
+                    label="📄 Download as Text",
+                    data=report,
+                    file_name=f"report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
+            
+            with col2:
+                # Word download with charts
+                try:
+                    word_bytes = exporter.export_to_word(report, report_charts)
+                    st.download_button(
+                        label="📘 Download as Word",
+                        data=word_bytes,
+                        file_name=f"report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.docx",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.button("📘 Word (Install python-docx)", disabled=True, use_container_width=True,
+                             help=f"Error: {str(e)}")
+            
+            with col3:
+                # PDF download with charts
+                try:
+                    pdf_bytes = exporter.export_to_pdf(report, report_charts)
+                    st.download_button(
+                        label="📕 Download as PDF",
+                        data=pdf_bytes,
+                        file_name=f"report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.button("📕 PDF (Install pdfkit)", disabled=True, use_container_width=True,
+                             help=f"Error: {str(e)}")
+            
+            st.success(f"✅ Report generated successfully! {len(report_charts)} chart(s) included.")
             
         except Exception as e:
             st.error(f"Error generating report: {str(e)}")
