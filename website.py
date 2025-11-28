@@ -3171,20 +3171,21 @@ def render_reports_page():
                             if chart_type == "Top Notifying Countries" and selected_indicators_list:
                                 for indicator in selected_indicators_list[:2]:
                                     ind_code = indicator.split('(')[0].strip() if '(' in indicator else indicator
-                                    top_countries = notif_analytics.get_top_countries(ind_code, n=10, category='notifications')
-                                    if top_countries:
-                                        fig = notif_chart_gen.create_top_notifying_countries_chart(
-                                            top_countries, ind_code, indicator
-                                        )
-                                        if fig:
-                                            chart_key = f"Top Countries - {indicator}"
-                                            report_charts[chart_key] = fig
-                                            report_charts_metadata[chart_key] = {
-                                                'title': f'Top 10 Countries: {indicator}',
-                                                'type': 'bar_chart',
-                                                'description': f'Countries with highest {indicator} (dashboard data)',
-                                                'key_insights': f'Identifies countries with highest case notifications'
-                                            }
+                                    # Use correct method name
+                                    fig = notif_chart_gen.create_top_notifying_chart(
+                                        indicator=ind_code,
+                                        indicator_name=indicator,
+                                        n=10
+                                    )
+                                    if fig:
+                                        chart_key = f"Top Countries - {indicator}"
+                                        report_charts[chart_key] = fig
+                                        report_charts_metadata[chart_key] = {
+                                            'title': f'Top 10 Countries: {indicator}',
+                                            'type': 'bar_chart',
+                                            'description': f'Countries with highest {indicator} (dashboard data)',
+                                            'key_insights': f'Identifies countries with highest case notifications'
+                                        }
                             
                             elif chart_type == "Regional Trend" and selected_indicators_list:
                                 for indicator in selected_indicators_list[:3]:
@@ -3204,7 +3205,8 @@ def render_reports_page():
                                         }
                             
                             elif chart_type == "Age & Sex Distribution":
-                                fig = notif_chart_gen.create_age_group_chart()
+                                # Use correct method name
+                                fig = notif_chart_gen.create_age_distribution_chart()
                                 if fig:
                                     chart_key = "Age Sex Distribution"
                                     report_charts[chart_key] = fig
@@ -3216,16 +3218,21 @@ def render_reports_page():
                                     }
                             
                             elif chart_type == "Notification Types":
-                                fig = notif_chart_gen.create_notification_types_chart()
-                                if fig:
-                                    chart_key = "Notification Types"
-                                    report_charts[chart_key] = fig
-                                    report_charts_metadata[chart_key] = {
-                                        'title': 'TB Notification Types',
-                                        'type': 'pie_chart',
-                                        'description': 'Breakdown by diagnosis method (dashboard chart)',
-                                        'key_insights': 'Distribution of diagnostic methods'
-                                    }
+                                # Skip if no country selected (this chart requires a country)
+                                if selected_country:
+                                    fig = notif_chart_gen.create_notification_types_chart(country=selected_country)
+                                    if fig:
+                                        chart_key = "Notification Types"
+                                        report_charts[chart_key] = fig
+                                        report_charts_metadata[chart_key] = {
+                                            'title': f'TB Notification Types - {selected_country}',
+                                            'type': 'pie_chart',
+                                            'description': 'Breakdown by diagnosis method (dashboard chart)',
+                                            'key_insights': 'Distribution of diagnostic methods'
+                                        }
+                                else:
+                                    # For regional reports, use regional trend instead
+                                    st.info("ℹ️ Notification Types chart requires country selection. Skipping for regional report.")
                         except Exception as e:
                             st.warning(f"Could not generate {chart_type}: {e}")
                 
@@ -3237,36 +3244,44 @@ def render_reports_page():
                     for chart_type in selected_chart_types:
                         try:
                             if chart_type == "Treatment Success Rates":
-                                # Generate TSR chart with WHO target
-                                top_performers = notif_analytics.get_top_countries('c_new_tsr', n=10, category='outcomes')
-                                if top_performers:
-                                    fig = notif_chart_gen.create_treatment_success_chart(
-                                        top_performers, 'c_new_tsr', 'Treatment Success Rate (New/Relapse)'
-                                    )
-                                    if fig:
-                                        chart_key = "Treatment Success Rates"
-                                        report_charts[chart_key] = fig
-                                        report_charts_metadata[chart_key] = {
-                                            'title': 'Treatment Success Rates by Country',
-                                            'type': 'bar_chart',
-                                            'description': 'TSR with WHO target line (dashboard visualization)',
-                                            'key_insights': 'Performance against WHO 85% target'
-                                        }
-                            
-                            elif chart_type == "Outcomes Breakdown":
-                                fig = notif_chart_gen.create_outcomes_breakdown_chart()
+                                # Use correct method name: create_outcomes_bar_chart
+                                fig = notif_chart_gen.create_outcomes_bar_chart(
+                                    indicator='c_new_tsr',
+                                    indicator_name='Treatment Success Rate (New/Relapse)',
+                                    n=10
+                                )
                                 if fig:
-                                    chart_key = "Outcomes Breakdown"
+                                    chart_key = "Treatment Success Rates"
                                     report_charts[chart_key] = fig
                                     report_charts_metadata[chart_key] = {
-                                        'title': 'Treatment Outcomes Distribution',
-                                        'type': 'pie_chart',
-                                        'description': 'Distribution of treatment results (dashboard chart)',
-                                        'key_insights': 'Breakdown: Cured, Completed, Failed, Died, Lost'
+                                        'title': 'Treatment Success Rates by Country',
+                                        'type': 'bar_chart',
+                                        'description': 'TSR with WHO target line (dashboard visualization)',
+                                        'key_insights': 'Performance against WHO 85% target'
                                     }
                             
+                            elif chart_type == "Outcomes Breakdown":
+                                # This chart requires a country parameter
+                                if selected_country:
+                                    fig = notif_chart_gen.create_outcomes_breakdown_chart(country=selected_country)
+                                    if fig:
+                                        chart_key = "Outcomes Breakdown"
+                                        report_charts[chart_key] = fig
+                                        report_charts_metadata[chart_key] = {
+                                            'title': f'Treatment Outcomes Distribution - {selected_country}',
+                                            'type': 'pie_chart',
+                                            'description': 'Distribution of treatment results (dashboard chart)',
+                                            'key_insights': 'Breakdown: Cured, Completed, Failed, Died, Lost'
+                                        }
+                                else:
+                                    st.info("ℹ️ Outcomes Breakdown chart requires country selection. Skipping for regional report.")
+                            
                             elif chart_type == "TSR Trends":
-                                fig = notif_chart_gen.create_regional_tsr_trend_chart('c_new_tsr', 'New/Relapse TSR')
+                                # Use correct method name: create_tsr_trend_chart
+                                fig = notif_chart_gen.create_tsr_trend_chart(
+                                    indicator='c_new_tsr',
+                                    indicator_name='New/Relapse TSR'
+                                )
                                 if fig:
                                     chart_key = "TSR Trends"
                                     report_charts[chart_key] = fig
