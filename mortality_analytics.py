@@ -1,7 +1,8 @@
 """
 Mortality Analytics Module
 Analyzes Maternal and Child Mortality for WHO AFRO region countries
-Following TB Burden framework pattern with focus on Sex and Wealth Quintile disaggregation
+Following TB Burden framework pattern
+Uses UNICEF/UNIGME definitions and standard column structure
 """
 
 import pandas as pd
@@ -9,40 +10,47 @@ import numpy as np
 from typing import Dict, List, Optional, Tuple
 
 
-class MaternalMortalityAnalytics:
-    """Analytics for Maternal Mortality Ratio (MMR) focusing on AFRO countries"""
+class MortalityDataPipeline:
+    """Unified data pipeline for both Maternal and Child Mortality"""
     
-    def __init__(self, maternal_data_path: str, country_lookup_path: str):
+    def __init__(self, maternal_data_path: str, child_data_path: str, country_lookup_path: str):
         """
-        Initialize Maternal Mortality Analytics
+        Initialize Mortality Data Pipeline
         
         Args:
-            maternal_data_path: Path to maternal Mortality CSV (wide format)
+            maternal_data_path: Path to maternal Mortality CSV
+            child_data_path: Path to Child Mortality CSV (UNICEF format)
             country_lookup_path: Path to AFRO countries lookup CSV
         """
         self.maternal_data_path = maternal_data_path
+        self.child_data_path = child_data_path
         self.country_lookup_path = country_lookup_path
-        self.maternal_data = None
-        self.afro_countries = None
         self.maternal_afro = None
+        self.child_afro = None
+        self.afro_countries = None
         
     def load_data(self):
-        """Load and clean Maternal Mortality data for AFRO countries"""
-        print("Loading Maternal Mortality data...")
-        
-        # Load maternal data (wide format with years as columns)
-        self.maternal_data = pd.read_csv(self.maternal_data_path)
+        """Load and clean both Maternal and Child Mortality data"""
+        print("Loading Mortality data...")
         
         # Load AFRO countries lookup
         self.afro_countries = pd.read_csv(self.country_lookup_path)
-        
-        # Filter for AFRO countries only
         afro_iso3_list = self.afro_countries['ISO3'].tolist()
-        maternal_filtered = self.maternal_data[
-            self.maternal_data['ISO Code'].isin(afro_iso3_list)
+        country_mapping = dict(zip(
+            self.afro_countries['ISO3'], 
+            self.afro_countries['Country']
+        ))
+        
+        # Load Maternal Mortality data
+        print("Loading Maternal Mortality data...")
+        maternal_data = pd.read_csv(self.maternal_data_path)
+        
+        # Filter for AFRO countries
+        maternal_filtered = maternal_data[
+            maternal_data['ISO Code'].isin(afro_iso3_list)
         ].copy()
         
-        # Reshape from wide to long format
+        # Reshape from wide to long format (years as columns)
         year_cols = [str(year) for year in range(2000, 2024)]  # 2000-2023
         year_cols_available = [col for col in year_cols if col in maternal_filtered.columns]
         
@@ -57,31 +65,101 @@ class MaternalMortalityAnalytics:
             value_name='mmr'
         )
         
-        # Convert year to integer and MMR to numeric
+        # Convert to numeric
         self.maternal_afro['year'] = pd.to_numeric(self.maternal_afro['year'], errors='coerce')
         self.maternal_afro['mmr'] = pd.to_numeric(self.maternal_afro['mmr'], errors='coerce')
-        
-        # Drop rows with missing MMR values
         self.maternal_afro = self.maternal_afro.dropna(subset=['mmr', 'year'])
         
-        # Clean country names using lookup
-        country_mapping = dict(zip(
-            self.afro_countries['ISO3'], 
-            self.afro_countries['Country']
-        ))
+        # Clean country names
         self.maternal_afro['country_clean'] = self.maternal_afro['ISO Code'].map(country_mapping)
-        
-        # Fill any missing with original country name
         self.maternal_afro['country_clean'] = self.maternal_afro['country_clean'].fillna(self.maternal_afro['country'])
-        
-        # Add iso3 column for consistency
         self.maternal_afro['iso3'] = self.maternal_afro['ISO Code']
         
-        print(f"Loaded data for {self.maternal_afro['country_clean'].nunique()} AFRO countries")
-        print(f"Year range: {int(self.maternal_afro['year'].min())} - {int(self.maternal_afro['year'].max())}")
+        print(f"  Maternal: {self.maternal_afro['country_clean'].nunique()} countries, "
+              f"years {int(self.maternal_afro['year'].min())}-{int(self.maternal_afro['year'].max())}")
+        
+        # Load Child Mortality data (UNICEF format)
+        print("Loading Child Mortality data...")
+        child_data = pd.read_csv(self.child_data_path, low_memory=False)
+        
+        # Map UNICEF column names to standard names
+        child_data = child_data.rename(columns={
+            'REF_AREA:Geographic area': 'country_code',
+            'INDICATOR:Indicator': 'indicator_code',
+            'SEX:Sex': 'sex_code',
+            'TIME_PERIOD:Time period': 'year',
+            'OBS_VALUE:Observation Value': 'value',
+            'LOWER_BOUND:Lower Bound': 'lower_bound',
+            'UPPER_BOUND:Upper Bound': 'upper_bound',
+            'AGE:Current age': 'age_group'
+        })
+        
+        # Extract ISO3 code from country_code (format: "AFG: Afghanistan")
+        child_data['iso3'] = child_data['country_code'].str.split(':').str[0].str.strip()
+        
+        # Filter for AFRO countries
+        self.child_afro = child_data[
+            child_data['iso3'].isin(afro_iso3_list)
+        ].copy()
+        
+        # Clean year
+        self.child_afro['year'] = pd.to_numeric(self.child_afro['year'], errors='coerce')
+        self.child_afro = self.child_afro[
+            (self.child_afro['year'] >= 2000) & 
+            (self.child_afro['year'] <= 2024) &
+            (self.child_afro['year'].notna())
+        ]
+        
+        # Clean value
+        self.child_afro['value'] = pd.to_numeric(self.child_afro['value'], errors='coerce')
+        self.child_afro = self.child_afro.dropna(subset=['value'])
+        
+        # Map indicator codes to standard names (UNICEF/UNIGME definitions)
+        indicator_mapping = {
+            'CME_MRY0': 'Infant mortality rate',
+            'CME_MRY0T4': 'Under-five mortality rate',
+            'CME_MRY1T4': 'Child mortality rate (aged 1-4 years)',
+            'CME_TMY0': 'Infant deaths',
+            'CME_TMY0T4': 'Under-five deaths',
+            'CME_TMY1T4': 'Child deaths (aged 1-4 years)'
+        }
+        self.child_afro['indicator'] = self.child_afro['indicator_code'].map(indicator_mapping)
+        self.child_afro['indicator'] = self.child_afro['indicator'].fillna(self.child_afro['indicator_code'])
+        
+        # Map sex codes to standard names
+        sex_mapping = {
+            'F': 'Female',
+            'M': 'Male',
+            '_T': 'Total'
+        }
+        self.child_afro['sex'] = self.child_afro['sex_code'].map(sex_mapping)
+        self.child_afro['sex'] = self.child_afro['sex'].fillna(self.child_afro['sex_code'])
+        
+        # Clean country names
+        self.child_afro['country_clean'] = self.child_afro['iso3'].map(country_mapping)
+        self.child_afro['country_clean'] = self.child_afro['country_clean'].fillna(
+            self.child_afro['country_code'].str.split(':').str[1].str.strip()
+        )
+        
+        print(f"  Child: {self.child_afro['country_clean'].nunique()} countries, "
+              f"years {int(self.child_afro['year'].min())}-{int(self.child_afro['year'].max())}")
         
         return self
+
+
+class MaternalMortalityAnalytics:
+    """Analytics for Maternal Mortality Ratio (MMR) - UNICEF/UNIGME definition"""
     
+    def __init__(self, pipeline: MortalityDataPipeline):
+        """
+        Initialize Maternal Mortality Analytics
+        
+        Args:
+            pipeline: MortalityDataPipeline instance with loaded data
+        """
+        self.pipeline = pipeline
+        self.maternal_afro = pipeline.maternal_afro
+        
     def get_latest_year(self) -> int:
         """Get the most recent year in the dataset"""
         return int(self.maternal_afro['year'].max())
@@ -89,6 +167,7 @@ class MaternalMortalityAnalytics:
     def get_mmr_summary(self, year: Optional[int] = None) -> Dict:
         """
         Get summary statistics for MMR in AFRO region
+        MMR Definition (UNICEF/UNIGME): Deaths per 100,000 live births
         
         Args:
             year: Specific year (default: latest year)
@@ -113,7 +192,8 @@ class MaternalMortalityAnalytics:
             'best_performing_country': data_year.loc[data_year['mmr'].idxmin(), 'country_clean'],
             'worst_performing_country': data_year.loc[data_year['mmr'].idxmax(), 'country_clean'],
             'countries_below_sdg_target': int((mmr_values < 70).sum()),  # SDG target: <70 per 100,000
-            'countries_above_sdg_target': int((mmr_values >= 70).sum())
+            'countries_above_sdg_target': int((mmr_values >= 70).sum()),
+            'indicator_definition': 'Maternal Mortality Ratio: Deaths per 100,000 live births (UNICEF/UNIGME)'
         }
         
         return summary
@@ -135,23 +215,13 @@ class MaternalMortalityAnalytics:
             year = self.get_latest_year()
         
         data_year = self.maternal_afro[self.maternal_afro['year'] == year].copy()
-        
-        # Sort and get top N
         data_sorted = data_year.sort_values(by='mmr', ascending=ascending)
         top_n = data_sorted.head(n)[['country_clean', 'iso3', 'mmr', 'year']]
         
         return top_n.reset_index(drop=True)
     
     def get_mmr_over_time(self, country: str) -> pd.DataFrame:
-        """
-        Get MMR trend over time for a specific country
-        
-        Args:
-            country: Country name
-            
-        Returns:
-            DataFrame with year and MMR values
-        """
+        """Get MMR trend over time for a specific country"""
         country_data = self.maternal_afro[
             self.maternal_afro['country_clean'] == country
         ][['year', 'mmr', 'country_clean']].sort_values('year')
@@ -159,15 +229,7 @@ class MaternalMortalityAnalytics:
         return country_data
     
     def calculate_equity_measures(self, year: Optional[int] = None) -> Dict:
-        """
-        Calculate equity measures for MMR distribution
-        
-        Args:
-            year: Specific year (default: latest)
-            
-        Returns:
-            Dictionary with equity measures
-        """
+        """Calculate equity measures for MMR distribution"""
         if year is None:
             year = self.get_latest_year()
         
@@ -178,7 +240,6 @@ class MaternalMortalityAnalytics:
         
         values = data_year['mmr'].values
         
-        # Calculate inequality measures
         equity = {
             'indicator': 'Maternal Mortality Ratio',
             'year': year,
@@ -197,12 +258,7 @@ class MaternalMortalityAnalytics:
         return equity
     
     def get_regional_trends(self) -> pd.DataFrame:
-        """
-        Get regional aggregate trends over time
-        
-        Returns:
-            DataFrame with yearly regional median/mean MMR
-        """
+        """Get regional aggregate trends over time"""
         regional_trends = self.maternal_afro.groupby('year').agg({
             'mmr': ['mean', 'median', 'min', 'max', 'count']
         }).reset_index()
@@ -223,92 +279,41 @@ class MaternalMortalityAnalytics:
             'latest_year': self.get_latest_year(),
             'total_records': len(self.maternal_afro),
             'indicator': 'Maternal Mortality Ratio (deaths per 100,000 live births)',
+            'definition_source': 'UNICEF/UNIGME',
             'sdg_target': 'Less than 70 per 100,000 by 2030'
         }
 
 
 class ChildMortalityAnalytics:
-    """Analytics for Child Mortality (U5MR, IMR, NMR) focusing on AFRO countries with Sex and Wealth Quintile disaggregation"""
+    """Analytics for Child Mortality - UNICEF/UNIGME definitions"""
     
-    def __init__(self, child_data_path: str, country_lookup_path: str):
+    def __init__(self, pipeline: MortalityDataPipeline):
         """
         Initialize Child Mortality Analytics
         
         Args:
-            child_data_path: Path to Child Mortality CSV (long format)
-            country_lookup_path: Path to AFRO countries lookup CSV
+            pipeline: MortalityDataPipeline instance with loaded data
         """
-        self.child_data_path = child_data_path
-        self.country_lookup_path = country_lookup_path
-        self.child_data = None
-        self.afro_countries = None
-        self.child_afro = None
+        self.pipeline = pipeline
+        self.child_afro = pipeline.child_afro
         
-    def load_data(self):
-        """Load and clean Child Mortality data for AFRO countries"""
-        print("Loading Child Mortality data...")
+        # UNICEF/UNIGME Indicator Definitions
+        self.indicator_definitions = {
+            'Infant mortality rate': 'Deaths per 1,000 live births in the first year of life (UNICEF/UNIGME)',
+            'Under-five mortality rate': 'Deaths per 1,000 live births before age 5 (UNICEF/UNIGME)',
+            'Child mortality rate (aged 1-4 years)': 'Deaths per 1,000 children aged 1-4 years (UNICEF/UNIGME)',
+            'Infant deaths': 'Number of deaths in the first year of life',
+            'Under-five deaths': 'Number of deaths before age 5',
+            'Child deaths (aged 1-4 years)': 'Number of deaths among children aged 1-4 years'
+        }
         
-        # Load child data (long format)
-        self.child_data = pd.read_csv(self.child_data_path, low_memory=False)
-        
-        # Load AFRO countries lookup
-        self.afro_countries = pd.read_csv(self.country_lookup_path)
-        
-        # Filter for AFRO countries only
-        afro_iso3_list = self.afro_countries['ISO3'].tolist()
-        self.child_afro = self.child_data[
-            self.child_data['iso'].isin(afro_iso3_list)
-        ].copy()
-        
-        # Clean year column (remove invalid years)
-        self.child_afro['year'] = pd.to_numeric(self.child_afro['year'], errors='coerce')
-        self.child_afro = self.child_afro[
-            (self.child_afro['year'] >= 1980) & 
-            (self.child_afro['year'] <= 2024) &
-            (self.child_afro['year'].notna())
-        ]
-        
-        # Convert value to numeric
-        self.child_afro['value'] = pd.to_numeric(self.child_afro['value'], errors='coerce')
-        
-        # Drop rows with missing values
-        self.child_afro = self.child_afro.dropna(subset=['value'])
-        
-        # Clean country names using lookup
-        country_mapping = dict(zip(
-            self.afro_countries['ISO3'], 
-            self.afro_countries['Country']
-        ))
-        self.child_afro['country_clean'] = self.child_afro['iso'].map(country_mapping)
-        
-        # Fill any missing with original country name
-        self.child_afro['country_clean'] = self.child_afro['country_clean'].fillna(self.child_afro['country'])
-        
-        # Add iso3 column for consistency
-        self.child_afro['iso3'] = self.child_afro['iso']
-        
-        # Clean Sex column (standardize values)
-        self.child_afro['sex'] = self.child_afro['sex'].fillna('Total')
-        self.child_afro['sex'] = self.child_afro['sex'].str.strip()
-        
-        # Clean Wealth Quintile column
-        self.child_afro['Wealth Quintile'] = self.child_afro['Wealth Quintile'].fillna('Total')
-        self.child_afro['Wealth Quintile'] = self.child_afro['Wealth Quintile'].str.strip()
-        
-        print(f"Loaded data for {self.child_afro['country_clean'].nunique()} AFRO countries")
-        print(f"Year range: {int(self.child_afro['year'].min())} - {int(self.child_afro['year'].max())}")
-        print(f"Indicators: {self.child_afro['indicator'].nunique()}")
-        
-        return self
-    
     def get_latest_year(self, indicator: str = 'Under-five mortality rate') -> int:
         """Get the most recent year in the dataset for a specific indicator"""
         indicator_data = self.child_afro[
             (self.child_afro['indicator'] == indicator) &
-            (self.child_afro['sex'] == 'Total') &
-            (self.child_afro['Wealth Quintile'] == 'Total')
+            (self.child_afro['sex'] == 'Total')
         ]
-        return int(indicator_data['year'].max()) if len(indicator_data) > 0 else 2024
+        return int(indicator_data['year'].max()) if len(indicator_data) > 0 else 2023
     
     def get_mortality_summary(self, year: Optional[int] = None) -> Dict:
         """
@@ -320,11 +325,11 @@ class ChildMortalityAnalytics:
         Returns:
             Dictionary with summary statistics
         """
-        # Focus on key indicators: U5MR, IMR, NMR
+        # Focus on key rate indicators (not counts)
         key_indicators = [
             'Under-five mortality rate',
             'Infant mortality rate', 
-            'Neonatal mortality rate'
+            'Child mortality rate (aged 1-4 years)'
         ]
         
         if year is None:
@@ -332,26 +337,27 @@ class ChildMortalityAnalytics:
         
         summary = {
             'year': year,
-            'total_countries': 0
+            'total_countries': 0,
+            'indicator_definitions': {}
         }
         
         for indicator in key_indicators:
             data_year = self.child_afro[
                 (self.child_afro['indicator'] == indicator) &
                 (self.child_afro['year'] == year) &
-                (self.child_afro['sex'] == 'Total') &
-                (self.child_afro['Wealth Quintile'] == 'Total')
+                (self.child_afro['sex'] == 'Total')
             ].copy()
             
             if len(data_year) > 0:
                 values = data_year['value'].values
-                indicator_key = indicator.lower().replace(' ', '_').replace('-', '_')
+                indicator_key = indicator.lower().replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '').replace(',', '')
                 
                 summary[f'{indicator_key}_median'] = float(np.median(values))
                 summary[f'{indicator_key}_mean'] = float(np.mean(values))
                 summary[f'{indicator_key}_min'] = float(values.min())
                 summary[f'{indicator_key}_max'] = float(values.max())
                 summary['total_countries'] = max(summary['total_countries'], len(data_year))
+                summary['indicator_definitions'][indicator] = self.indicator_definitions.get(indicator, '')
         
         return summary
     
@@ -376,8 +382,7 @@ class ChildMortalityAnalytics:
         data_year = self.child_afro[
             (self.child_afro['indicator'] == indicator) &
             (self.child_afro['year'] == year) &
-            (self.child_afro['sex'] == 'Total') &
-            (self.child_afro['Wealth Quintile'] == 'Total')
+            (self.child_afro['sex'] == 'Total')
         ].copy()
         
         # Sort and get top N
@@ -387,22 +392,12 @@ class ChildMortalityAnalytics:
         return top_n.reset_index(drop=True)
     
     def get_mortality_over_time(self, country: str, indicator: str = 'Under-five mortality rate') -> pd.DataFrame:
-        """
-        Get mortality trend over time for a specific country
-        
-        Args:
-            country: Country name
-            indicator: Mortality indicator
-            
-        Returns:
-            DataFrame with year and value
-        """
+        """Get mortality trend over time for a specific country"""
         country_data = self.child_afro[
             (self.child_afro['country_clean'] == country) &
             (self.child_afro['indicator'] == indicator) &
-            (self.child_afro['sex'] == 'Total') &
-            (self.child_afro['Wealth Quintile'] == 'Total')
-        ][['year', 'value', 'indicator', 'country_clean']].sort_values('year')
+            (self.child_afro['sex'] == 'Total')
+        ][['year', 'value', 'indicator', 'country_clean', 'lower_bound', 'upper_bound']].sort_values('year')
         
         return country_data
     
@@ -424,7 +419,6 @@ class ChildMortalityAnalytics:
         sex_data = self.child_afro[
             (self.child_afro['indicator'] == indicator) &
             (self.child_afro['year'] == year) &
-            (self.child_afro['Wealth Quintile'] == 'Total') &
             (self.child_afro['sex'].isin(['Female', 'Male', 'Total']))
         ][['country_clean', 'iso3', 'sex', 'value', 'year']].copy()
         
@@ -436,7 +430,7 @@ class ChildMortalityAnalytics:
                 values='value'
             ).reset_index()
             
-            # Calculate sex ratio (Male/Female)
+            # Calculate sex ratio (Male/Female) and gap
             if 'Male' in sex_pivot.columns and 'Female' in sex_pivot.columns:
                 sex_pivot['sex_ratio'] = sex_pivot['Male'] / sex_pivot['Female']
                 sex_pivot['sex_gap'] = sex_pivot['Male'] - sex_pivot['Female']
@@ -445,57 +439,9 @@ class ChildMortalityAnalytics:
         
         return pd.DataFrame()
     
-    def get_wealth_quintile_analysis(self, indicator: str = 'Under-five mortality rate',
-                                     year: Optional[int] = None) -> pd.DataFrame:
-        """
-        Get wealth quintile disaggregated data
-        
-        Args:
-            indicator: Mortality indicator
-            year: Specific year (default: latest)
-            
-        Returns:
-            DataFrame with wealth quintile data
-        """
-        if year is None:
-            year = self.get_latest_year(indicator)
-        
-        wealth_data = self.child_afro[
-            (self.child_afro['indicator'] == indicator) &
-            (self.child_afro['year'] == year) &
-            (self.child_afro['sex'] == 'Total') &
-            (self.child_afro['Wealth Quintile'].isin(['Lowest', 'Second', 'Middle', 'Fourth', 'Highest', 'Total']))
-        ][['country_clean', 'iso3', 'Wealth Quintile', 'value', 'year']].copy()
-        
-        # Pivot to have quintiles as columns
-        if len(wealth_data) > 0:
-            wealth_pivot = wealth_data.pivot_table(
-                index=['country_clean', 'iso3', 'year'],
-                columns='Wealth Quintile',
-                values='value'
-            ).reset_index()
-            
-            # Calculate wealth ratio (Lowest/Highest) - equity measure
-            if 'Lowest' in wealth_pivot.columns and 'Highest' in wealth_pivot.columns:
-                wealth_pivot['wealth_ratio'] = wealth_pivot['Lowest'] / wealth_pivot['Highest']
-                wealth_pivot['wealth_gap'] = wealth_pivot['Lowest'] - wealth_pivot['Highest']
-            
-            return wealth_pivot
-        
-        return pd.DataFrame()
-    
     def calculate_equity_measures(self, indicator: str = 'Under-five mortality rate',
                                   year: Optional[int] = None) -> Dict:
-        """
-        Calculate equity measures for mortality distribution
-        
-        Args:
-            indicator: Mortality indicator
-            year: Specific year (default: latest)
-            
-        Returns:
-            Dictionary with equity measures
-        """
+        """Calculate equity measures for mortality distribution"""
         if year is None:
             year = self.get_latest_year(indicator)
         
@@ -503,13 +449,11 @@ class ChildMortalityAnalytics:
             (self.child_afro['indicator'] == indicator) &
             (self.child_afro['year'] == year) &
             (self.child_afro['sex'] == 'Total') &
-            (self.child_afro['Wealth Quintile'] == 'Total') &
             (self.child_afro['value'].notna())
         ].copy()
         
         values = data_year['value'].values
         
-        # Calculate inequality measures
         equity = {
             'indicator': indicator,
             'year': year,
@@ -522,25 +466,17 @@ class ChildMortalityAnalytics:
             'percentile_50': float(np.percentile(values, 50)),
             'percentile_75': float(np.percentile(values, 75)),
             'interquartile_range': float(np.percentile(values, 75) - np.percentile(values, 25)),
-            'coefficient_of_variation': float((np.std(values) / np.mean(values)) * 100) if np.mean(values) > 0 else None
+            'coefficient_of_variation': float((np.std(values) / np.mean(values)) * 100) if np.mean(values) > 0 else None,
+            'definition': self.indicator_definitions.get(indicator, '')
         }
         
         return equity
     
     def get_regional_trends(self, indicator: str = 'Under-five mortality rate') -> pd.DataFrame:
-        """
-        Get regional aggregate trends over time
-        
-        Args:
-            indicator: Mortality indicator
-            
-        Returns:
-            DataFrame with yearly regional aggregates
-        """
+        """Get regional aggregate trends over time"""
         regional_data = self.child_afro[
             (self.child_afro['indicator'] == indicator) &
-            (self.child_afro['sex'] == 'Total') &
-            (self.child_afro['Wealth Quintile'] == 'Total')
+            (self.child_afro['sex'] == 'Total')
         ].copy()
         
         regional_trends = regional_data.groupby('year').agg({
@@ -568,9 +504,9 @@ class ChildMortalityAnalytics:
             'key_indicators': [
                 'Under-five mortality rate',
                 'Infant mortality rate',
-                'Neonatal mortality rate'
+                'Child mortality rate (aged 1-4 years)'
             ],
             'sex_categories': sorted(self.child_afro['sex'].unique().tolist()),
-            'wealth_quintiles': sorted(self.child_afro['Wealth Quintile'].unique().tolist())
+            'indicator_definitions': self.indicator_definitions,
+            'definition_source': 'UNICEF/UNIGME'
         }
-

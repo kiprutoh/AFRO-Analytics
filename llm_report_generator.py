@@ -177,9 +177,15 @@ IMPORTANT:
             prompt_parts.append("CRITICAL: INDICATOR CONSTRAINT")
             prompt_parts.append("=" * 80)
             prompt_parts.append("You MUST ONLY analyze and report on the following indicators:")
+            # Clean indicator names - remove variable codes in parentheses
+            clean_indicators = []
             for ind in selected_indicators:
-                prompt_parts.append(f"  ✓ {ind}")
+                # Remove technical codes like (e_inc_num) from indicator names
+                clean_name = ind.split('(')[0].strip() if '(' in ind else ind
+                clean_indicators.append(clean_name)
+                prompt_parts.append(f"  ✓ {clean_name}")
             prompt_parts.append("")
+            prompt_parts.append("IMPORTANT: Use ONLY the descriptive names above. DO NOT include technical variable codes like (e_inc_num) or similar in the report.")
             prompt_parts.append("DO NOT include any other indicators in your analysis.")
             prompt_parts.append("DO NOT mention or discuss indicators not in the above list.")
             prompt_parts.append("Focus EXCLUSIVELY on these selected indicators.")
