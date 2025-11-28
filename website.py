@@ -3294,17 +3294,6 @@ def render_reports_page():
                         except Exception as e:
                             st.warning(f"Could not generate {chart_type}: {e}")
             
-            # Show chart preview if charts were generated
-            if report_charts:
-                with st.expander(f"📊 Preview {len(report_charts)} Chart(s) - These use Dashboard Data", expanded=False):
-                    st.info("These charts are generated using the same data and generators as the Dashboard and Interactive Charts")
-                    for idx, (chart_name, fig) in enumerate(list(report_charts.items())[:3]):  # Show first 3
-                        st.plotly_chart(fig, use_container_width=True, key=f"preview_{idx}")
-                        if idx < len(report_charts) - 1:
-                            st.markdown("---")
-                    if len(report_charts) > 3:
-                        st.caption(f"... and {len(report_charts) - 3} more chart(s)")
-            
             # Generate report using LLM with selected indicators and dashboard charts
             with st.spinner(f"🤖 Generating AI-powered report in {selected_language}... This may take a moment."):
                 report = llm_generator.generate_report(
