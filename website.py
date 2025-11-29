@@ -3144,8 +3144,8 @@ def render_chatbot_page():
                     
                     # Display multiple charts if available
                     if message["content"].get("charts"):
-                        for chart in message["content"]["charts"]:
-                            st.plotly_chart(chart, use_container_width=True)
+                        for i, chart in enumerate(message["content"]["charts"]):
+                            st.plotly_chart(chart, use_container_width=True, key=f"chatbot_chart_{st.session_state.get('current_chat_turn', 0)}_{i}")
                     
                     # Add link to interactive visualizer for country queries
                     text_content = message["content"].get("text", "").lower()
