@@ -18,12 +18,8 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 
-# RDHUB chatbot with Pydantic AI
-try:
-    from rdhub_chatbot import RDHUBChatbot, RDHUBDependencies
-    RDHUB_CHATBOT_AVAILABLE = True
-except ImportError:
-    RDHUB_CHATBOT_AVAILABLE = False
+# Botpress chatbot integration
+BOTPRESS_CHATBOT_URL = "https://cdn.botpress.cloud/webchat/v3.3/shareable.html?configUrl=https://files.bpcontent.cloud/2025/11/09/06/20251109063717-AGMWRARO.json"
 from tb_interactive_visualizer import TBInteractiveVisualizer
 from tb_burden_analytics import TBBurdenAnalytics
 from tb_burden_chart_generator import TBBurdenChartGenerator
@@ -840,39 +836,9 @@ def initialize_system(indicator_type: str = "Mortality"):
                 st.session_state.tb_chatbot = chatbot
                 
                 # Initialize RDHUB chatbot with Pydantic AI if available
-                if RDHUB_CHATBOT_AVAILABLE:
-                    try:
-                        deps = RDHUBDependencies(
-                            tb_analytics=analytics,
-                            tb_burden_analytics=st.session_state.get('tb_burden_analytics'),
-                            tb_notif_analytics=st.session_state.get('tb_notif_analytics'),
-                            tb_chart_gen=TBChartGenerator(analytics),
-                            tb_burden_chart_gen=st.session_state.get('tb_burden_chart_gen'),
-                            tb_notif_chart_gen=st.session_state.get('tb_notif_chart_gen')
-                        )
-                        rdhub_chatbot = RDHUBChatbot(deps)
-                        st.session_state.rdhub_chatbot = rdhub_chatbot
-                    except Exception as e:
-                        st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using legacy chatbot.")
-                        st.session_state.rdhub_chatbot = None
-                        # Initialize legacy TB chatbot as fallback
-                        try:
-                            from tb_chatbot import TBChatbot
-                            legacy_tb_chatbot = TBChatbot(analytics)
-                            st.session_state.tb_chatbot = legacy_tb_chatbot
-                        except Exception as e2:
-                            st.warning(f"Legacy TB chatbot also failed: {str(e2)}")
-                            st.session_state.tb_chatbot = None
-                else:
-                    st.session_state.rdhub_chatbot = None
-                    # Initialize legacy TB chatbot as fallback
-                    try:
-                        from tb_chatbot import TBChatbot
-                        legacy_tb_chatbot = TBChatbot(analytics)
-                        st.session_state.tb_chatbot = legacy_tb_chatbot
-                    except Exception as e:
-                        st.warning(f"Legacy TB chatbot initialization failed: {str(e)}")
-                        st.session_state.tb_chatbot = None
+                # Botpress chatbot - no initialization needed (embedded via iframe)
+                st.session_state.rdhub_chatbot = None
+                st.session_state.tb_chatbot = None
                 st.session_state.pipeline = None
                 st.session_state.analytics = None
                 st.session_state.visualizer = None
@@ -910,38 +876,9 @@ def initialize_system(indicator_type: str = "Mortality"):
                         st.session_state.maternal_chart_gen = maternal_chart_gen
                         st.session_state.child_chart_gen = child_chart_gen
                         
-                        # Initialize RDHUB chatbot with Pydantic AI if available
-                        if RDHUB_CHATBOT_AVAILABLE:
-                            try:
-                                deps = RDHUBDependencies(
-                                    maternal_analytics=maternal_analytics,
-                                    child_analytics=child_analytics,
-                                    maternal_chart_gen=maternal_chart_gen,
-                                    child_chart_gen=child_chart_gen
-                                )
-                                rdhub_chatbot = RDHUBChatbot(deps)
-                                st.session_state.rdhub_chatbot = rdhub_chatbot
-                            except Exception as e:
-                                st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using legacy chatbot.")
-                                st.session_state.rdhub_chatbot = None
-                                # Initialize legacy chatbot as fallback
-                                try:
-                                    from chatbot import MortalityChatbot
-                                    legacy_chatbot = MortalityChatbot(maternal_analytics)
-                                    st.session_state.chatbot = legacy_chatbot
-                                except Exception as e2:
-                                    st.warning(f"Legacy chatbot also failed: {str(e2)}")
-                                    st.session_state.chatbot = None
-                        else:
-                            st.session_state.rdhub_chatbot = None
-                            # Initialize legacy chatbot as fallback
-                            try:
-                                from chatbot import MortalityChatbot
-                                legacy_chatbot = MortalityChatbot(maternal_analytics)
-                                st.session_state.chatbot = legacy_chatbot
-                            except Exception as e:
-                                st.warning(f"Legacy chatbot initialization failed: {str(e)}")
-                                st.session_state.chatbot = None
+                        # Botpress chatbot - no initialization needed (embedded via iframe)
+                        st.session_state.rdhub_chatbot = None
+                        st.session_state.chatbot = None
                         
                         st.success("✓ Mortality data loaded successfully!")
                         st.session_state.data_loaded = True
@@ -3217,41 +3154,6 @@ def render_chatbot_page():
     
     st.markdown(f'<h2 class="section-header">{get_translation("chatbot", current_lang)}</h2>', unsafe_allow_html=True)
     
-    if not st.session_state.data_loaded:
-        st.warning(f"{get_translation('initialize_system', current_lang)}")
-        return
-    
-    # Get chatbot - prioritize RDHUB chatbot (Pydantic AI) if available
-    chatbot = None
-    if RDHUB_CHATBOT_AVAILABLE and hasattr(st.session_state, 'rdhub_chatbot') and st.session_state.rdhub_chatbot is not None:
-        chatbot = st.session_state.rdhub_chatbot
-    elif health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
-        chatbot = st.session_state.tb_chatbot
-    elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
-        chatbot = st.session_state.chatbot
-    
-    if chatbot is None:
-        st.error(f"AI Chatbot not initialized. Please initialize the system first from the sidebar.")
-        st.info("**Troubleshooting:**\n"
-               "- Click '🚀 Initialize System' in the sidebar\n"
-               "- If initialization fails, check that:\n"
-               "  - Required data files are present\n"
-               "  - API keys are set (OPENROUTER_API_KEY or OPENAI_API_KEY for Pydantic AI chatbot)\n"
-               "  - All dependencies are installed (pydantic-ai, plotly, etc.)\n"
-               "- After initialization, refresh the page or navigate to Chatbot again")
-        
-        # Show what's available in session state
-        with st.expander("Debug: Check Session State"):
-            st.write("**Available in session state:**")
-            chatbot_keys = ['rdhub_chatbot', 'tb_chatbot', 'chatbot']
-            for key in chatbot_keys:
-                has_key = hasattr(st.session_state, key)
-                value = getattr(st.session_state, key, None) if has_key else None
-                st.write(f"- `{key}`: {'✅' if has_key and value is not None else '❌'} ({'Available' if has_key and value is not None else 'Not available'})")
-            st.write(f"- `data_loaded`: {st.session_state.get('data_loaded', False)}")
-            st.write(f"- `indicator_type`: {st.session_state.get('indicator_type', 'Not set')}")
-        return
-    
     # Beautiful chatbot introduction
     st.markdown("""
     <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -3276,67 +3178,42 @@ def render_chatbot_page():
     # Display topic-specific help text
     st.markdown(get_topic_content(health_topic, "chatbot_help", current_lang))
     
-    # Display chat history
-    for message in st.session_state.chat_history:
-        if message["role"] == "user":
-            with st.chat_message("user"):
-                st.write(message["content"])
-        else:
-            with st.chat_message("assistant"):
-                # Handle both old format (string) and new format (dict with chart)
-                if isinstance(message["content"], dict):
-                    st.write(message["content"].get("text", ""))
-                    
-                    # Display single chart
-                    if message["content"].get("chart"):
-                        st.plotly_chart(message["content"]["chart"], use_container_width=True)
-                    
-                    # Display multiple charts if available
-                    if message["content"].get("charts"):
-                        for i, chart in enumerate(message["content"]["charts"]):
-                            st.plotly_chart(chart, use_container_width=True, key=f"chatbot_chart_{st.session_state.get('current_chat_turn', 0)}_{i}")
-                else:
-                    st.write(message["content"])
+    # Botpress Chatbot Integration
+    st.markdown("""
+    <div style="margin-top: 2rem; margin-bottom: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1rem;">💬 Chat with our AI Assistant</h3>
+        <p style="color: #666; margin-bottom: 1rem;">
+            Use the chat widget below to ask questions about health data, get insights, and explore analytics.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Chat input - adapt placeholder based on health topic
-    if health_topic == "Tuberculosis":
-        placeholder = "Ask a question about TB data..."
-    else:
-        placeholder = "Ask a question about mortality data..."
+    # Embed Botpress webchat
+    botpress_url = BOTPRESS_CHATBOT_URL
     
-    user_query = st.chat_input(placeholder)
+    st.markdown(f"""
+    <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <iframe 
+            src="{botpress_url}"
+            style="width: 100%; height: 100%; border: none;"
+            allow="microphone; camera"
+            title="Botpress AI Chatbot">
+        </iframe>
+    </div>
+    """, unsafe_allow_html=True)
     
-    if user_query:
-        # Add user message to history
-        st.session_state.chat_history.append({
-            "role": "user",
-            "content": user_query
-        })
-        
-        # Get response from chatbot
-        with st.spinner("Analyzing and generating charts..."):
-            response = chatbot.process_query(user_query)
-        
-        # Handle response format (dict with text and chart)
-        if isinstance(response, dict):
-            response_content = response
-        else:
-            # Backward compatibility: convert string to dict format
-            response_content = {"text": response, "chart": None}
-        
-        # Add assistant response to history
-        st.session_state.chat_history.append({
-            "role": "assistant",
-            "content": response_content
-        })
-        
-        st.rerun()
-    
-    # Clear chat history button (simple and clean)
-    if st.session_state.chat_history:
-        if st.button("🔄 Clear Chat History", use_container_width=True, help="Clear all chat messages"):
-            st.session_state.chat_history = []
-            st.rerun()
+    # Additional information
+    st.markdown("""
+    <div style="margin-top: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #0066CC;">
+        <h4 style="color: #0066CC; margin-bottom: 0.5rem;">💡 Tips for using the chatbot:</h4>
+        <ul style="color: #555; margin: 0; padding-left: 1.5rem;">
+            <li>Ask questions about specific countries, indicators, or trends</li>
+            <li>Request comparisons between countries or time periods</li>
+            <li>Ask for insights and interpretations of the data</li>
+            <li>Request reports or summaries for specific topics</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Example queries - topic-specific
     with st.expander("💡 Example Queries"):

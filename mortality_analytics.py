@@ -346,6 +346,20 @@ class ChildMortalityAnalytics:
         self.pipeline = pipeline
         self.child_afro = pipeline.child_afro
         
+        # Normalize indicator names to match data
+        if self.child_afro is not None and len(self.child_afro) > 0 and 'indicator' in self.child_afro.columns:
+            # Map actual indicator names in data to standard names
+            indicator_mapping = {
+                'Child Mortality rate age 1-4': 'Child mortality rate (aged 1-4 years)',
+                'Child deaths age 1 to 4': 'Child deaths (aged 1-4 years)'
+            }
+            self.child_afro['indicator_standard'] = self.child_afro['indicator'].map(
+                lambda x: indicator_mapping.get(x, x)
+            )
+        else:
+            if self.child_afro is not None and 'indicator' in self.child_afro.columns:
+                self.child_afro['indicator_standard'] = self.child_afro['indicator']
+        
         # UNICEF/UNIGME Indicator Definitions
         self.indicator_definitions = {
             'Infant mortality rate': 'Deaths per 1,000 live births in the first year of life (UNICEF/UNIGME)',
@@ -358,8 +372,11 @@ class ChildMortalityAnalytics:
         
     def get_latest_year(self, indicator: str = 'Under-five mortality rate') -> int:
         """Get the most recent year in the dataset for a specific indicator"""
+        # Use standard indicator name if available, otherwise use original
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
         indicator_data = self.child_afro[
-            (self.child_afro['indicator'] == indicator) &
+            (self.child_afro[indicator_col] == indicator) &
             (self.child_afro['sex'] == 'Total')
         ]
         return int(indicator_data['year'].max()) if len(indicator_data) > 0 else 2023
@@ -390,9 +407,12 @@ class ChildMortalityAnalytics:
             'indicator_definitions': {}
         }
         
+        # Use standard indicator name if available
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
         for indicator in key_indicators:
             data_year = self.child_afro[
-                (self.child_afro['indicator'] == indicator) &
+                (self.child_afro[indicator_col] == indicator) &
                 (self.child_afro['year'] == year) &
                 (self.child_afro['sex'] == 'Total')
             ].copy()
@@ -411,7 +431,9 @@ class ChildMortalityAnalytics:
                 summary[f'{indicator_key}_mean'] = float(np.mean(values))
                 summary[f'{indicator_key}_min'] = float(values.min())
                 summary[f'{indicator_key}_max'] = float(values.max())
-                summary['total_countries'] = max(summary['total_countries'], len(data_year))
+                # Count unique countries, not rows
+                unique_countries = data_year['country_clean'].nunique() if 'country_clean' in data_year.columns else len(data_year)
+                summary['total_countries'] = max(summary['total_countries'], unique_countries)
                 summary['indicator_definitions'][indicator] = self.indicator_definitions.get(indicator, '')
         
         return summary
@@ -434,8 +456,11 @@ class ChildMortalityAnalytics:
         if year is None:
             year = self.get_latest_year(indicator)
         
+        # Use standard indicator name if available
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
         data_year = self.child_afro[
-            (self.child_afro['indicator'] == indicator) &
+            (self.child_afro[indicator_col] == indicator) &
             (self.child_afro['year'] == year) &
             (self.child_afro['sex'] == 'Total')
         ].copy()
@@ -448,13 +473,22 @@ class ChildMortalityAnalytics:
     
     def get_mortality_over_time(self, country: str, indicator: str = 'Under-five mortality rate') -> pd.DataFrame:
         """Get mortality trend over time for a specific country"""
+        # Use standard indicator name if available
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
         country_data = self.child_afro[
             (self.child_afro['country_clean'] == country) &
-            (self.child_afro['indicator'] == indicator) &
+            (self.child_afro[indicator_col] == indicator) &
             (self.child_afro['sex'] == 'Total')
-        ][['year', 'value', 'indicator', 'country_clean', 'lower_bound', 'upper_bound']].sort_values('year')
+        ][['year', 'value', 'indicator', 'country_clean']].copy()
         
-        return country_data
+        # Add bounds if available
+        if 'Lower Bound' in self.child_afro.columns:
+            country_data['lower_bound'] = self.child_afro.loc[country_data.index, 'Lower Bound'].values
+        if 'Upper Bound' in self.child_afro.columns:
+            country_data['upper_bound'] = self.child_afro.loc[country_data.index, 'Upper Bound'].values
+        
+        return country_data.sort_values('year')
     
     def get_sex_disaggregation(self, indicator: str = 'Under-five mortality rate',
                                year: Optional[int] = None) -> pd.DataFrame:
@@ -471,8 +505,11 @@ class ChildMortalityAnalytics:
         if year is None:
             year = self.get_latest_year(indicator)
         
+        # Use standard indicator name if available
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
         sex_data = self.child_afro[
-            (self.child_afro['indicator'] == indicator) &
+            (self.child_afro[indicator_col] == indicator) &
             (self.child_afro['year'] == year) &
             (self.child_afro['sex'].isin(['Female', 'Male', 'Total']))
         ][['country_clean', 'iso3', 'sex', 'value', 'year']].copy()
@@ -500,8 +537,11 @@ class ChildMortalityAnalytics:
         if year is None:
             year = self.get_latest_year(indicator)
         
+        # Use standard indicator name if available
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
         data_year = self.child_afro[
-            (self.child_afro['indicator'] == indicator) &
+            (self.child_afro[indicator_col] == indicator) &
             (self.child_afro['year'] == year) &
             (self.child_afro['sex'] == 'Total') &
             (self.child_afro['value'].notna())
@@ -547,8 +587,11 @@ class ChildMortalityAnalytics:
     
     def get_regional_trends(self, indicator: str = 'Under-five mortality rate') -> pd.DataFrame:
         """Get regional aggregate trends over time"""
+        # Use standard indicator name if available
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
         regional_data = self.child_afro[
-            (self.child_afro['indicator'] == indicator) &
+            (self.child_afro[indicator_col] == indicator) &
             (self.child_afro['sex'] == 'Total')
         ].copy()
         
