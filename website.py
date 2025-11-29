@@ -844,7 +844,7 @@ def initialize_system(indicator_type: str = "Mortality"):
                 
                 maternal_path = "maternal Mortality.csv"
                 child_path = "Child Mortality.csv"
-                lookup_path = "WHO_AFRO_47_Countries_ISO3_Lookup_File.csv"
+                lookup_path = "look up file WHO_AFRO_47_Countries_ISO3_Lookup_File.csv"
                 
                 try:
                     import os
