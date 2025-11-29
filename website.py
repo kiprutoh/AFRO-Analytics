@@ -18,7 +18,7 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 
-# Try to import Pydantic AI chatbot
+# RDHUB chatbot with Pydantic AI
 try:
     from rdhub_chatbot import RDHUBChatbot, RDHUBDependencies
     RDHUB_CHATBOT_AVAILABLE = True
@@ -834,12 +834,29 @@ def initialize_system(indicator_type: str = "Mortality"):
                     st.session_state.tb_notif_chart_gen = None
                 
                 # Store TB components
-                # RDHUB chatbot removed - using legacy TB chatbot only
-                
                 st.session_state.tb_pipeline = pipeline
                 st.session_state.tb_analytics = analytics
                 st.session_state.tb_visualizer = visualizer
                 st.session_state.tb_chatbot = chatbot
+                
+                # Initialize RDHUB chatbot with Pydantic AI if available
+                if RDHUB_CHATBOT_AVAILABLE:
+                    try:
+                        deps = RDHUBDependencies(
+                            tb_analytics=analytics,
+                            tb_burden_analytics=st.session_state.get('tb_burden_analytics'),
+                            tb_notif_analytics=st.session_state.get('tb_notif_analytics'),
+                            tb_chart_gen=TBChartGenerator(analytics),
+                            tb_burden_chart_gen=st.session_state.get('tb_burden_chart_gen'),
+                            tb_notif_chart_gen=st.session_state.get('tb_notif_chart_gen')
+                        )
+                        rdhub_chatbot = RDHUBChatbot(deps)
+                        st.session_state.rdhub_chatbot = rdhub_chatbot
+                    except Exception as e:
+                        st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using legacy chatbot.")
+                        st.session_state.rdhub_chatbot = None
+                else:
+                    st.session_state.rdhub_chatbot = None
                 st.session_state.pipeline = None
                 st.session_state.analytics = None
                 st.session_state.visualizer = None
@@ -877,7 +894,22 @@ def initialize_system(indicator_type: str = "Mortality"):
                         st.session_state.maternal_chart_gen = maternal_chart_gen
                         st.session_state.child_chart_gen = child_chart_gen
                         
-                        # RDHUB chatbot removed - using legacy chatbots only
+                        # Initialize RDHUB chatbot with Pydantic AI if available
+                        if RDHUB_CHATBOT_AVAILABLE:
+                            try:
+                                deps = RDHUBDependencies(
+                                    maternal_analytics=maternal_analytics,
+                                    child_analytics=child_analytics,
+                                    maternal_chart_gen=maternal_chart_gen,
+                                    child_chart_gen=child_chart_gen
+                                )
+                                rdhub_chatbot = RDHUBChatbot(deps)
+                                st.session_state.rdhub_chatbot = rdhub_chatbot
+                            except Exception as e:
+                                st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using legacy chatbot.")
+                                st.session_state.rdhub_chatbot = None
+                        else:
+                            st.session_state.rdhub_chatbot = None
                         
                         st.success("✓ Mortality data loaded successfully!")
                         st.session_state.data_loaded = True
@@ -3086,77 +3118,64 @@ def render_chatbot_page():
     health_topic = st.session_state.get("indicator_type", "Mortality")
     selected_language = st.session_state.get("selected_language", "English")
     
+    # Display current settings with topic-specific styling
+    topic_colors = {
+        "Tuberculosis": "#8B4513",
+        "Mortality": "#f5576c"
+    }
+    topic_color = topic_colors.get(health_topic, "#0066CC")
+    
+    st.markdown(f"""
+    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, {topic_color} 0%, #004499 100%); border-radius: 10px; color: white;">
+        <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
+    </div>
+    """, unsafe_allow_html=True)
+    
     # Use translations
     current_lang = st.session_state.get("selected_language", "English")
     
-    # Beautiful introduction section
-    st.markdown(f"""
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                padding: 3rem 2rem; 
-                border-radius: 15px; 
-                margin-bottom: 2rem;
-                color: white;
-                text-align: center;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
-        <h1 style="color: white; margin-bottom: 1rem; font-size: 2.5rem;">
-            🤖 RDHUB Analytics Copilot
-        </h1>
-        <p style="font-size: 1.2rem; margin-bottom: 0.5rem; opacity: 0.95;">
-            Your intelligent assistant for {health_topic} data analysis
-        </p>
-        <p style="font-size: 1rem; opacity: 0.9; max-width: 800px; margin: 0 auto;">
-            Ask questions about trends, compare countries, explore indicators, and get insights 
-            from WHO AFRO Regional Data Hub. I can help you understand the data, generate reports, 
-            and provide actionable insights for decision-making.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(f'<h2 class="section-header">{get_translation("chatbot", current_lang)}</h2>', unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
         st.warning(f"{get_translation('initialize_system', current_lang)}")
         return
     
-    # Try to get or initialize Pydantic AI chatbot
+    # Get chatbot - prioritize RDHUB chatbot (Pydantic AI) if available
     chatbot = None
-    try:
-        from rdhub_chatbot import RDHUBChatbot, RDHUBDependencies
-        
-        # Initialize dependencies based on health topic
-        deps = RDHUBDependencies(health_topic=health_topic)
-        
-        if health_topic == "Tuberculosis":
-            if hasattr(st.session_state, 'tb_burden_analytics') and st.session_state.tb_burden_analytics is not None:
-                deps.tb_burden_analytics = st.session_state.tb_burden_analytics
-            if hasattr(st.session_state, 'tb_notif_analytics') and st.session_state.tb_notif_analytics is not None:
-                deps.tb_notif_analytics = st.session_state.tb_notif_analytics
-        else:  # Mortality
-            if hasattr(st.session_state, 'maternal_analytics') and st.session_state.maternal_analytics is not None:
-                deps.maternal_analytics = st.session_state.maternal_analytics
-            if hasattr(st.session_state, 'child_analytics') and st.session_state.child_analytics is not None:
-                deps.child_analytics = st.session_state.child_analytics
-        
-        # Initialize or get existing chatbot
-        if 'rdhub_chatbot' not in st.session_state or st.session_state.rdhub_chatbot is None:
-            st.session_state.rdhub_chatbot = RDHUBChatbot(deps)
+    if RDHUB_CHATBOT_AVAILABLE and hasattr(st.session_state, 'rdhub_chatbot') and st.session_state.rdhub_chatbot is not None:
         chatbot = st.session_state.rdhub_chatbot
-        
-    except ImportError:
-        # Fallback to legacy chatbots
-        if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
-            chatbot = st.session_state.tb_chatbot
-        elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
-            chatbot = st.session_state.chatbot
-    except Exception as e:
-        st.warning(f"Pydantic AI chatbot initialization failed: {str(e)}. Using legacy chatbot.")
-        # Fallback to legacy chatbots
-        if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
-            chatbot = st.session_state.tb_chatbot
-        elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
-            chatbot = st.session_state.chatbot
+    elif health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
+        chatbot = st.session_state.tb_chatbot
+    elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
+        chatbot = st.session_state.chatbot
     
     if chatbot is None:
         st.error(f"{get_translation('chatbot', current_lang)} not initialized. {get_translation('please_initialize', current_lang)}")
         return
+    
+    # Beautiful chatbot introduction
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 2rem; 
+                border-radius: 15px; 
+                margin-bottom: 2rem;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+        <div style="text-align: center; color: white;">
+            <h2 style="color: white; margin-bottom: 1rem; font-size: 2rem;">
+                🤖 AI Analytics Assistant
+            </h2>
+            <p style="font-size: 1.1rem; margin-bottom: 0.5rem; opacity: 0.95;">
+                Your intelligent companion for exploring health data
+            </p>
+            <p style="font-size: 0.95rem; opacity: 0.85; margin: 0;">
+                Ask questions about trends, comparisons, statistics, and get instant insights with visualizations
+            </p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Display topic-specific help text
+    st.markdown(get_topic_content(health_topic, "chatbot_help", current_lang))
     
     # Display chat history
     for message in st.session_state.chat_history:
@@ -3213,6 +3232,16 @@ def render_chatbot_page():
         })
         
         st.rerun()
+    
+    # Clear chat history button (simple and clean)
+    if st.session_state.chat_history:
+        if st.button("🔄 Clear Chat History", use_container_width=True, help="Clear all chat messages"):
+            st.session_state.chat_history = []
+            st.rerun()
+    
+    # Example queries - topic-specific
+    with st.expander("💡 Example Queries"):
+        st.markdown(get_topic_content(health_topic, "example_queries", current_lang))
 
 
 def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indicator_type: str = "Mortality") -> Dict:
