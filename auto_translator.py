@@ -97,7 +97,7 @@ Translation:"""
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "HTTP-Referer": "https://github.com/afro-analytics",
+                "HTTP-Referer": "https://www.who.int/",
                 "X-Title": "AFRO Analytics Translation"
             }
             

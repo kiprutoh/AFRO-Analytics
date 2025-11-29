@@ -2645,8 +2645,19 @@ def render_maternal_mortality_section():
 def render_child_mortality_section():
     """Render Child Mortality section - Mimics TB Notifications format exactly"""
     current_lang = st.session_state.get("selected_language", "English")
+    
+    # Check if analytics are available
+    if not hasattr(st.session_state, 'child_analytics') or st.session_state.child_analytics is None:
+        st.error("Child Mortality analytics not loaded. Please re-initialize the system.")
+        return
+    
     child_analytics = st.session_state.child_analytics
     child_chart_gen = st.session_state.child_chart_gen
+    
+    # Check if data is loaded
+    if child_analytics.child_afro is None or len(child_analytics.child_afro) == 0:
+        st.error("Child Mortality data is empty. Please check the data file and re-initialize.")
+        return
     
     st.markdown(f'<h3 class="section-header">👶 Child Mortality</h3>', unsafe_allow_html=True)
     st.markdown("""
@@ -2658,9 +2669,24 @@ def render_child_mortality_section():
     </div>
     """, unsafe_allow_html=True)
     
-    # Get latest year and summary
-    latest_year = child_analytics.get_latest_year('Under-five mortality rate')
-    summary = child_analytics.get_mortality_summary(latest_year)
+    # Get latest year and summary with error handling
+    try:
+        latest_year = child_analytics.get_latest_year('Under-five mortality rate')
+        summary = child_analytics.get_mortality_summary(latest_year)
+        
+        # Check if summary has data
+        if summary.get('total_countries', 0) == 0:
+            st.warning(f"No Child Mortality data found for year {latest_year}. Please check the data file.")
+            # Try to get data summary to show what's available
+            data_summary = child_analytics.get_data_summary()
+            st.info(f"Available data: {data_summary.get('total_countries', 0)} countries, "
+                   f"Year range: {data_summary.get('year_range', 'N/A')}")
+            return
+    except Exception as e:
+        st.error(f"Error loading Child Mortality data: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
+        return
     
     # Regional Overview Cards
     st.markdown(f"""

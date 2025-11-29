@@ -102,8 +102,14 @@ class MortalityDataPipeline:
             child_data['iso3'].isin(afro_iso3_list)
         ].copy()
         
-        # Clean year
-        self.child_afro['year'] = pd.to_numeric(self.child_afro['year'], errors='coerce')
+        # Clean year - handle different year formats
+        if 'year' in self.child_afro.columns:
+            self.child_afro['year'] = pd.to_numeric(self.child_afro['year'], errors='coerce')
+        else:
+            print("WARNING: 'year' column not found after renaming. Available columns:", list(self.child_afro.columns))
+            return self
+        
+        # Filter years
         self.child_afro = self.child_afro[
             (self.child_afro['year'] >= 2000) & 
             (self.child_afro['year'] <= 2024) &
@@ -111,8 +117,20 @@ class MortalityDataPipeline:
         ]
         
         # Clean value
-        self.child_afro['value'] = pd.to_numeric(self.child_afro['value'], errors='coerce')
-        self.child_afro = self.child_afro.dropna(subset=['value'])
+        if 'value' in self.child_afro.columns:
+            self.child_afro['value'] = pd.to_numeric(self.child_afro['value'], errors='coerce')
+            self.child_afro = self.child_afro.dropna(subset=['value'])
+        else:
+            print("WARNING: 'value' column not found after renaming. Available columns:", list(self.child_afro.columns))
+            return self
+        
+        # Debug: Check if we have data after filtering
+        if len(self.child_afro) == 0:
+            print("WARNING: No data remaining after filtering. Checking original data...")
+            print(f"Original data shape: {child_data.shape}")
+            print(f"After AFRO filter: {len(child_data[child_data['iso3'].isin(afro_iso3_list)])}")
+            print(f"Sample ISO3 codes in data: {child_data['iso3'].unique()[:10]}")
+            print(f"AFRO ISO3 list sample: {afro_iso3_list[:10]}")
         
         # Map indicator codes to standard names (UNICEF/UNIGME definitions)
         indicator_mapping = {
@@ -141,8 +159,17 @@ class MortalityDataPipeline:
             self.child_afro['country_code'].str.split(':').str[1].str.strip()
         )
         
-        print(f"  Child: {self.child_afro['country_clean'].nunique()} countries, "
-              f"years {int(self.child_afro['year'].min())}-{int(self.child_afro['year'].max())}")
+        if len(self.child_afro) > 0:
+            print(f"  Child: {self.child_afro['country_clean'].nunique()} countries, "
+                  f"years {int(self.child_afro['year'].min())}-{int(self.child_afro['year'].max())}, "
+                  f"total records: {len(self.child_afro)}")
+        else:
+            print("  WARNING: Child Mortality data is empty after filtering!")
+            print(f"  Original data shape: {child_data.shape}")
+            print(f"  After AFRO filter: {len(child_data[child_data['iso3'].isin(afro_iso3_list)])}")
+            if 'iso3' in child_data.columns:
+                print(f"  Sample ISO3 codes in data: {child_data['iso3'].unique()[:10]}")
+            print(f"  AFRO ISO3 list sample: {afro_iso3_list[:10]}")
         
         return self
 
