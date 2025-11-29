@@ -16,6 +16,7 @@ from llm_report_generator import LLMReportGenerator
 from tb_data_pipeline import TBDataPipeline
 from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
+from rdhub_chatbot import RDHUBChatbot
 from tb_chart_generator import TBChartGenerator
 from tb_interactive_visualizer import TBInteractiveVisualizer
 from tb_burden_analytics import TBBurdenAnalytics
@@ -827,6 +828,14 @@ def initialize_system(indicator_type: str = "Mortality"):
                     st.session_state.tb_notif_chart_gen = None
                 
                 # Store TB components
+                # Initialize RDHUB chatbot for TB
+                try:
+                    rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
+                    st.session_state.rdhub_chatbot = rdhub_chatbot
+                except Exception as e:
+                    st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
+                    st.session_state.rdhub_chatbot = None
+                
                 st.session_state.tb_pipeline = pipeline
                 st.session_state.tb_analytics = analytics
                 st.session_state.tb_visualizer = visualizer
@@ -851,8 +860,8 @@ def initialize_system(indicator_type: str = "Mortality"):
                     if os.path.exists(maternal_path) and os.path.exists(child_path) and os.path.exists(lookup_path):
                         # Initialize unified pipeline
                         pipeline = MortalityDataPipeline(maternal_path, child_path, lookup_path)
-                pipeline.load_data()
-                
+                        pipeline.load_data()
+                        
                         # Initialize separate analytics
                         maternal_analytics = MaternalMortalityAnalytics(pipeline)
                         child_analytics = ChildMortalityAnalytics(pipeline)
@@ -868,8 +877,16 @@ def initialize_system(indicator_type: str = "Mortality"):
                         st.session_state.maternal_chart_gen = maternal_chart_gen
                         st.session_state.child_chart_gen = child_chart_gen
                         
+                        # Initialize RDHUB chatbot
+                        try:
+                            rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
+                            st.session_state.rdhub_chatbot = rdhub_chatbot
+                        except Exception as e:
+                            st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
+                            st.session_state.rdhub_chatbot = None
+                        
                         st.success("✓ Mortality data loaded successfully!")
-                st.session_state.data_loaded = True
+                        st.session_state.data_loaded = True
                         st.session_state.indicator_type = "Mortality"
                     else:
                         missing = []
@@ -1463,15 +1480,15 @@ def render_tb_dashboard(analytics, pipeline):
     # ==================================================================================
     elif selected_subcategory == 'TB Notifications':
         st.markdown(f'<h3 class="section-header">{get_translation("tb_notifications", current_lang)} Analytics</h3>', unsafe_allow_html=True)
-    st.markdown("""
-    <div class="info-box" style="margin-bottom: 2rem;">
-        <p style="margin: 0; font-size: 0.95rem;">
-                <strong>Focus:</strong> TB Case Notifications for WHO AFRO Region (47 countries)
-            <br>Data based on Global Tuberculosis Report 2024 indicators
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    
+        st.markdown("""
+        <div class="info-box" style="margin-bottom: 2rem;">
+            <p style="margin: 0; font-size: 0.95rem;">
+                    <strong>Focus:</strong> TB Case Notifications for WHO AFRO Region (47 countries)
+                <br>Data based on Global Tuberculosis Report 2024 indicators
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         render_tb_notifications_section(analytics, pipeline, current_lang)
         return
     
@@ -1847,12 +1864,12 @@ def render_tb_outcomes_section(analytics, pipeline, current_lang):
         success = outcomes_summary['success']
         success_pct = outcomes_summary['success_pct']
         color = '#27ae60' if success_pct >= 85 else ('#f39c12' if success_pct >= 75 else '#e74c3c')
-                st.markdown(f"""
+        st.markdown(f"""
         <div class="stat-card" style="background: linear-gradient(135deg, {color} 0%, {color}dd 100%);">
             <div class="stat-value" style="color: white;">{success_pct:.1f}%</div>
             <div class="stat-label" style="color: #ecf0f1;">Treatment Success</div>
             <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #ecf0f1;">({success:,.0f} cases)</p>
-                </div>
+        </div>
                 """, unsafe_allow_html=True)
     
     with col3:
@@ -2131,9 +2148,9 @@ def render_tb_burden_section(current_lang):
         </div>
         """, unsafe_allow_html=True)
         
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
             st.markdown(f"""
             <div class="stat-card">
                 <div class="stat-value">{burden_summary['total_incident_cases']:,.0f}</div>
@@ -2251,7 +2268,7 @@ def render_tb_burden_section(current_lang):
             
             col1, col2 = st.columns([1, 2])
             
-                with col1:
+            with col1:
                 map_indicator = st.selectbox(
                     "Select Indicator for Map",
                     ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k", "cfr_pct"],
@@ -2343,9 +2360,9 @@ def render_tb_burden_section(current_lang):
             
             with col1:
                 st.metric("Min Value", f"{equity_measures['min_value']:.1f}")
-                with col2:
+            with col2:
                 st.metric("Max Value", f"{equity_measures['max_value']:.1f}")
-                with col3:
+            with col3:
                 st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x")
             with col4:
                 st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%")
@@ -2455,9 +2472,9 @@ def render_maternal_mortality_section():
     </div>
     """, unsafe_allow_html=True)
     
-                col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4 = st.columns(4)
     
-                with col1:
+    with col1:
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{summary['regional_median_mmr']:,.0f}</div>
@@ -3097,14 +3114,20 @@ def render_chatbot_page():
         st.warning(f"{get_translation('initialize_system', current_lang)}")
         return
     
-    # Get chatbot based on health topic
+    # Get RDHUB chatbot (preferred) or fallback to legacy chatbot
     chatbot = None
-    if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
+    rdhub_chatbot = None
+    
+    # Try to get RDHUB chatbot first
+    if hasattr(st.session_state, 'rdhub_chatbot') and st.session_state.rdhub_chatbot is not None:
+        rdhub_chatbot = st.session_state.rdhub_chatbot
+    # Fallback to legacy chatbots
+    elif health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
         chatbot = st.session_state.tb_chatbot
     elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
         chatbot = st.session_state.chatbot
     
-    if chatbot is None:
+    if rdhub_chatbot is None and chatbot is None:
         st.error(f"{get_translation('chatbot', current_lang)} not initialized. {get_translation('please_initialize', current_lang)}")
         return
     
@@ -3174,7 +3197,21 @@ def render_chatbot_page():
         
         # Get response from chatbot
         with st.spinner("Analyzing and generating charts..."):
-            response = chatbot.process_query(user_query)
+            if rdhub_chatbot is not None:
+                # Use RDHUB chatbot with analytics dependencies
+                response = rdhub_chatbot.process_query(
+                    user_query,
+                    tb_analytics=st.session_state.get('tb_analytics'),
+                    tb_burden_analytics=st.session_state.get('tb_burden_analytics'),
+                    tb_notif_analytics=st.session_state.get('tb_notif_analytics'),
+                    maternal_analytics=st.session_state.get('maternal_analytics'),
+                    child_analytics=st.session_state.get('child_analytics'),
+                    country_lookup=None,  # Can be added if needed
+                    afro_iso3_list=None  # Can be added if needed
+                )
+            else:
+                # Fallback to legacy chatbot
+                response = chatbot.process_query(user_query)
         
         # Handle response format (dict with text and chart)
         if isinstance(response, dict):
