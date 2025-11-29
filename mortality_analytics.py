@@ -544,12 +544,25 @@ class ChildMortalityAnalytics:
     
     def get_data_summary(self) -> Dict:
         """Get summary of available data"""
+        if self.child_afro is None or len(self.child_afro) == 0:
+            return {
+                'total_countries': 0,
+                'year_range': (None, None),
+                'latest_year': None,
+                'total_records': 0,
+                'total_indicators': 0,
+                'key_indicators': [],
+                'sex_categories': [],
+                'indicator_definitions': {},
+                'definition_source': 'UNICEF/UNIGME'
+            }
+        
         indicators = self.child_afro['indicator'].unique().tolist()
         
         return {
             'total_countries': self.child_afro['country_clean'].nunique(),
             'year_range': (int(self.child_afro['year'].min()), int(self.child_afro['year'].max())),
-            'latest_year': self.get_latest_year(),
+            'latest_year': self.get_latest_year('Under-five mortality rate'),
             'total_records': len(self.child_afro),
             'total_indicators': len(indicators),
             'key_indicators': [
