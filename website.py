@@ -3186,7 +3186,7 @@ def render_chatbot_page():
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
         <div style="text-align: center; color: white;">
             <h2 style="color: white; margin-bottom: 1rem; font-size: 2rem;">
-                🤖 AI Analytics Assistant
+                🤖 Regional Health Data Hub Assistant
             </h2>
             <p style="font-size: 1.1rem; margin-bottom: 0.5rem; opacity: 0.95;">
                 Your intelligent companion for exploring health data
@@ -3204,7 +3204,7 @@ def render_chatbot_page():
     # Botpress Chatbot Integration
     st.markdown("""
     <div style="margin-top: 2rem; margin-bottom: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1rem;">💬 Chat with our AI Assistant</h3>
+        <h3 style="color: #0066CC; margin-bottom: 1rem;">💬 Chat with Regional Health Data Hub Assistant</h3>
         <p style="color: #666; margin-bottom: 1rem;">
             Use the chat widget below to ask questions about health data, get insights, and explore analytics.
         </p>
@@ -3220,7 +3220,7 @@ def render_chatbot_page():
             src="{botpress_url}"
             style="width: 100%; height: 100%; border: none;"
             allow="microphone; camera"
-            title="Botpress AI Chatbot">
+            title="Regional Health Data Hub Assistant">
         </iframe>
     </div>
     """, unsafe_allow_html=True)
@@ -3238,9 +3238,46 @@ def render_chatbot_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Example queries - topic-specific
-    with st.expander("💡 Example Queries"):
-        st.markdown(get_topic_content(health_topic, "example_queries", current_lang))
+    # Example queries
+    with st.expander("💡 Example Queries", expanded=False):
+        st.markdown("""
+        <div style="padding: 1rem;">
+            <h4 style="color: #0066CC; margin-bottom: 1rem;">Country Statistics (with charts):</h4>
+            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
+                <li>What are the statistics for Kenya?</li>
+                <li>Show me charts for Angola</li>
+                <li>Visualize data for Nigeria</li>
+            </ul>
+            
+            <h4 style="color: #0066CC; margin-bottom: 1rem;">Comparisons (with charts):</h4>
+            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
+                <li>Compare Kenya and Uganda</li>
+                <li>Compare Kenya, Uganda, and Tanzania</li>
+            </ul>
+            
+            <h4 style="color: #0066CC; margin-bottom: 1rem;">Trends (with charts):</h4>
+            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
+                <li>What is the trend for neonatal mortality in Angola?</li>
+                <li>Show trend chart for Kenya</li>
+            </ul>
+            
+            <h4 style="color: #0066CC; margin-bottom: 1rem;">Projections (with charts):</h4>
+            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
+                <li>Show me projections for 2030</li>
+                <li>Projections for Kenya</li>
+            </ul>
+            
+            <h4 style="color: #0066CC; margin-bottom: 1rem;">Top Countries (with charts):</h4>
+            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
+                <li>Top 10 countries by under-five mortality rate</li>
+            </ul>
+            
+            <h4 style="color: #0066CC; margin-bottom: 1rem;">Reports:</h4>
+            <ul style="color: #555; margin-bottom: 0; padding-left: 1.5rem;">
+                <li>Generate a summary report for Nigeria</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indicator_type: str = "Mortality") -> Dict:
@@ -5296,6 +5333,9 @@ def main():
     with st.sidebar:
         st.markdown("### WHO AFRO")
         st.markdown("**Data Hub Analytics**")
+        st.markdown("---")
+        st.markdown("**Hillary and AI**")
+        st.markdown("*Regional Health Data Hub Assistant*")
         
         # Health Topic Selection
         st.markdown("### Health Topic")
