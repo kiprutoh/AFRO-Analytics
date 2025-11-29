@@ -855,8 +855,24 @@ def initialize_system(indicator_type: str = "Mortality"):
                     except Exception as e:
                         st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using legacy chatbot.")
                         st.session_state.rdhub_chatbot = None
+                        # Initialize legacy TB chatbot as fallback
+                        try:
+                            from tb_chatbot import TBChatbot
+                            legacy_tb_chatbot = TBChatbot(analytics)
+                            st.session_state.tb_chatbot = legacy_tb_chatbot
+                        except Exception as e2:
+                            st.warning(f"Legacy TB chatbot also failed: {str(e2)}")
+                            st.session_state.tb_chatbot = None
                 else:
                     st.session_state.rdhub_chatbot = None
+                    # Initialize legacy TB chatbot as fallback
+                    try:
+                        from tb_chatbot import TBChatbot
+                        legacy_tb_chatbot = TBChatbot(analytics)
+                        st.session_state.tb_chatbot = legacy_tb_chatbot
+                    except Exception as e:
+                        st.warning(f"Legacy TB chatbot initialization failed: {str(e)}")
+                        st.session_state.tb_chatbot = None
                 st.session_state.pipeline = None
                 st.session_state.analytics = None
                 st.session_state.visualizer = None
@@ -908,8 +924,24 @@ def initialize_system(indicator_type: str = "Mortality"):
                             except Exception as e:
                                 st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using legacy chatbot.")
                                 st.session_state.rdhub_chatbot = None
+                                # Initialize legacy chatbot as fallback
+                                try:
+                                    from chatbot import MortalityChatbot
+                                    legacy_chatbot = MortalityChatbot(maternal_analytics)
+                                    st.session_state.chatbot = legacy_chatbot
+                                except Exception as e2:
+                                    st.warning(f"Legacy chatbot also failed: {str(e2)}")
+                                    st.session_state.chatbot = None
                         else:
                             st.session_state.rdhub_chatbot = None
+                            # Initialize legacy chatbot as fallback
+                            try:
+                                from chatbot import MortalityChatbot
+                                legacy_chatbot = MortalityChatbot(maternal_analytics)
+                                st.session_state.chatbot = legacy_chatbot
+                            except Exception as e:
+                                st.warning(f"Legacy chatbot initialization failed: {str(e)}")
+                                st.session_state.chatbot = None
                         
                         st.success("✓ Mortality data loaded successfully!")
                         st.session_state.data_loaded = True
@@ -2671,21 +2703,44 @@ def render_child_mortality_section():
     
     # Get latest year and summary with error handling
     try:
+        # Check if child_afro has data
+        if child_analytics.child_afro is None or len(child_analytics.child_afro) == 0:
+            st.error("Child Mortality data is empty. Please check the data file and re-initialize the system.")
+            st.info("**Troubleshooting:**\n"
+                   "- Ensure 'Child Mortality.csv' file exists\n"
+                   "- Check that the file has the correct format (UNICEF format)\n"
+                   "- Verify the file contains data for AFRO countries\n"
+                   "- Re-initialize the system from the sidebar")
+            return
+        
         latest_year = child_analytics.get_latest_year('Under-five mortality rate')
         summary = child_analytics.get_mortality_summary(latest_year)
         
         # Check if summary has data
         if summary.get('total_countries', 0) == 0:
-            st.warning(f"No Child Mortality data found for year {latest_year}. Please check the data file.")
             # Try to get data summary to show what's available
             data_summary = child_analytics.get_data_summary()
-            st.info(f"Available data: {data_summary.get('total_countries', 0)} countries, "
-                   f"Year range: {data_summary.get('year_range', 'N/A')}")
+            
+            # Debug: Show what data we have
+            st.warning(f"No Child Mortality data found for year {latest_year}.")
+            st.info(f"**Data Summary:**\n"
+                   f"- Total records in dataset: {len(child_analytics.child_afro)}\n"
+                   f"- Countries: {data_summary.get('total_countries', 0)}\n"
+                   f"- Year range: {data_summary.get('year_range', 'N/A')}\n"
+                   f"- Available indicators: {data_summary.get('key_indicators', [])}")
+            
+            # Show sample data
+            with st.expander("View Sample Data"):
+                st.dataframe(child_analytics.child_afro.head(20))
+                st.write(f"Unique indicators: {child_analytics.child_afro['indicator'].unique()}")
+                st.write(f"Unique years: {sorted(child_analytics.child_afro['year'].unique())}")
+                st.write(f"Unique countries: {sorted(child_analytics.child_afro['country_clean'].unique())[:10]}")
             return
     except Exception as e:
         st.error(f"Error loading Child Mortality data: {str(e)}")
         import traceback
-        st.code(traceback.format_exc())
+        with st.expander("Error Details"):
+            st.code(traceback.format_exc())
         return
     
     # Regional Overview Cards
@@ -3176,7 +3231,25 @@ def render_chatbot_page():
         chatbot = st.session_state.chatbot
     
     if chatbot is None:
-        st.error(f"{get_translation('chatbot', current_lang)} not initialized. {get_translation('please_initialize', current_lang)}")
+        st.error(f"AI Chatbot not initialized. Please initialize the system first from the sidebar.")
+        st.info("**Troubleshooting:**\n"
+               "- Click '🚀 Initialize System' in the sidebar\n"
+               "- If initialization fails, check that:\n"
+               "  - Required data files are present\n"
+               "  - API keys are set (OPENROUTER_API_KEY or OPENAI_API_KEY for Pydantic AI chatbot)\n"
+               "  - All dependencies are installed (pydantic-ai, plotly, etc.)\n"
+               "- After initialization, refresh the page or navigate to Chatbot again")
+        
+        # Show what's available in session state
+        with st.expander("Debug: Check Session State"):
+            st.write("**Available in session state:**")
+            chatbot_keys = ['rdhub_chatbot', 'tb_chatbot', 'chatbot']
+            for key in chatbot_keys:
+                has_key = hasattr(st.session_state, key)
+                value = getattr(st.session_state, key, None) if has_key else None
+                st.write(f"- `{key}`: {'✅' if has_key and value is not None else '❌'} ({'Available' if has_key and value is not None else 'Not available'})")
+            st.write(f"- `data_loaded`: {st.session_state.get('data_loaded', False)}")
+            st.write(f"- `indicator_type`: {st.session_state.get('indicator_type', 'Not set')}")
         return
     
     # Beautiful chatbot introduction

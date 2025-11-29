@@ -78,35 +78,82 @@ class MortalityDataPipeline:
         print(f"  Maternal: {self.maternal_afro['country_clean'].nunique()} countries, "
               f"years {int(self.maternal_afro['year'].min())}-{int(self.maternal_afro['year'].max())}")
         
-        # Load Child Mortality data (UNICEF format)
+        # Load Child Mortality data - handle both UNICEF format and clean format
         print("Loading Child Mortality data...")
         child_data = pd.read_csv(self.child_data_path, low_memory=False)
         
-        # Map UNICEF column names to standard names
-        child_data = child_data.rename(columns={
-            'REF_AREA:Geographic area': 'country_code',
-            'INDICATOR:Indicator': 'indicator_code',
-            'SEX:Sex': 'sex_code',
-            'TIME_PERIOD:Time period': 'year',
-            'OBS_VALUE:Observation Value': 'value',
-            'LOWER_BOUND:Lower Bound': 'lower_bound',
-            'UPPER_BOUND:Upper Bound': 'upper_bound',
-            'AGE:Current age': 'age_group'
-        })
-        
-        # Extract ISO3 code from country_code (format: "AFG: Afghanistan")
-        child_data['iso3'] = child_data['country_code'].str.split(':').str[0].str.strip()
+        # Check if file is in clean format (has 'iso', 'country', 'indicator' columns) or UNICEF format
+        if 'iso' in child_data.columns and 'country' in child_data.columns and 'indicator' in child_data.columns:
+            # Clean format - already has the columns we need
+            print("  Detected clean format (iso, country, indicator columns)")
+            child_data['iso3'] = child_data['iso']
+            child_data['country_clean'] = child_data['country']
+            # Indicators are already in readable format
+            # Sex is already in readable format ('Total', 'Female', 'Male')
+        elif 'REF_AREA:Geographic area' in child_data.columns:
+            # UNICEF format - need to map columns
+            print("  Detected UNICEF format")
+            child_data = child_data.rename(columns={
+                'REF_AREA:Geographic area': 'country_code',
+                'INDICATOR:Indicator': 'indicator_code',
+                'SEX:Sex': 'sex_code',
+                'TIME_PERIOD:Time period': 'year',
+                'OBS_VALUE:Observation Value': 'value',
+                'LOWER_BOUND:Lower Bound': 'lower_bound',
+                'UPPER_BOUND:Upper Bound': 'upper_bound',
+                'AGE:Current age': 'age_group'
+            })
+            
+            # Extract ISO3 code from country_code (format: "AFG: Afghanistan")
+            child_data['iso3'] = child_data['country_code'].str.split(':').str[0].str.strip()
+            
+            # Map indicator codes to standard names
+            indicator_mapping = {
+                'CME_MRY0': 'Infant mortality rate',
+                'CME_MRY0T4': 'Under-five mortality rate',
+                'CME_MRY1T4': 'Child mortality rate (aged 1-4 years)',
+                'CME_TMY0': 'Infant deaths',
+                'CME_TMY0T4': 'Under-five deaths',
+                'CME_TMY1T4': 'Child deaths (aged 1-4 years)'
+            }
+            child_data['indicator'] = child_data['indicator_code'].map(indicator_mapping)
+            child_data['indicator'] = child_data['indicator'].fillna(child_data['indicator_code'])
+            
+            # Map sex codes to standard names
+            sex_mapping = {
+                'F': 'Female',
+                'M': 'Male',
+                '_T': 'Total'
+            }
+            child_data['sex'] = child_data['sex_code'].map(sex_mapping)
+            child_data['sex'] = child_data['sex'].fillna(child_data['sex_code'])
+            
+            # Clean country names
+            child_data['country_clean'] = child_data['iso3'].map(country_mapping)
+            child_data['country_clean'] = child_data['country_clean'].fillna(
+                child_data['country_code'].str.split(':').str[1].str.strip() if 'country_code' in child_data.columns else child_data['iso3']
+            )
+        else:
+            print("ERROR: Unknown Child Mortality data format. Available columns:", list(child_data.columns))
+            self.child_afro = pd.DataFrame()
+            return self
         
         # Filter for AFRO countries
         self.child_afro = child_data[
             child_data['iso3'].isin(afro_iso3_list)
         ].copy()
         
-        # Clean year - handle different year formats
+        # Clean year - handle different year formats (including ranges like '2022-2023')
         if 'year' in self.child_afro.columns:
+            # Convert to string first to handle ranges
+            self.child_afro['year'] = self.child_afro['year'].astype(str)
+            # Extract first year from ranges (e.g., '2022-2023' -> 2022)
+            self.child_afro['year'] = self.child_afro['year'].str.split('-').str[0]
+            # Convert to numeric
             self.child_afro['year'] = pd.to_numeric(self.child_afro['year'], errors='coerce')
         else:
-            print("WARNING: 'year' column not found after renaming. Available columns:", list(self.child_afro.columns))
+            print("WARNING: 'year' column not found. Available columns:", list(self.child_afro.columns))
+            self.child_afro = pd.DataFrame()
             return self
         
         # Filter years
@@ -121,7 +168,8 @@ class MortalityDataPipeline:
             self.child_afro['value'] = pd.to_numeric(self.child_afro['value'], errors='coerce')
             self.child_afro = self.child_afro.dropna(subset=['value'])
         else:
-            print("WARNING: 'value' column not found after renaming. Available columns:", list(self.child_afro.columns))
+            print("WARNING: 'value' column not found. Available columns:", list(self.child_afro.columns))
+            self.child_afro = pd.DataFrame()
             return self
         
         # Debug: Check if we have data after filtering
@@ -129,35 +177,9 @@ class MortalityDataPipeline:
             print("WARNING: No data remaining after filtering. Checking original data...")
             print(f"Original data shape: {child_data.shape}")
             print(f"After AFRO filter: {len(child_data[child_data['iso3'].isin(afro_iso3_list)])}")
-            print(f"Sample ISO3 codes in data: {child_data['iso3'].unique()[:10]}")
+            if 'iso3' in child_data.columns:
+                print(f"Sample ISO3 codes in data: {child_data['iso3'].unique()[:10]}")
             print(f"AFRO ISO3 list sample: {afro_iso3_list[:10]}")
-        
-        # Map indicator codes to standard names (UNICEF/UNIGME definitions)
-        indicator_mapping = {
-            'CME_MRY0': 'Infant mortality rate',
-            'CME_MRY0T4': 'Under-five mortality rate',
-            'CME_MRY1T4': 'Child mortality rate (aged 1-4 years)',
-            'CME_TMY0': 'Infant deaths',
-            'CME_TMY0T4': 'Under-five deaths',
-            'CME_TMY1T4': 'Child deaths (aged 1-4 years)'
-        }
-        self.child_afro['indicator'] = self.child_afro['indicator_code'].map(indicator_mapping)
-        self.child_afro['indicator'] = self.child_afro['indicator'].fillna(self.child_afro['indicator_code'])
-        
-        # Map sex codes to standard names
-        sex_mapping = {
-            'F': 'Female',
-            'M': 'Male',
-            '_T': 'Total'
-        }
-        self.child_afro['sex'] = self.child_afro['sex_code'].map(sex_mapping)
-        self.child_afro['sex'] = self.child_afro['sex'].fillna(self.child_afro['sex_code'])
-        
-        # Clean country names
-        self.child_afro['country_clean'] = self.child_afro['iso3'].map(country_mapping)
-        self.child_afro['country_clean'] = self.child_afro['country_clean'].fillna(
-            self.child_afro['country_code'].str.split(':').str[1].str.strip()
-        )
         
         if len(self.child_afro) > 0:
             print(f"  Child: {self.child_afro['country_clean'].nunique()} countries, "
