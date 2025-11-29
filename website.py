@@ -2482,7 +2482,7 @@ def render_maternal_mortality_section():
         </div>
         """, unsafe_allow_html=True)
     
-                with col2:
+    with col2:
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{summary['min_mmr']:,.0f}</div>
@@ -2490,7 +2490,7 @@ def render_maternal_mortality_section():
         </div>
         """, unsafe_allow_html=True)
     
-                with col3:
+    with col3:
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{summary['max_mmr']:,.0f}</div>
@@ -2498,7 +2498,7 @@ def render_maternal_mortality_section():
         </div>
         """, unsafe_allow_html=True)
     
-                with col4:
+    with col4:
         year_range = maternal_analytics.get_data_summary()['year_range']
         year_text = f"{year_range[0]}-{year_range[1]}"
         st.markdown(f"""
@@ -3901,9 +3901,9 @@ def render_reports_page():
             
             with col1:
                 # Text download
-            st.download_button(
+                st.download_button(
                     label="📄 Download as Text",
-                data=report,
+                    data=report,
                     file_name=f"report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.txt",
                     mime="text/plain",
                     use_container_width=True
@@ -5358,8 +5358,8 @@ def main():
     
     # Only show top-right language selector on non-home pages (home has it in hero card)
     if st.session_state.current_page != 'Home':
-    current_lang = st.session_state.selected_language
-    languages = {
+        current_lang = st.session_state.selected_language
+        languages = {
             "English": ("🇬🇧", "ENG"),
             "French": ("🇫🇷", "FR"),
             "Portuguese": ("🇵🇹", "PT"),
@@ -5369,23 +5369,23 @@ def main():
         # Create fixed position language selector
         col_spacer, col_lang = st.columns([10, 1])
         with col_lang:
-        lang_options = list(languages.keys())
-        current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
-        
-        selected_lang = st.selectbox(
-            "",
-            options=lang_options,
-            index=current_index,
-            format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
+            lang_options = list(languages.keys())
+            current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
+            
+            selected_lang = st.selectbox(
+                "",
+                options=lang_options,
+                index=current_index,
+                format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
                 key="global_language_selector",
-            label_visibility="collapsed"
-        )
+                label_visibility="collapsed"
+            )
+            
+            # Update session state if language changed
+            if selected_lang != current_lang:
+                st.session_state.selected_language = selected_lang
+                st.rerun()
         
-        # Update session state if language changed
-        if selected_lang != current_lang:
-            st.session_state.selected_language = selected_lang
-            st.rerun()
-    
         # Add CSS to style the global language selector
     st.markdown("""
     <style>
