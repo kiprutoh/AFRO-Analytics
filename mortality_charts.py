@@ -529,7 +529,7 @@ class ChildMortalityChartGenerator:
     
     def create_equity_chart(self, indicator: str = 'Under-five mortality rate',
                            indicator_name: str = 'Under-five Mortality Rate',
-                           year: Optional[int] = None) -> go.Figure:
+                           year: Optional[int] = None) -> Optional[go.Figure]:
         """Create box plot showing mortality distribution"""
         if year is None:
             year = self.analytics.get_latest_year(indicator)
@@ -540,6 +540,10 @@ class ChildMortalityChartGenerator:
             (self.analytics.child_afro['sex'] == 'Total') &
             (self.analytics.child_afro['value'].notna())
         ].copy()
+        
+        # Handle empty data
+        if len(data_year) == 0:
+            return None
         
         fig = go.Figure()
         

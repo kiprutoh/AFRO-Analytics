@@ -2787,18 +2787,24 @@ def render_child_mortality_section():
     with tab5:
         st.markdown("### Equity Analysis")
         equity_measures = child_analytics.calculate_equity_measures(indicator=selected_indicator, year=latest_year)
-        equity_chart = child_chart_gen.create_equity_chart(indicator=selected_indicator, year=latest_year)
-        st.plotly_chart(equity_chart, use_container_width=True)
         
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("Min Value", f"{equity_measures['min_value']:.1f}")
-        with col2:
-            st.metric("Max Value", f"{equity_measures['max_value']:.1f}")
-        with col3:
-            st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x" if equity_measures['ratio_max_to_min'] else "N/A")
-        with col4:
-            st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%" if equity_measures['coefficient_of_variation'] else "N/A")
+        # Check if we have data before displaying
+        if equity_measures['countries'] == 0:
+            st.warning(f"No data available for {indicator_options[selected_indicator]} in {latest_year}.")
+        else:
+            equity_chart = child_chart_gen.create_equity_chart(indicator=selected_indicator, year=latest_year)
+            if equity_chart:
+                st.plotly_chart(equity_chart, use_container_width=True)
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("Min Value", f"{equity_measures['min_value']:.1f}" if equity_measures['min_value'] is not None else "N/A")
+            with col2:
+                st.metric("Max Value", f"{equity_measures['max_value']:.1f}" if equity_measures['max_value'] is not None else "N/A")
+            with col3:
+                st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x" if equity_measures['ratio_max_to_min'] else "N/A")
+            with col4:
+                st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%" if equity_measures['coefficient_of_variation'] else "N/A")
 
 
 def render_dashboard_page():

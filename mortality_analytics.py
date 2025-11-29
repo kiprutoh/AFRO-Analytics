@@ -454,6 +454,24 @@ class ChildMortalityAnalytics:
         
         values = data_year['value'].values
         
+        # Handle empty data case
+        if len(values) == 0:
+            return {
+                'indicator': indicator,
+                'year': year,
+                'countries': 0,
+                'min_value': None,
+                'max_value': None,
+                'range': None,
+                'ratio_max_to_min': None,
+                'percentile_25': None,
+                'percentile_50': None,
+                'percentile_75': None,
+                'interquartile_range': None,
+                'coefficient_of_variation': None,
+                'definition': self.indicator_definitions.get(indicator, '')
+            }
+        
         equity = {
             'indicator': indicator,
             'year': year,
