@@ -350,7 +350,13 @@ class ChildMortalityAnalytics:
             
             if len(data_year) > 0:
                 values = data_year['value'].values
-                indicator_key = indicator.lower().replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '').replace(',', '')
+                # Create consistent key names
+                indicator_key_map = {
+                    'Under-five mortality rate': 'under_five_mortality_rate',
+                    'Infant mortality rate': 'infant_mortality_rate',
+                    'Child mortality rate (aged 1-4 years)': 'child_mortality_rate_aged_1_4_years'
+                }
+                indicator_key = indicator_key_map.get(indicator, indicator.lower().replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '').replace(',', '').replace(' ', ''))
                 
                 summary[f'{indicator_key}_median'] = float(np.median(values))
                 summary[f'{indicator_key}_mean'] = float(np.mean(values))

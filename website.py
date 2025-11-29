@@ -851,8 +851,8 @@ def initialize_system(indicator_type: str = "Mortality"):
                     if os.path.exists(maternal_path) and os.path.exists(child_path) and os.path.exists(lookup_path):
                         # Initialize unified pipeline
                         pipeline = MortalityDataPipeline(maternal_path, child_path, lookup_path)
-                        pipeline.load_data()
-                        
+                pipeline.load_data()
+                
                         # Initialize separate analytics
                         maternal_analytics = MaternalMortalityAnalytics(pipeline)
                         child_analytics = ChildMortalityAnalytics(pipeline)
@@ -869,7 +869,7 @@ def initialize_system(indicator_type: str = "Mortality"):
                         st.session_state.child_chart_gen = child_chart_gen
                         
                         st.success("✓ Mortality data loaded successfully!")
-                        st.session_state.data_loaded = True
+                st.session_state.data_loaded = True
                         st.session_state.indicator_type = "Mortality"
                     else:
                         missing = []
@@ -1463,15 +1463,15 @@ def render_tb_dashboard(analytics, pipeline):
     # ==================================================================================
     elif selected_subcategory == 'TB Notifications':
         st.markdown(f'<h3 class="section-header">{get_translation("tb_notifications", current_lang)} Analytics</h3>', unsafe_allow_html=True)
-        st.markdown("""
-        <div class="info-box" style="margin-bottom: 2rem;">
-            <p style="margin: 0; font-size: 0.95rem;">
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 2rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
                 <strong>Focus:</strong> TB Case Notifications for WHO AFRO Region (47 countries)
-                <br>Data based on Global Tuberculosis Report 2024 indicators
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
+            <br>Data based on Global Tuberculosis Report 2024 indicators
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
         render_tb_notifications_section(analytics, pipeline, current_lang)
         return
     
@@ -1552,13 +1552,13 @@ def render_tb_notifications_section(analytics, pipeline, current_lang):
         if f'pulmonary_clin_diagnosed_min' in notif_summary and f'pulmonary_clin_diagnosed_max' in notif_summary:
             range_text = f"<p style='margin: 0.25rem 0; font-size: 0.9rem; color: #666;'>Range: {notif_summary['pulmonary_clin_diagnosed_min']:,.0f} - {notif_summary['pulmonary_clin_diagnosed_max']:,.0f}</p>"
         
-        st.markdown(f"""
+            st.markdown(f"""
         <div class="stat-card" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">
             <div class="stat-value" style="color: white;">{clin_diag:,.0f}</div>
             <div class="stat-label" style="color: #ecf0f1;">Pulmonary Clinically Diagnosed</div>
             {range_text}
-        </div>
-        """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
     
     with col4:
         ep = notif_summary['extrapulmonary']
@@ -1566,13 +1566,13 @@ def render_tb_notifications_section(analytics, pipeline, current_lang):
         if f'extrapulmonary_min' in notif_summary and f'extrapulmonary_max' in notif_summary:
             range_text = f"<p style='margin: 0.25rem 0; font-size: 0.9rem; color: #666;'>Range: {notif_summary['extrapulmonary_min']:,.0f} - {notif_summary['extrapulmonary_max']:,.0f}</p>"
         
-        st.markdown(f"""
+            st.markdown(f"""
         <div class="stat-card" style="background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);">
             <div class="stat-value" style="color: white;">{ep:,.0f}</div>
             <div class="stat-label" style="color: #ecf0f1;">Extrapulmonary TB</div>
             {range_text}
-        </div>
-        """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
     
     st.info("💡 **WHO Definitions:** All indicators follow WHO post-2012 case definitions for TB")
     
@@ -1847,13 +1847,13 @@ def render_tb_outcomes_section(analytics, pipeline, current_lang):
         success = outcomes_summary['success']
         success_pct = outcomes_summary['success_pct']
         color = '#27ae60' if success_pct >= 85 else ('#f39c12' if success_pct >= 75 else '#e74c3c')
-        st.markdown(f"""
+                st.markdown(f"""
         <div class="stat-card" style="background: linear-gradient(135deg, {color} 0%, {color}dd 100%);">
             <div class="stat-value" style="color: white;">{success_pct:.1f}%</div>
             <div class="stat-label" style="color: #ecf0f1;">Treatment Success</div>
             <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #ecf0f1;">({success:,.0f} cases)</p>
-        </div>
-        """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
     
     with col3:
         died = outcomes_summary['died']
@@ -1869,13 +1869,13 @@ def render_tb_outcomes_section(analytics, pipeline, current_lang):
     with col4:
         lost = outcomes_summary['lost']
         lost_pct = outcomes_summary['lost_pct']
-        st.markdown(f"""
+    st.markdown(f"""
         <div class="stat-card" style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);">
             <div class="stat-value" style="color: white;">{lost_pct:.1f}%</div>
             <div class="stat-label" style="color: #ecf0f1;">Lost to Follow-up</div>
             <p style="margin: 0.25rem 0; font-size: 0.9rem; color: #ecf0f1;">({lost:,.0f} cases)</p>
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
     
     # Additional metrics row
     col1, col2, col3 = st.columns(3)
@@ -1928,8 +1928,8 @@ def render_tb_outcomes_section(analytics, pipeline, current_lang):
             )
             if high_chart:
                 st.plotly_chart(high_chart, use_container_width=True)
-        
-        with col2:
+    
+    with col2:
             st.markdown("#### Lowest Performing Countries")
             low_chart = chart_gen.create_outcomes_bar_chart(
                 indicator=tsr_indicator,
@@ -2007,14 +2007,14 @@ def render_tb_outcomes_section(analytics, pipeline, current_lang):
                 latest = trend_data.iloc[-1]
                 earliest = trend_data.iloc[0]
                 
-                col1, col2, col3 = st.columns(3)
+            col1, col2, col3 = st.columns(3)
                 
-                with col1:
+            with col1:
                     st.metric("Latest Year TSR", f"{latest['mean_tsr']:.1f}%")
-                with col2:
+            with col2:
                     change = latest['mean_tsr'] - earliest['mean_tsr']
                     st.metric("Change Since First Year", f"{change:+.1f}%")
-                with col3:
+            with col3:
                     st.metric("Standard Deviation", f"{latest['std_tsr']:.1f}%")
     
     with out_tab4:
@@ -2131,9 +2131,9 @@ def render_tb_burden_section(current_lang):
         </div>
         """, unsafe_allow_html=True)
         
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
             st.markdown(f"""
             <div class="stat-card">
                 <div class="stat-value">{burden_summary['total_incident_cases']:,.0f}</div>
@@ -2251,7 +2251,7 @@ def render_tb_burden_section(current_lang):
             
             col1, col2 = st.columns([1, 2])
             
-            with col1:
+                with col1:
                 map_indicator = st.selectbox(
                     "Select Indicator for Map",
                     ["e_inc_100k", "e_mort_100k", "e_inc_tbhiv_100k", "cfr_pct"],
@@ -2343,9 +2343,9 @@ def render_tb_burden_section(current_lang):
             
             with col1:
                 st.metric("Min Value", f"{equity_measures['min_value']:.1f}")
-            with col2:
+                with col2:
                 st.metric("Max Value", f"{equity_measures['max_value']:.1f}")
-            with col3:
+                with col3:
                 st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x")
             with col4:
                 st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%")
@@ -2455,9 +2455,9 @@ def render_maternal_mortality_section():
     </div>
     """, unsafe_allow_html=True)
     
-    col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4 = st.columns(4)
     
-    with col1:
+                with col1:
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{summary['regional_median_mmr']:,.0f}</div>
@@ -2465,7 +2465,7 @@ def render_maternal_mortality_section():
         </div>
         """, unsafe_allow_html=True)
     
-    with col2:
+                with col2:
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{summary['min_mmr']:,.0f}</div>
@@ -2473,7 +2473,7 @@ def render_maternal_mortality_section():
         </div>
         """, unsafe_allow_html=True)
     
-    with col3:
+                with col3:
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{summary['max_mmr']:,.0f}</div>
@@ -2481,7 +2481,7 @@ def render_maternal_mortality_section():
         </div>
         """, unsafe_allow_html=True)
     
-    with col4:
+                with col4:
         year_range = maternal_analytics.get_data_summary()['year_range']
         year_text = f"{year_range[0]}-{year_range[1]}"
         st.markdown(f"""
@@ -2502,12 +2502,12 @@ def render_maternal_mortality_section():
     
     with col2:
         progress_pct = (summary['countries_below_sdg_target'] / summary['total_countries']) * 100 if summary['total_countries'] > 0 else 0
-        st.markdown(f"""
+    st.markdown(f"""
         <div class="stat-card" style="background: linear-gradient(135deg, #28a745 0%, #20873a 100%);">
             <div class="stat-value" style="color: white; font-size: 3rem;">{progress_pct:.1f}%</div>
             <div class="stat-label" style="color: #e8f5e9; font-size: 1.2rem;">Countries Below SDG Target</div>
-        </div>
-        """, unsafe_allow_html=True)
+    </div>
+    """, unsafe_allow_html=True)
     
     st.info("💡 **SDG Target:** Less than 70 maternal deaths per 100,000 live births by 2030. Progress shown as percentage of countries meeting the target.")
     
@@ -2674,7 +2674,7 @@ def render_child_mortality_section():
     }
     
     selected_indicator = st.selectbox(
-        "Select Indicator",
+            "Select Indicator",
         options=list(indicator_options.keys()),
         format_func=lambda x: indicator_options[x],
         key="child_mortality_indicator"
@@ -2704,8 +2704,8 @@ def render_child_mortality_section():
                 high_burden=True
             )
             st.plotly_chart(high_chart, use_container_width=True)
-        
-        with col2:
+    
+    with col2:
             st.markdown(f"#### Top 10 High {indicator_options[selected_indicator]} Countries")
             high_countries = child_analytics.get_top_mortality_countries(
                 indicator=selected_indicator, n=10, year=latest_year, ascending=False
@@ -3864,9 +3864,9 @@ def render_reports_page():
             
             with col1:
                 # Text download
-                st.download_button(
+            st.download_button(
                     label="📄 Download as Text",
-                    data=report,
+                data=report,
                     file_name=f"report_{selected_country or 'regional'}_{datetime.now().strftime('%Y%m%d')}.txt",
                     mime="text/plain",
                     use_container_width=True
@@ -4680,6 +4680,208 @@ def render_tb_outcomes_explorer(outcomes_analytics, chart_gen, current_lang):
         st.markdown(f"<div style='padding: 1rem; background: {color}; color: white; border-radius: 5px; text-align: center; font-weight: bold;'>{assessment}</div>", unsafe_allow_html=True)
 
 
+def render_mortality_visualizer():
+    """Render Mortality interactive visualizer - similar to TB visualizer"""
+    current_lang = st.session_state.get("selected_language", "English")
+    
+    # Check if data is loaded - both maternal and child analytics must be available
+    if (not hasattr(st.session_state, 'maternal_analytics') or st.session_state.maternal_analytics is None or
+        not hasattr(st.session_state, 'child_analytics') or st.session_state.child_analytics is None):
+        st.error("Mortality data not fully initialized. Please initialize the system from the sidebar.")
+        return
+    
+    # Category selector
+    st.markdown("""
+    <div class="info-box" style="margin-bottom: 1rem;">
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Select Mortality Data Category:</strong> Choose which aspect of mortality data you want to visualize
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Initialize session state for mortality subcategory if not exists
+    if 'mortality_viz_subcategory' not in st.session_state:
+        st.session_state.mortality_viz_subcategory = 'Maternal Mortality'
+    
+    # Sub-category selection buttons
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("📊 Maternal Mortality", 
+                     use_container_width=True, 
+                     type="primary" if st.session_state.mortality_viz_subcategory == 'Maternal Mortality' else "secondary",
+                     key="maternal_mortality_viz_btn"):
+            st.session_state.mortality_viz_subcategory = 'Maternal Mortality'
+            st.rerun()
+    
+    with col2:
+        if st.button("👶 Child Mortality", 
+                     use_container_width=True, 
+                     type="primary" if st.session_state.mortality_viz_subcategory == 'Child Mortality' else "secondary",
+                     key="child_mortality_viz_btn"):
+            st.session_state.mortality_viz_subcategory = 'Child Mortality'
+            st.rerun()
+    
+    # Route to appropriate visualizer
+    if st.session_state.mortality_viz_subcategory == 'Maternal Mortality':
+        render_maternal_mortality_visualizer()
+    else:
+        render_child_mortality_visualizer()
+
+
+def render_maternal_mortality_visualizer():
+    """Render Maternal Mortality interactive charts"""
+    current_lang = st.session_state.get("selected_language", "English")
+    maternal_analytics = st.session_state.maternal_analytics
+    maternal_chart_gen = st.session_state.maternal_chart_gen
+    
+    st.markdown("### 📊 Maternal Mortality Interactive Charts")
+    
+    # Country selection
+    countries = maternal_analytics.get_country_list()
+    selected_country = st.selectbox("Select Country (optional)", [None] + countries, key="maternal_viz_country")
+    
+    # Year selection
+    latest_year = maternal_analytics.get_latest_year()
+    selected_year = st.selectbox("Select Year", 
+                                options=range(2000, latest_year + 1),
+                                index=len(range(2000, latest_year + 1)) - 1,
+                                key="maternal_viz_year")
+    
+    # Chart type selection
+    chart_type = st.radio("Select Chart Type",
+                         ["Top Countries", "Trend Analysis", "Geographic Map", "Equity Analysis"],
+                         key="maternal_viz_chart_type")
+    
+    if chart_type == "Top Countries":
+        col1, col2 = st.columns(2)
+        with col1:
+            n_countries = st.slider("Number of Countries", 5, 20, 10, key="maternal_top_n")
+        with col2:
+            high_low = st.radio("Show", ["High MMR", "Low MMR"], key="maternal_high_low")
+        
+        chart = maternal_chart_gen.create_top_mmr_chart(
+            n=n_countries,
+            year=selected_year,
+            high_burden=(high_low == "High MMR")
+        )
+        st.plotly_chart(chart, use_container_width=True)
+    
+    elif chart_type == "Trend Analysis":
+        if selected_country:
+            chart = maternal_chart_gen.create_country_trend_chart(selected_country)
+        else:
+            chart = maternal_chart_gen.create_regional_trend_chart()
+        st.plotly_chart(chart, use_container_width=True)
+    
+    elif chart_type == "Geographic Map":
+        chart = maternal_chart_gen.create_map(year=selected_year)
+        st.plotly_chart(chart, use_container_width=True)
+    
+    elif chart_type == "Equity Analysis":
+        chart = maternal_chart_gen.create_equity_chart(year=selected_year)
+        st.plotly_chart(chart, use_container_width=True)
+
+
+def render_child_mortality_visualizer():
+    """Render Child Mortality interactive charts"""
+    current_lang = st.session_state.get("selected_language", "English")
+    child_analytics = st.session_state.child_analytics
+    child_chart_gen = st.session_state.child_chart_gen
+    
+    st.markdown("### 👶 Child Mortality Interactive Charts")
+    
+    # Indicator selection
+    indicator_options = {
+        'Under-five mortality rate': 'Under-five Mortality Rate',
+        'Infant mortality rate': 'Infant Mortality Rate',
+        'Child mortality rate (aged 1-4 years)': 'Child Mortality Rate (1-4 years)'
+    }
+    
+    selected_indicator = st.selectbox(
+        "Select Indicator",
+        options=list(indicator_options.keys()),
+        format_func=lambda x: indicator_options[x],
+        key="child_viz_indicator"
+    )
+    
+    # Country selection
+    countries = child_analytics.get_country_list()
+    selected_country = st.selectbox("Select Country (optional)", [None] + countries, key="child_viz_country")
+    
+    # Year selection
+    latest_year = child_analytics.get_latest_year(selected_indicator)
+    selected_year = st.selectbox("Select Year",
+                                options=range(2000, latest_year + 1),
+                                index=len(range(2000, latest_year + 1)) - 1,
+                                key="child_viz_year")
+    
+    # Chart type selection
+    chart_type = st.radio("Select Chart Type",
+                         ["Top Countries", "Trend Analysis", "Sex Disaggregation", "Geographic Map", "Equity Analysis"],
+                         key="child_viz_chart_type")
+    
+    if chart_type == "Top Countries":
+        col1, col2 = st.columns(2)
+        with col1:
+            n_countries = st.slider("Number of Countries", 5, 20, 10, key="child_top_n")
+        with col2:
+            high_low = st.radio("Show", ["High Mortality", "Low Mortality"], key="child_high_low")
+        
+        chart = child_chart_gen.create_top_mortality_chart(
+            indicator=selected_indicator,
+            indicator_name=indicator_options[selected_indicator],
+            n=n_countries,
+            year=selected_year,
+            high_burden=(high_low == "High Mortality")
+        )
+        st.plotly_chart(chart, use_container_width=True)
+    
+    elif chart_type == "Trend Analysis":
+        if selected_country:
+            chart = child_chart_gen.create_country_trend_chart(
+                selected_country,
+                indicator=selected_indicator,
+                indicator_name=indicator_options[selected_indicator]
+            )
+        else:
+            chart = child_chart_gen.create_regional_trend_chart(
+                indicator=selected_indicator,
+                indicator_name=indicator_options[selected_indicator]
+            )
+        st.plotly_chart(chart, use_container_width=True)
+    
+    elif chart_type == "Sex Disaggregation":
+        chart = child_chart_gen.create_sex_comparison_chart(
+            indicator=selected_indicator,
+            indicator_name=indicator_options[selected_indicator],
+            year=selected_year
+        )
+        if chart:
+            st.plotly_chart(chart, use_container_width=True)
+        else:
+            st.info("Sex disaggregated data not available for this indicator/year.")
+    
+    elif chart_type == "Geographic Map":
+        chart = child_chart_gen.create_map(
+            indicator=selected_indicator,
+            indicator_name=indicator_options[selected_indicator],
+            year=selected_year
+        )
+        st.plotly_chart(chart, use_container_width=True)
+    
+    elif chart_type == "Equity Analysis":
+        chart = child_chart_gen.create_equity_chart(
+            indicator=selected_indicator,
+            indicator_name=indicator_options[selected_indicator],
+            year=selected_year
+        )
+        if chart:
+            st.plotly_chart(chart, use_container_width=True)
+        else:
+            st.info("No data available for equity analysis.")
+
+
 def render_visualizer_page():
     """Render the interactive visualizer page"""
     # Get current health topic and language
@@ -4711,6 +4913,16 @@ def render_visualizer_page():
         visualizer = st.session_state.tb_visualizer
         analytics = st.session_state.tb_analytics
         pipeline = st.session_state.tb_pipeline
+    elif health_topic == "Mortality":
+        # For Mortality, check that both maternal and child analytics are available
+        if (hasattr(st.session_state, 'maternal_analytics') and st.session_state.maternal_analytics is not None and
+            hasattr(st.session_state, 'child_analytics') and st.session_state.child_analytics is not None):
+            # Render Mortality visualizer directly (no separate visualizer class needed)
+            render_mortality_visualizer()
+            return
+        else:
+            st.error(f"Mortality data not fully initialized. Please initialize the system from the sidebar.")
+            return
     elif hasattr(st.session_state, 'visualizer') and st.session_state.visualizer is not None:
         visualizer = st.session_state.visualizer
         analytics = st.session_state.analytics
@@ -5045,12 +5257,12 @@ def main():
             st.session_state.current_page = 'Chatbot'
             st.rerun()
         
-        if st.button(f"📋 {get_translation('reports', current_lang)}", use_container_width=True, key="nav_reports"):
-            st.session_state.current_page = 'Reports'
-            st.rerun()
-        
         if st.button(f"📈 {get_translation('visualizer', current_lang)}", use_container_width=True, key="nav_visualizer"):
             st.session_state.current_page = 'Visualizer'
+            st.rerun()
+        
+        if st.button(f"📋 {get_translation('reports', current_lang)}", use_container_width=True, key="nav_reports"):
+            st.session_state.current_page = 'Reports'
             st.rerun()
         
         if st.button(f"ℹ️ {get_translation('about', current_lang)}", use_container_width=True, key="nav_about"):
@@ -5109,8 +5321,8 @@ def main():
     
     # Only show top-right language selector on non-home pages (home has it in hero card)
     if st.session_state.current_page != 'Home':
-        current_lang = st.session_state.selected_language
-        languages = {
+    current_lang = st.session_state.selected_language
+    languages = {
             "English": ("🇬🇧", "ENG"),
             "French": ("🇫🇷", "FR"),
             "Portuguese": ("🇵🇹", "PT"),
@@ -5120,31 +5332,31 @@ def main():
         # Create fixed position language selector
         col_spacer, col_lang = st.columns([10, 1])
         with col_lang:
-            lang_options = list(languages.keys())
-            current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
-            
-            selected_lang = st.selectbox(
-                "",
-                options=lang_options,
-                index=current_index,
-                format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
-                key="global_language_selector",
-                label_visibility="collapsed"
-            )
-            
-            # Update session state if language changed
-            if selected_lang != current_lang:
-                st.session_state.selected_language = selected_lang
-                st.rerun()
+        lang_options = list(languages.keys())
+        current_index = lang_options.index(current_lang) if current_lang in lang_options else 0
         
+        selected_lang = st.selectbox(
+            "",
+            options=lang_options,
+            index=current_index,
+            format_func=lambda x: f"{languages[x][0]} {languages[x][1]}",
+                key="global_language_selector",
+            label_visibility="collapsed"
+        )
+        
+        # Update session state if language changed
+        if selected_lang != current_lang:
+            st.session_state.selected_language = selected_lang
+            st.rerun()
+    
         # Add CSS to style the global language selector
-        st.markdown("""
-        <style>
+    st.markdown("""
+    <style>
         div[data-testid="stSelectbox"]:has(select[id*="global_language_selector"]) {
-            position: fixed !important;
+        position: fixed !important;
             top: 8px !important;
             right: 8px !important;
-            z-index: 9999 !important;
+        z-index: 9999 !important;
             width: fit-content !important;
             min-width: auto !important;
             font-size: 0.7rem !important;
@@ -5162,7 +5374,7 @@ def main():
             padding: 3px 8px !important;
             min-height: auto !important;
             height: auto !important;
-            white-space: nowrap !important;
+        white-space: nowrap !important;
             width: fit-content !important;
             min-width: auto !important;
             line-height: 1.3 !important;
@@ -5179,9 +5391,9 @@ def main():
         }
         div[data-testid="stSelectbox"]:has(select[id*="global_language_selector"]) > label {
             display: none !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Render current page
     if st.session_state.current_page == 'Home':
