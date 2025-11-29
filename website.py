@@ -18,8 +18,12 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 
-# RDHUB chatbot removed - using legacy chatbots only
-RDHUB_CHATBOT_AVAILABLE = False
+# Try to import Pydantic AI chatbot
+try:
+    from rdhub_chatbot import RDHUBChatbot, RDHUBDependencies
+    RDHUB_CHATBOT_AVAILABLE = True
+except ImportError:
+    RDHUB_CHATBOT_AVAILABLE = False
 from tb_interactive_visualizer import TBInteractiveVisualizer
 from tb_burden_analytics import TBBurdenAnalytics
 from tb_burden_chart_generator import TBBurdenChartGenerator
@@ -3082,50 +3086,77 @@ def render_chatbot_page():
     health_topic = st.session_state.get("indicator_type", "Mortality")
     selected_language = st.session_state.get("selected_language", "English")
     
-    # Display current settings with topic-specific styling
-    topic_colors = {
-        "Tuberculosis": "#8B4513",
-        "Mortality": "#f5576c"
-    }
-    topic_color = topic_colors.get(health_topic, "#0066CC")
-    
-    st.markdown(f"""
-    <div style="margin-bottom: 1rem; padding: 1rem; background: linear-gradient(135deg, {topic_color} 0%, #004499 100%); border-radius: 10px; color: white;">
-        <strong>Health Topic:</strong> {health_topic} | <strong>Language:</strong> {selected_language}
-    </div>
-    """, unsafe_allow_html=True)
-    
     # Use translations
     current_lang = st.session_state.get("selected_language", "English")
     
-    st.markdown(f'<h2 class="section-header">{get_translation("chatbot", current_lang)}</h2>', unsafe_allow_html=True)
+    # Beautiful introduction section
+    st.markdown(f"""
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                padding: 3rem 2rem; 
+                border-radius: 15px; 
+                margin-bottom: 2rem;
+                color: white;
+                text-align: center;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+        <h1 style="color: white; margin-bottom: 1rem; font-size: 2.5rem;">
+            🤖 RDHUB Analytics Copilot
+        </h1>
+        <p style="font-size: 1.2rem; margin-bottom: 0.5rem; opacity: 0.95;">
+            Your intelligent assistant for {health_topic} data analysis
+        </p>
+        <p style="font-size: 1rem; opacity: 0.9; max-width: 800px; margin: 0 auto;">
+            Ask questions about trends, compare countries, explore indicators, and get insights 
+            from WHO AFRO Regional Data Hub. I can help you understand the data, generate reports, 
+            and provide actionable insights for decision-making.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
     if not st.session_state.data_loaded:
         st.warning(f"{get_translation('initialize_system', current_lang)}")
         return
     
-    # Get chatbot based on health topic
+    # Try to get or initialize Pydantic AI chatbot
     chatbot = None
-    if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
-        chatbot = st.session_state.tb_chatbot
-    elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
-        chatbot = st.session_state.chatbot
+    try:
+        from rdhub_chatbot import RDHUBChatbot, RDHUBDependencies
+        
+        # Initialize dependencies based on health topic
+        deps = RDHUBDependencies(health_topic=health_topic)
+        
+        if health_topic == "Tuberculosis":
+            if hasattr(st.session_state, 'tb_burden_analytics') and st.session_state.tb_burden_analytics is not None:
+                deps.tb_burden_analytics = st.session_state.tb_burden_analytics
+            if hasattr(st.session_state, 'tb_notif_analytics') and st.session_state.tb_notif_analytics is not None:
+                deps.tb_notif_analytics = st.session_state.tb_notif_analytics
+        else:  # Mortality
+            if hasattr(st.session_state, 'maternal_analytics') and st.session_state.maternal_analytics is not None:
+                deps.maternal_analytics = st.session_state.maternal_analytics
+            if hasattr(st.session_state, 'child_analytics') and st.session_state.child_analytics is not None:
+                deps.child_analytics = st.session_state.child_analytics
+        
+        # Initialize or get existing chatbot
+        if 'rdhub_chatbot' not in st.session_state or st.session_state.rdhub_chatbot is None:
+            st.session_state.rdhub_chatbot = RDHUBChatbot(deps)
+        chatbot = st.session_state.rdhub_chatbot
+        
+    except ImportError:
+        # Fallback to legacy chatbots
+        if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
+            chatbot = st.session_state.tb_chatbot
+        elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
+            chatbot = st.session_state.chatbot
+    except Exception as e:
+        st.warning(f"Pydantic AI chatbot initialization failed: {str(e)}. Using legacy chatbot.")
+        # Fallback to legacy chatbots
+        if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
+            chatbot = st.session_state.tb_chatbot
+        elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
+            chatbot = st.session_state.chatbot
     
     if chatbot is None:
         st.error(f"{get_translation('chatbot', current_lang)} not initialized. {get_translation('please_initialize', current_lang)}")
         return
-    
-    # Link to Interactive Visualizer
-    st.markdown("""
-    <div class="info-box" style="margin-bottom: 1.5rem;">
-        <h4 style="color: #0066CC; margin-bottom: 0.5rem;">💡 Want More Control?</h4>
-        <p style="margin: 0;">For customizable charts with prediction methods, maps, and full control over visualizations, 
-        check out the <strong>📈 Interactive Charts</strong> page in the sidebar!</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Display topic-specific help text
-    st.markdown(get_topic_content(health_topic, "chatbot_help", current_lang))
     
     # Display chat history
     for message in st.session_state.chat_history:
@@ -3146,21 +3177,6 @@ def render_chatbot_page():
                     if message["content"].get("charts"):
                         for i, chart in enumerate(message["content"]["charts"]):
                             st.plotly_chart(chart, use_container_width=True, key=f"chatbot_chart_{st.session_state.get('current_chat_turn', 0)}_{i}")
-                    
-                    # Add link to interactive visualizer for country queries
-                    text_content = message["content"].get("text", "").lower()
-                    if any(keyword in text_content for keyword in ["statistics for", "country", "chart", "visualize"]):
-                        st.markdown("""
-                        <div style="margin-top: 1rem; padding: 1rem; background: #E8F4F8; border-radius: 10px; border-left: 4px solid #0066CC;">
-                            <strong>💡 Want more control?</strong> Visit <strong>📈 Interactive Charts</strong> in the sidebar for:
-                            <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
-                                <li>Customizable prediction methods</li>
-                                <li>Map visualizations</li>
-                                <li>Year range controls (2000-2023 observed, 2024-2030 projected)</li>
-                                <li>Projection shading</li>
-                            </ul>
-                        </div>
-                        """, unsafe_allow_html=True)
                 else:
                     st.write(message["content"])
     
@@ -3197,26 +3213,6 @@ def render_chatbot_page():
         })
         
         st.rerun()
-    
-    # Quick Access to Interactive Visualizer
-    st.markdown("---")
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        if st.button("📈 Open Interactive Visualizer", use_container_width=True, help="Go to Interactive Charts page for full customization"):
-            st.session_state.current_page = 'Visualizer'
-            st.rerun()
-    
-    with col2:
-        st.markdown("""
-        <div style="text-align: center; padding: 0.5rem;">
-            <small style="color: #666;">For customizable charts<br>with full control</small>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Example queries - topic-specific
-    with st.expander("💡 Example Queries"):
-        st.markdown(get_topic_content(health_topic, "example_queries", current_lang))
 
 
 def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indicator_type: str = "Mortality") -> Dict:
