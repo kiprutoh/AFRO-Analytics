@@ -116,6 +116,15 @@ Child aliases:
 **Tone:**
 - Professional, crisp, and neutral. Avoid hype.
 - Focus on actionable insights for ministries/WHO teams.
+
+**CRITICAL: Always Generate Insights and Interpretations**
+- NEVER just list what you can do. ALWAYS actually answer the user's question.
+- When asked to "narrate", "explain", "interpret", or "analyze" - provide detailed explanations of what the statistics mean
+- Go beyond numbers: explain WHY trends are occurring, WHAT they mean, and WHAT actions should be taken
+- Use your LLM capabilities to synthesize information and provide deep insights
+- If the user asks about a report or data, analyze it thoroughly and provide comprehensive interpretation
+- Always provide context, comparisons, and actionable recommendations
+- Use WHO and UNICEF knowledge (via search tools) to provide authoritative context
 """
 
 
@@ -317,6 +326,120 @@ All data in this platform is from official WHO and UNICEF sources.
 """
 
 
+def get_tb_country_data(deps: RDHUBDependencies, country: str, indicator: str = "all") -> str:
+    """
+    Get TB data for a specific country from RDHUB Analytics.
+    
+    Use this tool to access actual TB statistics for analysis and interpretation.
+    
+    Args:
+        deps: RDHUB dependencies containing analytics
+        country: Country name (e.g., "Nigeria", "South Africa")
+        indicator: Specific indicator or "all" for comprehensive data
+        
+    Returns:
+        TB data and statistics for the country with interpretation guidance
+    """
+    try:
+        if not deps.tb_burden_analytics:
+            return f"TB Burden analytics not available. Cannot retrieve data for {country}."
+        
+        analytics = deps.tb_burden_analytics
+        latest_year = analytics.get_latest_year()
+        country_profile = analytics.get_country_burden_profile(country, latest_year)
+        
+        if country_profile.get('error'):
+            return f"Could not find TB data for {country}. Please check the country name."
+        
+        # Extract data
+        inc_data = country_profile.get('incidence', {})
+        mort_data = country_profile.get('mortality', {})
+        tbhiv_data = country_profile.get('tb_hiv', {})
+        
+        # Format numbers properly
+        inc_cases = inc_data.get('cases', 'N/A')
+        if isinstance(inc_cases, (int, float)):
+            inc_cases = f"{inc_cases:,.0f}"
+        
+        mort_cases = mort_data.get('total_cases', 'N/A')
+        if isinstance(mort_cases, (int, float)):
+            mort_cases = f"{mort_cases:,.0f}"
+        
+        tbhiv_cases = tbhiv_data.get('cases', 'N/A')
+        if isinstance(tbhiv_cases, (int, float)):
+            tbhiv_cases = f"{tbhiv_cases:,.0f}"
+        
+        data_summary = f"""TB Data for {country} ({latest_year}):
+
+**TB Incidence:**
+- Cases: {inc_cases}
+- Rate: {inc_data.get('rate_per_100k', 'N/A')} per 100,000
+
+**TB Mortality:**
+- Cases: {mort_cases}
+- Rate: {mort_data.get('total_rate_per_100k', 'N/A')} per 100,000
+
+**TB/HIV:**
+- Cases: {tbhiv_cases}
+- Rate: {tbhiv_data.get('rate_per_100k', 'N/A')} per 100,000
+- Percentage: {tbhiv_data.get('percent', 'N/A')}%
+
+**Instructions for LLM:**
+Use this data to provide comprehensive analysis:
+- Explain what these numbers mean
+- Compare against regional averages
+- Interpret trends and patterns
+- Provide context from WHO knowledge
+- Suggest actionable recommendations"""
+        
+        return data_summary
+    except Exception as e:
+        return f"Error retrieving TB data for {country}: {str(e)}"
+
+
+def get_mortality_country_data(deps: RDHUBDependencies, country: str, indicator: str = "all") -> str:
+    """
+    Get Mortality data for a specific country from RDHUB Analytics.
+    
+    Use this tool to access actual mortality statistics for analysis and interpretation.
+    
+    Args:
+        deps: RDHUB dependencies containing analytics
+        country: Country name (e.g., "Nigeria", "South Africa")
+        indicator: Specific indicator (MMR, U5MR, IMR, NMR) or "all" for comprehensive data
+        
+    Returns:
+        Mortality data and statistics for the country with interpretation guidance
+    """
+    try:
+        data_parts = []
+        
+        if deps.maternal_analytics:
+            latest_year = deps.maternal_analytics.get_latest_year()
+            mmr_summary = deps.maternal_analytics.get_mmr_summary(latest_year)
+            # Get country-specific MMR if available
+            data_parts.append(f"""**Maternal Mortality for {country}:**
+- Latest Year: {latest_year}
+- Regional Median MMR: {mmr_summary.get('regional_median_mmr', 'N/A')} per 100,000
+- Use maternal_analytics.get_mmr_over_time('{country}') for trend data""")
+        
+        if deps.child_analytics:
+            for ind in ['U5MR', 'IMR', 'NMR']:
+                latest_year = deps.child_analytics.get_latest_year(ind)
+                if latest_year:
+                    summary = deps.child_analytics.get_mortality_summary(latest_year)
+                    data_parts.append(f"""**{ind} for {country}:**
+- Latest Year: {latest_year}
+- Use child_analytics.get_mortality_over_time('{country}', '{ind}') for trend data""")
+        
+        if not data_parts:
+            return f"Mortality analytics not available. Cannot retrieve data for {country}."
+        
+        return "\n\n".join(data_parts) + "\n\n**Instructions for LLM:** Use this data to provide comprehensive analysis with insights and interpretations."
+    except Exception as e:
+        return f"Error retrieving Mortality data for {country}: {str(e)}"
+
+
 class RDHUBChatbot:
     """Pydantic AI-based chatbot for RDHUB Analytics"""
     
@@ -344,11 +467,17 @@ class RDHUBChatbot:
                 api_key=api_key,
             )
             
-            # Create agent with tools for WHO/UNICEF search
+            # Create agent with tools for WHO/UNICEF search and data access
             self.agent = Agent(
                 model=model,
                 system_prompt=SYSTEM_PROMPT + "\n\n" + DEVELOPER_PROMPT,
-                tools=[search_who_website, search_unicef_website, get_rdhub_data_summary],
+                tools=[
+                    search_who_website, 
+                    search_unicef_website, 
+                    get_rdhub_data_summary,
+                    get_tb_country_data,
+                    get_mortality_country_data
+                ],
             )
         except Exception as e:
             raise RuntimeError(
@@ -367,21 +496,91 @@ class RDHUBChatbot:
         Returns:
             Dictionary with 'text' and optionally 'chart' or 'charts'
         """
-        # Check if query is a report request - use analytics for that
         import re
         query_lower = query.lower().strip()
         
-        # If it's a report request, use the analytics-based report generator
+        # Check if query is asking to narrate/explain/interpret a report
+        is_narrative_request = any(term in query_lower for term in [
+            "narrate", "explain", "interpret", "analyze", "what does this mean",
+            "insights", "tell me about", "describe", "summarize", "break down"
+        ])
+        
+        # If it's a report generation request with a country, get the data first
         if re.search(r"report|generate.*report|create.*report", query_lower):
             country = self._extract_country(query)
             if country:
-                # Use analytics for report generation (more reliable)
-                return self._generate_tb_report(country)
+                # Generate report data first, then let LLM interpret it
+                report_data = self._generate_tb_report(country)
+                if report_data.get("text") and not report_data.get("text", "").startswith("Sorry"):
+                    # Enhance with LLM interpretation
+                    enhanced_query = f"""Based on the following TB report data for {country}, please provide a comprehensive narrative analysis with insights:
+
+{report_data['text']}
+
+Please:
+1. Interpret what these numbers mean
+2. Explain the significance of the trends
+3. Compare against regional benchmarks
+4. Provide actionable insights
+5. Explain policy implications
+
+Use WHO and UNICEF knowledge to provide context."""
+                    try:
+                        result = await self.agent.run(enhanced_query, deps=self.deps)
+                        if hasattr(result, 'data'):
+                            interpreted_text = str(result.data)
+                        elif hasattr(result, 'text'):
+                            interpreted_text = result.text
+                        else:
+                            interpreted_text = str(result)
+                        
+                        # Combine original report with LLM interpretation
+                        report_data["text"] = f"{report_data['text']}\n\n## AI-Generated Insights and Analysis\n\n{interpreted_text}"
+                        return report_data
+                    except:
+                        # If LLM fails, return original report
+                        return report_data
+                else:
+                    return report_data
         
-        # For other queries, use Pydantic AI agent
+        # For ALL other queries, use Pydantic AI agent to generate insights
         try:
+            # Enhance query to ensure LLM generates insights
+            enhanced_query = query
+            
+            # Always enhance queries to ensure insights are generated
+            if is_narrative_request or "narrate" in query_lower or "explain" in query_lower or "interpret" in query_lower:
+                # If asking for narration/explanation, make sure we get data context
+                enhanced_query = f"""The user asked: "{query}"
+
+CRITICAL INSTRUCTIONS:
+1. DO NOT just list what you can do - ACTUALLY ANSWER their question
+2. Use the RDHUB data available in the dependencies (tb_burden_analytics, maternal_analytics, child_analytics) to provide REAL statistics
+3. If they're asking about a report or data, provide comprehensive analysis and interpretation
+4. Generate deep insights:
+   - Explain what the numbers mean in practical terms
+   - Interpret trends and patterns - why are they happening?
+   - Compare against regional benchmarks and WHO/UNICEF standards
+   - Provide context from WHO/UNICEF knowledge (use search_who_website or search_unicef_website tools if needed)
+   - Suggest actionable recommendations for policymakers
+   - Explain policy implications and what needs to be done
+5. Use your LLM analytical capabilities to synthesize information and provide meaningful insights
+6. Be specific - use actual data from RDHUB when available
+7. If you need more context, use the get_rdhub_data_summary() tool to see what data is available
+
+Remember: The user wants INSIGHTS and INTERPRETATION, not just a list of capabilities."""
+            else:
+                # For all queries, ensure we generate insights
+                enhanced_query = f"""{query}
+
+IMPORTANT: 
+- Actually answer the question using RDHUB data and your analytical capabilities
+- Generate insights, interpretations, and explanations
+- Use WHO/UNICEF knowledge for context when relevant
+- DO NOT just list what you can do - provide actual analysis"""
+            
             # Use the agent to process the query with dependencies
-            result = await self.agent.run(query, deps=self.deps)
+            result = await self.agent.run(enhanced_query, deps=self.deps)
             
             # Extract response
             if hasattr(result, 'data'):
@@ -390,6 +589,25 @@ class RDHUBChatbot:
                 response_text = result.text
             else:
                 response_text = str(result)
+            
+            # Ensure response is not generic - if it is, enhance it
+            if "I can help you" in response_text and "Here's what I can do" in response_text:
+                # This is a generic response, enhance it
+                enhanced_query2 = f"""The user asked: "{query}"
+
+Instead of listing what you can do, please actually answer their question using the RDHUB data available.
+If you need specific data, use the get_rdhub_data_summary() tool or search WHO/UNICEF websites for context.
+Provide actual analysis, insights, and interpretations based on the available data."""
+                try:
+                    result2 = await self.agent.run(enhanced_query2, deps=self.deps)
+                    if hasattr(result2, 'data'):
+                        response_text = str(result2.data)
+                    elif hasattr(result2, 'text'):
+                        response_text = result2.text
+                    else:
+                        response_text = str(result2)
+                except:
+                    pass
             
             # Try to extract charts if available
             charts = []
@@ -406,8 +624,19 @@ class RDHUBChatbot:
                 "charts": charts if len(charts) > 1 else []
             }
         except Exception as e:
-            # If Pydantic AI fails, fall back to analytics-based processing
-            return self._process_query_sync(query)
+            # If Pydantic AI fails completely, provide a helpful error
+            import traceback
+            return {
+                "text": f"I encountered an error while processing your query with AI: {str(e)}\n\n"
+                       f"**Your question:** {query}\n\n"
+                       f"Please try rephrasing your question. I can help with:\n"
+                       f"- Generating and interpreting TB reports\n"
+                       f"- Analyzing statistics and trends\n"
+                       f"- Providing insights based on RDHUB data\n"
+                       f"- Explaining what the numbers mean",
+                "chart": None,
+                "charts": []
+            }
     
     def process_query(self, query: str) -> Dict[str, Any]:
         """
@@ -421,10 +650,14 @@ class RDHUBChatbot:
         """
         import asyncio
         
-        # Use Pydantic AI agent - REQUIRED
+        # ALWAYS use Pydantic AI agent - REQUIRED
         if not self.agent:
             # Fallback only if agent failed to initialize
-            return self._process_query_sync(query)
+            return {
+                "text": "Pydantic AI agent is not available. Please ensure the agent is properly initialized.",
+                "chart": None,
+                "charts": []
+            }
         
         # Run async function in event loop
         try:
@@ -435,16 +668,26 @@ class RDHUBChatbot:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         
-        # Run the async query processing
+        # Run the async query processing - ALWAYS use Pydantic AI
         try:
             result = loop.run_until_complete(self.process_query_async(query, None))
             return result
         except Exception as e:
-            # If async fails, fall back to sync method with error message
-            error_msg = f"Pydantic AI processing encountered an issue: {str(e)}\n\n"
-            sync_result = self._process_query_sync(query)
-            sync_result["text"] = error_msg + sync_result["text"]
-            return sync_result
+            # If async fails, provide a helpful error message
+            import traceback
+            error_details = traceback.format_exc()
+            return {
+                "text": f"I encountered an error processing your query with the AI agent: {str(e)}\n\n"
+                       f"Please try rephrasing your question or contact support if the issue persists.\n\n"
+                       f"**Your question was:** {query}\n\n"
+                       f"**What I can help with:**\n"
+                       f"- Generate TB reports for countries\n"
+                       f"- Analyze and interpret statistics\n"
+                       f"- Explain trends and patterns\n"
+                       f"- Provide insights based on RDHUB data",
+                "chart": None,
+                "charts": []
+            }
     
     def _process_query_sync(self, query: str) -> Dict[str, Any]:
         """
