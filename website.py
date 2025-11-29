@@ -16,8 +16,15 @@ from llm_report_generator import LLMReportGenerator
 from tb_data_pipeline import TBDataPipeline
 from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
-from rdhub_chatbot import RDHUBChatbot
 from tb_chart_generator import TBChartGenerator
+
+# Try to import RDHUB chatbot (optional - falls back to legacy if not available)
+try:
+    from rdhub_chatbot import RDHUBChatbot
+    RDHUB_CHATBOT_AVAILABLE = True
+except ImportError:
+    RDHUB_CHATBOT_AVAILABLE = False
+    RDHUBChatbot = None
 from tb_interactive_visualizer import TBInteractiveVisualizer
 from tb_burden_analytics import TBBurdenAnalytics
 from tb_burden_chart_generator import TBBurdenChartGenerator
@@ -828,12 +835,15 @@ def initialize_system(indicator_type: str = "Mortality"):
                     st.session_state.tb_notif_chart_gen = None
                 
                 # Store TB components
-                # Initialize RDHUB chatbot for TB
-                try:
-                    rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
-                    st.session_state.rdhub_chatbot = rdhub_chatbot
-                except Exception as e:
-                    st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
+                # Initialize RDHUB chatbot for TB (if available)
+                if RDHUB_CHATBOT_AVAILABLE:
+                    try:
+                        rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
+                        st.session_state.rdhub_chatbot = rdhub_chatbot
+                    except Exception as e:
+                        st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
+                        st.session_state.rdhub_chatbot = None
+                else:
                     st.session_state.rdhub_chatbot = None
                 
                 st.session_state.tb_pipeline = pipeline
@@ -877,12 +887,15 @@ def initialize_system(indicator_type: str = "Mortality"):
                         st.session_state.maternal_chart_gen = maternal_chart_gen
                         st.session_state.child_chart_gen = child_chart_gen
                         
-                        # Initialize RDHUB chatbot
-                        try:
-                            rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
-                            st.session_state.rdhub_chatbot = rdhub_chatbot
-                        except Exception as e:
-                            st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
+                        # Initialize RDHUB chatbot (if available)
+                        if RDHUB_CHATBOT_AVAILABLE:
+                            try:
+                                rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
+                                st.session_state.rdhub_chatbot = rdhub_chatbot
+                            except Exception as e:
+                                st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
+                                st.session_state.rdhub_chatbot = None
+                        else:
                             st.session_state.rdhub_chatbot = None
                         
                         st.success("✓ Mortality data loaded successfully!")
