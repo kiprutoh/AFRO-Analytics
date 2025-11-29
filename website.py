@@ -3225,59 +3225,6 @@ def render_chatbot_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Additional information
-    st.markdown("""
-    <div style="margin-top: 2rem; padding: 1.5rem; background: #f8f9fa; border-radius: 10px; border-left: 4px solid #0066CC;">
-        <h4 style="color: #0066CC; margin-bottom: 0.5rem;">💡 Tips for using the chatbot:</h4>
-        <ul style="color: #555; margin: 0; padding-left: 1.5rem;">
-            <li>Ask questions about specific countries, indicators, or trends</li>
-            <li>Request comparisons between countries or time periods</li>
-            <li>Ask for insights and interpretations of the data</li>
-            <li>Request reports or summaries for specific topics</li>
-        </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Example queries
-    with st.expander("💡 Example Queries", expanded=False):
-        st.markdown("""
-        <div style="padding: 1rem;">
-            <h4 style="color: #0066CC; margin-bottom: 1rem;">Country Statistics (with charts):</h4>
-            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
-                <li>What are the statistics for Kenya?</li>
-                <li>Show me charts for Angola</li>
-                <li>Visualize data for Nigeria</li>
-            </ul>
-            
-            <h4 style="color: #0066CC; margin-bottom: 1rem;">Comparisons (with charts):</h4>
-            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
-                <li>Compare Kenya and Uganda</li>
-                <li>Compare Kenya, Uganda, and Tanzania</li>
-            </ul>
-            
-            <h4 style="color: #0066CC; margin-bottom: 1rem;">Trends (with charts):</h4>
-            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
-                <li>What is the trend for neonatal mortality in Angola?</li>
-                <li>Show trend chart for Kenya</li>
-            </ul>
-            
-            <h4 style="color: #0066CC; margin-bottom: 1rem;">Projections (with charts):</h4>
-            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
-                <li>Show me projections for 2030</li>
-                <li>Projections for Kenya</li>
-            </ul>
-            
-            <h4 style="color: #0066CC; margin-bottom: 1rem;">Top Countries (with charts):</h4>
-            <ul style="color: #555; margin-bottom: 1.5rem; padding-left: 1.5rem;">
-                <li>Top 10 countries by under-five mortality rate</li>
-            </ul>
-            
-            <h4 style="color: #0066CC; margin-bottom: 1rem;">Reports:</h4>
-            <ul style="color: #555; margin-bottom: 0; padding-left: 1.5rem;">
-                <li>Generate a summary report for Nigeria</li>
-            </ul>
-        </div>
-        """, unsafe_allow_html=True)
 
 
 def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indicator_type: str = "Mortality") -> Dict:
@@ -5333,9 +5280,6 @@ def main():
     with st.sidebar:
         st.markdown("### WHO AFRO")
         st.markdown("**Data Hub Analytics**")
-        st.markdown("---")
-        st.markdown("**Hillary and AI**")
-        st.markdown("*Regional Health Data Hub Assistant*")
         
         # Health Topic Selection
         st.markdown("### Health Topic")
