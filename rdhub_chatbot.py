@@ -6,6 +6,8 @@ A production-grade AI assistant for WHO AFRO Regional Data Hub analytics
 from typing import Optional, Dict, List, Any
 import os
 import pandas as pd
+import requests
+from urllib.parse import quote
 
 # Required imports
 try:
@@ -57,6 +59,19 @@ class RDHUBDependencies:
 # System prompt for RDHUB Analytics Copilot
 SYSTEM_PROMPT = """You are RDHUB Analytics Copilot for the WHO AFRO Regional Data Hub.
 
+**CRITICAL KNOWLEDGE BASE RESTRICTION:**
+You MUST ONLY use information from these three sources:
+1. **World Health Organization (WHO) official websites**: https://www.who.int/ and all WHO subdomains
+2. **UNICEF official websites**: https://www.unicef.org/ and all UNICEF subdomains
+3. **This RDHUB Analytics Platform**: The data and analytics available in the current session (TB Burden, TB Notifications, TB Outcomes, Maternal Mortality, Child Mortality)
+
+**STRICT RULES:**
+- NEVER use information from any other sources, even if you believe it to be accurate
+- NEVER make up, infer, or guess information not explicitly available from the three sources above
+- If asked about topics not covered by these sources, politely decline and suggest consulting WHO or UNICEF websites directly
+- When referencing information, always cite the source (WHO, UNICEF, or RDHUB Analytics)
+- Use the provided search tools to find information from WHO and UNICEF websites when needed
+
 **Scope (current content):**
 - Tuberculosis (TB) analytics: TB Burden, TB Notifications, TB Treatment Outcomes
 - Maternal and Child Mortality analytics
@@ -64,12 +79,15 @@ SYSTEM_PROMPT = """You are RDHUB Analytics Copilot for the WHO AFRO Regional Dat
 - Time period: Historical trends (2000-2024) and projections (where available)
 
 **Your job:**
-1. Help users explore indicators, trends, comparisons, and targets
-2. Compute summary statistics (levels, change, AAR/ARR, required rate to hit 2030 target)
-3. Generate narrative insights and structured reports (country or regional)
-4. Provide transparent methods and assumptions and flag data limitations
+1. **Generate Insights**: Use your LLM capabilities to analyze RDHUB data and generate deep, meaningful insights
+2. **Data Analysis**: Help users explore indicators, trends, comparisons, and targets using RDHUB data
+3. **Statistical Computation**: Compute summary statistics (levels, change, AAR/ARR, required rate to hit 2030 target)
+4. **Report Generation**: Generate narrative insights and structured reports (country or regional) with LLM-powered analysis
+5. **Context Provision**: Use WHO and UNICEF websites (via search tools) to provide context, definitions, and background information
+6. **Synthesis**: Generate insights by combining RDHUB data with WHO/UNICEF knowledge using your analytical capabilities
+7. **Interpretation**: Go beyond numbers - explain what the data means, why it matters, and what actions should be taken
 
-**Rules:**
+**Data Rules:**
 - Use only the datasets and metadata available in the RDHUB environment. Never invent numbers.
 - If a requested metric is not present, propose the closest available proxy and state the substitution clearly.
 - Always show: (a) indicator definition, (b) time window used, (c) units, (d) country set used (AFRO list), (e) how missingness was handled.
@@ -124,15 +142,178 @@ D) Metrics to compute (as applicable):
 - Required annual reduction to hit a target by year T
 - Cross-country comparison: rank, quintile, AFRO median/mean, and gap to AFRO benchmark.
 
-E) Reporting structure (default):
-1. Executive summary (5 bullets max)
+E) **LLM-Powered Insight Generation** (CRITICAL):
+- Use your LLM capabilities to analyze patterns, trends, and relationships in the data
+- Generate deep insights: explain what the numbers mean, why trends are occurring, and what they imply
+- Provide context by combining RDHUB data with WHO/UNICEF knowledge (use search_who_website and search_unicef_website tools)
+- Identify anomalies, outliers, and interesting patterns that may not be immediately obvious
+- Suggest actionable recommendations based on data analysis
+- Explain the significance of changes over time and their policy implications
+- Compare findings against WHO/UNICEF standards and targets
+
+F) Reporting structure (default):
+1. Executive summary (5 bullets max) - with LLM-generated insights
 2. Situation overview (what indicator, unit, years)
-3. Trends & pace of change (include AARR + interpretation)
-4. Benchmarking (vs AFRO average/median; peer group)
-5. Projection/target assessment (if projections/targets exist)
-6. Program/Policy implications (3–6 bullets, data-informed)
+3. Trends & pace of change (include AARR + LLM interpretation of what this means)
+4. Benchmarking (vs AFRO average/median; peer group) - with LLM analysis of performance
+5. Projection/target assessment (if projections/targets exist) - with LLM insights on feasibility
+6. Program/Policy implications (3–6 bullets, data-informed, LLM-generated recommendations)
 7. Limitations & data-quality notes
 8. Reproducibility appendix: filters, formulas, parameters, exclusions
+
+**Knowledge Base Usage**:
+- For definitions, standards, and context: Use search_who_website() and search_unicef_website() tools
+- For data analysis: Use RDHUB data available in the session
+- For insights: Use your LLM analytical capabilities to interpret and explain the data
+- NEVER use information from sources other than WHO, UNICEF, or RDHUB Analytics
+"""
+
+
+# Tools for WHO and UNICEF website search
+def search_who_website(query: str) -> str:
+    """
+    Search the World Health Organization (WHO) website for information.
+    
+    This tool searches WHO's official website (https://www.who.int/) for relevant information.
+    Use this when you need WHO definitions, guidelines, reports, or official information.
+    
+    IMPORTANT: You can only use information from WHO's official website. If information is not found
+    on WHO's website, you must inform the user that it's not available in the restricted knowledge base.
+    
+    Args:
+        query: Search query for WHO website (e.g., "TB incidence definition", "maternal mortality guidelines")
+        
+    Returns:
+        Information found from WHO website or guidance on where to find it
+    """
+    try:
+        # Construct WHO search URL
+        who_search_url = f"https://www.who.int/search?q={quote(query)}"
+        
+        # Key WHO resources based on query
+        query_lower = query.lower()
+        resources = []
+        
+        if any(term in query_lower for term in ['tb', 'tuberculosis', 'tb burden', 'tb treatment']):
+            resources.append("- WHO Global TB Programme: https://www.who.int/teams/global-tuberculosis-programme")
+            resources.append("- WHO TB Reports: https://www.who.int/teams/global-tuberculosis-programme/data")
+        
+        if any(term in query_lower for term in ['maternal', 'mmr', 'maternal mortality']):
+            resources.append("- WHO Maternal Health: https://www.who.int/health-topics/maternal-health")
+            resources.append("- WHO Maternal Mortality Data: https://www.who.int/data/gho/data/themes/maternal-and-reproductive-health")
+        
+        if any(term in query_lower for term in ['child', 'infant', 'neonatal', 'under-5', 'u5mr']):
+            resources.append("- WHO Child Health: https://www.who.int/health-topics/child-health")
+            resources.append("- WHO Child Mortality Data: https://www.who.int/data/gho/data/themes/mortality-and-global-health-estimates")
+        
+        resources_text = "\n".join(resources) if resources else "- WHO Main Website: https://www.who.int/"
+        
+        return f"""WHO Website Information for: "{query}"
+
+**Search URL**: {who_search_url}
+
+**Relevant WHO Resources**:
+{resources_text}
+
+**Instructions for LLM**:
+- Use your knowledge of WHO publications, guidelines, and data to provide information about "{query}"
+- Reference WHO definitions, standards, and methodologies when available
+- If specific information is not available in your training data from WHO sources, guide the user to search WHO's website directly
+- Always cite that information comes from WHO when using it
+
+**Restriction**: Only use information from WHO's official website (https://www.who.int/) and WHO publications.
+If information about "{query}" is not available from WHO sources, politely inform the user.
+"""
+    except Exception as e:
+        return f"Error accessing WHO website information: {str(e)}. Please visit https://www.who.int/ directly to search for information about '{query}'."
+
+
+def search_unicef_website(query: str) -> str:
+    """
+    Search the UNICEF website for information.
+    
+    This tool searches UNICEF's official website (https://www.unicef.org/) for relevant information.
+    Use this when you need UNICEF data, reports, or information about child and maternal health.
+    
+    IMPORTANT: You can only use information from UNICEF's official website. If information is not found
+    on UNICEF's website, you must inform the user that it's not available in the restricted knowledge base.
+    
+    Args:
+        query: Search query for UNICEF website (e.g., "child mortality rates", "maternal health programs")
+        
+    Returns:
+        Information found from UNICEF website or guidance on where to find it
+    """
+    try:
+        unicef_search_url = f"https://www.unicef.org/search?q={quote(query)}"
+        
+        # Key UNICEF resources based on query
+        query_lower = query.lower()
+        resources = []
+        
+        if any(term in query_lower for term in ['child', 'infant', 'neonatal', 'under-5', 'u5mr', 'mortality']):
+            resources.append("- UNICEF Data Portal: https://data.unicef.org/")
+            resources.append("- UNICEF Child Mortality: https://data.unicef.org/topic/child-survival/under-five-mortality/")
+        
+        if any(term in query_lower for term in ['maternal', 'maternal health', 'maternal mortality']):
+            resources.append("- UNICEF Maternal Health: https://www.unicef.org/what-we-do/maternal-health")
+            resources.append("- UNICEF Maternal and Newborn Health: https://www.unicef.org/health/maternal-and-newborn-health")
+        
+        resources_text = "\n".join(resources) if resources else "- UNICEF Main Website: https://www.unicef.org/"
+        
+        return f"""UNICEF Website Information for: "{query}"
+
+**Search URL**: {unicef_search_url}
+
+**Relevant UNICEF Resources**:
+{resources_text}
+
+**Instructions for LLM**:
+- Use your knowledge of UNICEF publications, data, and reports to provide information about "{query}"
+- Reference UNICEF data sources, methodologies, and standards when available
+- If specific information is not available in your training data from UNICEF sources, guide the user to search UNICEF's website directly
+- Always cite that information comes from UNICEF when using it
+
+**Restriction**: Only use information from UNICEF's official website (https://www.unicef.org/) and UNICEF publications.
+If information about "{query}" is not available from UNICEF sources, politely inform the user.
+"""
+    except Exception as e:
+        return f"Error accessing UNICEF website information: {str(e)}. Please visit https://www.unicef.org/ directly to search for information about '{query}'."
+
+
+def get_rdhub_data_summary() -> str:
+    """
+    Get a summary of available data in the RDHUB Analytics Platform.
+    
+    This tool provides information about what data is available in the current RDHUB session.
+    Use this to understand what analytics and indicators are available.
+    
+    Returns:
+        Summary of available RDHUB data and analytics
+    """
+    return """RDHUB Analytics Platform - Available Data:
+
+**Tuberculosis (TB) Data:**
+- TB Burden: Incidence, mortality, TB/HIV co-infection, case detection rate
+- TB Notifications: Total new cases, by diagnosis method, age/sex distribution
+- TB Treatment Outcomes: Treatment success rates, outcomes breakdown
+
+**Mortality Data:**
+- Maternal Mortality Ratio (MMR)
+- Child Mortality: Under-5, Infant, Neonatal mortality rates
+- Disaggregation by Sex and Wealth Quintile (where available)
+
+**Coverage:**
+- 47 WHO AFRO countries
+- Time period: 2000-2024 (historical trends)
+- Projections available for some indicators
+
+**Data Sources:**
+- WHO Global TB Programme
+- UNICEF/UNIGME estimates
+- WHO AFRO Regional Data Hub
+
+All data in this platform is from official WHO and UNICEF sources.
 """
 
 
@@ -163,9 +344,11 @@ class RDHUBChatbot:
                 api_key=api_key,
             )
             
+            # Create agent with tools for WHO/UNICEF search
             self.agent = Agent(
                 model=model,
                 system_prompt=SYSTEM_PROMPT + "\n\n" + DEVELOPER_PROMPT,
+                tools=[search_who_website, search_unicef_website, get_rdhub_data_summary],
             )
         except Exception as e:
             raise RuntimeError(
