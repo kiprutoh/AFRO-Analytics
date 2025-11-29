@@ -18,13 +18,8 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 
-# Try to import RDHUB chatbot (optional - falls back to legacy if not available)
-try:
-    from rdhub_chatbot import RDHUBChatbot
-    RDHUB_CHATBOT_AVAILABLE = True
-except ImportError:
-    RDHUB_CHATBOT_AVAILABLE = False
-    RDHUBChatbot = None
+# RDHUB chatbot removed - using legacy chatbots only
+RDHUB_CHATBOT_AVAILABLE = False
 from tb_interactive_visualizer import TBInteractiveVisualizer
 from tb_burden_analytics import TBBurdenAnalytics
 from tb_burden_chart_generator import TBBurdenChartGenerator
@@ -835,16 +830,7 @@ def initialize_system(indicator_type: str = "Mortality"):
                     st.session_state.tb_notif_chart_gen = None
                 
                 # Store TB components
-                # Initialize RDHUB chatbot for TB (if available)
-                if RDHUB_CHATBOT_AVAILABLE:
-                    try:
-                        rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
-                        st.session_state.rdhub_chatbot = rdhub_chatbot
-                    except Exception as e:
-                        st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
-                        st.session_state.rdhub_chatbot = None
-                else:
-                    st.session_state.rdhub_chatbot = None
+                # RDHUB chatbot removed - using legacy TB chatbot only
                 
                 st.session_state.tb_pipeline = pipeline
                 st.session_state.tb_analytics = analytics
@@ -887,16 +873,7 @@ def initialize_system(indicator_type: str = "Mortality"):
                         st.session_state.maternal_chart_gen = maternal_chart_gen
                         st.session_state.child_chart_gen = child_chart_gen
                         
-                        # Initialize RDHUB chatbot (if available)
-                        if RDHUB_CHATBOT_AVAILABLE:
-                            try:
-                                rdhub_chatbot = RDHUBChatbot(model="openai:gpt-4o-mini")
-                                st.session_state.rdhub_chatbot = rdhub_chatbot
-                            except Exception as e:
-                                st.warning(f"RDHUB chatbot initialization failed: {str(e)}. Using fallback chatbot.")
-                                st.session_state.rdhub_chatbot = None
-                        else:
-                            st.session_state.rdhub_chatbot = None
+                        # RDHUB chatbot removed - using legacy chatbots only
                         
                         st.success("✓ Mortality data loaded successfully!")
                         st.session_state.data_loaded = True
@@ -3127,20 +3104,14 @@ def render_chatbot_page():
         st.warning(f"{get_translation('initialize_system', current_lang)}")
         return
     
-    # Get RDHUB chatbot (preferred) or fallback to legacy chatbot
+    # Get chatbot based on health topic
     chatbot = None
-    rdhub_chatbot = None
-    
-    # Try to get RDHUB chatbot first
-    if hasattr(st.session_state, 'rdhub_chatbot') and st.session_state.rdhub_chatbot is not None:
-        rdhub_chatbot = st.session_state.rdhub_chatbot
-    # Fallback to legacy chatbots
-    elif health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
+    if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
         chatbot = st.session_state.tb_chatbot
     elif hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
         chatbot = st.session_state.chatbot
     
-    if rdhub_chatbot is None and chatbot is None:
+    if chatbot is None:
         st.error(f"{get_translation('chatbot', current_lang)} not initialized. {get_translation('please_initialize', current_lang)}")
         return
     
@@ -3210,21 +3181,7 @@ def render_chatbot_page():
         
         # Get response from chatbot
         with st.spinner("Analyzing and generating charts..."):
-            if rdhub_chatbot is not None:
-                # Use RDHUB chatbot with analytics dependencies
-                response = rdhub_chatbot.process_query(
-                    user_query,
-                    tb_analytics=st.session_state.get('tb_analytics'),
-                    tb_burden_analytics=st.session_state.get('tb_burden_analytics'),
-                    tb_notif_analytics=st.session_state.get('tb_notif_analytics'),
-                    maternal_analytics=st.session_state.get('maternal_analytics'),
-                    child_analytics=st.session_state.get('child_analytics'),
-                    country_lookup=None,  # Can be added if needed
-                    afro_iso3_list=None  # Can be added if needed
-                )
-            else:
-                # Fallback to legacy chatbot
-                response = chatbot.process_query(user_query)
+            response = chatbot.process_query(user_query)
         
         # Handle response format (dict with text and chart)
         if isinstance(response, dict):
@@ -5303,16 +5260,16 @@ def main():
             st.session_state.current_page = 'Dashboard'
             st.rerun()
         
-        if st.button(f"🤖 {get_translation('chatbot', current_lang)}", use_container_width=True, key="nav_chatbot"):
-            st.session_state.current_page = 'Chatbot'
-            st.rerun()
-        
         if st.button(f"📈 {get_translation('visualizer', current_lang)}", use_container_width=True, key="nav_visualizer"):
             st.session_state.current_page = 'Visualizer'
             st.rerun()
         
         if st.button(f"📋 {get_translation('reports', current_lang)}", use_container_width=True, key="nav_reports"):
             st.session_state.current_page = 'Reports'
+            st.rerun()
+        
+        if st.button(f"🤖 {get_translation('chatbot', current_lang)}", use_container_width=True, key="nav_chatbot"):
+            st.session_state.current_page = 'Chatbot'
             st.rerun()
         
         if st.button(f"ℹ️ {get_translation('about', current_lang)}", use_container_width=True, key="nav_about"):
