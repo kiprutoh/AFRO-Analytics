@@ -194,6 +194,38 @@ class MortalityDataPipeline:
             print(f"  AFRO ISO3 list sample: {afro_iso3_list[:10]}")
         
         return self
+    
+    def get_indicators(self) -> List[str]:
+        """
+        Get list of all available indicators
+        
+        Returns:
+            List of indicator names (prioritizes rate indicators over count indicators)
+        """
+        if self.child_afro is None or len(self.child_afro) == 0:
+            return []
+        
+        # Get all unique indicators
+        all_indicators = sorted(self.child_afro['indicator'].unique().tolist())
+        
+        # Prioritize rate indicators over count indicators
+        rate_indicators = [ind for ind in all_indicators if 'rate' in ind.lower()]
+        count_indicators = [ind for ind in all_indicators if 'rate' not in ind.lower()]
+        
+        # Return rate indicators first, then count indicators
+        return rate_indicators + count_indicators
+    
+    def get_countries(self) -> List[str]:
+        """
+        Get list of all countries in the dataset
+        
+        Returns:
+            List of country names
+        """
+        if self.child_afro is None or len(self.child_afro) == 0:
+            return []
+        
+        return sorted(self.child_afro['country_clean'].unique().tolist())
 
 
 class MaternalMortalityAnalytics:

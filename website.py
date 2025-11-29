@@ -2726,20 +2726,43 @@ def render_child_mortality_section():
         </div>
         """, unsafe_allow_html=True)
     
-    # Indicator selection
+    # Indicator selection - show all available indicators
     st.markdown("---")
-    indicator_options = {
-        'Under-five mortality rate': 'Under-five Mortality Rate',
-        'Infant mortality rate': 'Infant Mortality Rate',
-        'Child mortality rate (aged 1-4 years)': 'Child Mortality Rate (1-4 years)'
-    }
     
-    selected_indicator = st.selectbox(
+    # Get all available indicators from the data
+    if child_analytics.child_afro is not None and len(child_analytics.child_afro) > 0:
+        # Get all unique indicators, prioritizing rate indicators
+        all_indicators = sorted(child_analytics.child_afro['indicator'].unique().tolist())
+        rate_indicators = [ind for ind in all_indicators if 'rate' in ind.lower()]
+        count_indicators = [ind for ind in all_indicators if 'rate' not in ind.lower()]
+        available_indicators = rate_indicators + count_indicators
+        
+        # Create display names (capitalize first letter of each word)
+        indicator_display = {ind: ' '.join(word.capitalize() for word in ind.split()) for ind in available_indicators}
+        
+        # Default to Under-five mortality rate if available
+        default_indicator = 'Under-five mortality rate' if 'Under-five mortality rate' in available_indicators else available_indicators[0] if available_indicators else None
+        
+        selected_indicator = st.selectbox(
             "Select Indicator",
-        options=list(indicator_options.keys()),
-        format_func=lambda x: indicator_options[x],
-        key="child_mortality_indicator"
-    )
+            options=available_indicators,
+            format_func=lambda x: indicator_display.get(x, x),
+            index=available_indicators.index(default_indicator) if default_indicator and default_indicator in available_indicators else 0,
+            key="child_mortality_indicator"
+        )
+    else:
+        # Fallback to key indicators if data not loaded
+        indicator_options = {
+            'Under-five mortality rate': 'Under-five Mortality Rate',
+            'Infant mortality rate': 'Infant Mortality Rate',
+            'Child mortality rate (aged 1-4 years)': 'Child Mortality Rate (1-4 years)'
+        }
+        selected_indicator = st.selectbox(
+            "Select Indicator",
+            options=list(indicator_options.keys()),
+            format_func=lambda x: indicator_options[x],
+            key="child_mortality_indicator"
+        )
     
     # Tabs matching TB Notifications format
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -3257,12 +3280,19 @@ def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indica
             # Add trend analysis for key indicators
             trend_analyses = {}
             try:
-                indicators = pipeline.get_indicators()
+                # Get indicators from pipeline if available, otherwise use default key indicators
+                if hasattr(pipeline, 'get_indicators'):
+                    indicators = pipeline.get_indicators()
+                else:
+                    # Default key indicators for mortality
+                    indicators = ['Under-five mortality rate', 'Infant mortality rate', 'Neonatal mortality rate']
+                
                 for indicator in indicators[:3]:  # Top 3 indicators
                     try:
-                        trend_analysis = analytics.get_trend_analysis(country, indicator)
-                        if "error" not in trend_analysis:
-                            trend_analyses[indicator] = trend_analysis
+                        if hasattr(analytics, 'get_trend_analysis'):
+                            trend_analysis = analytics.get_trend_analysis(country, indicator)
+                            if "error" not in trend_analysis:
+                                trend_analyses[indicator] = trend_analysis
                     except:
                         pass
                 
@@ -3285,22 +3315,29 @@ def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indica
             # Get top countries for key indicators with values
             top_countries = {}
             try:
-                indicators = pipeline.get_indicators()
+                # Get indicators from pipeline if available, otherwise use default key indicators
+                if hasattr(pipeline, 'get_indicators'):
+                    indicators = pipeline.get_indicators()
+                else:
+                    # Default key indicators for mortality
+                    indicators = ['Under-five mortality rate', 'Infant mortality rate', 'Neonatal mortality rate', 'Maternal mortality ratio']
+                
                 for indicator in indicators[:5]:  # Top 5 indicators
                     try:
-                        top_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=False)
-                        bottom_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=True)
-                        
-                        top_countries[indicator] = {
-                            "top": {
-                                "countries": top_df['country'].tolist() if len(top_df) > 0 else [],
-                                "values": top_df['value'].tolist() if len(top_df) > 0 else []
-                            },
-                            "bottom": {
-                                "countries": bottom_df['country'].tolist() if len(bottom_df) > 0 else [],
-                                "values": bottom_df['value'].tolist() if len(bottom_df) > 0 else []
+                        if hasattr(analytics, 'get_top_countries_by_indicator'):
+                            top_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=False)
+                            bottom_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=True)
+                            
+                            top_countries[indicator] = {
+                                "top": {
+                                    "countries": top_df['country'].tolist() if len(top_df) > 0 else [],
+                                    "values": top_df['value'].tolist() if len(top_df) > 0 else []
+                                },
+                                "bottom": {
+                                    "countries": bottom_df['country'].tolist() if len(bottom_df) > 0 else [],
+                                    "values": bottom_df['value'].tolist() if len(bottom_df) > 0 else []
+                                }
                             }
-                        }
                     except:
                         pass
                 
@@ -5022,12 +5059,24 @@ def render_visualizer_page():
         
         with col1:
             # Country selection
-            countries = pipeline.get_countries()
-            selected_country = st.selectbox(
-                "Select Country",
-                countries,
-                index=0 if countries else None
-            )
+            if hasattr(pipeline, 'get_countries'):
+                countries = pipeline.get_countries()
+            else:
+                # Fallback: try to get countries from analytics
+                if hasattr(analytics, 'get_country_list'):
+                    countries = analytics.get_country_list()
+                else:
+                    countries = []
+            
+            if countries:
+                selected_country = st.selectbox(
+                    "Select Country",
+                    countries,
+                    index=0
+                )
+            else:
+                st.warning("No countries available")
+                selected_country = None
             
             # Indicator selection - adapt based on health topic
             if health_topic == "Tuberculosis":
@@ -5040,12 +5089,27 @@ def render_visualizer_page():
                     "Treatment Success Rate (%)"
                 ]
             else:
-                indicators = pipeline.get_indicators()
-            selected_indicator = st.selectbox(
-                "Select Indicator",
-                indicators,
-                index=0 if indicators else None
-            )
+                # Get indicators from pipeline if available
+                if hasattr(pipeline, 'get_indicators'):
+                    indicators = pipeline.get_indicators()
+                else:
+                    # Fallback to default mortality indicators
+                    indicators = [
+                        'Under-five mortality rate',
+                        'Infant mortality rate',
+                        'Neonatal mortality rate',
+                        'Maternal mortality ratio'
+                    ]
+            
+            if indicators:
+                selected_indicator = st.selectbox(
+                    "Select Indicator",
+                    indicators,
+                    index=0
+                )
+            else:
+                st.warning("No indicators available")
+                selected_indicator = None
         
         with col2:
             # Visualization type
