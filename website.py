@@ -3452,86 +3452,161 @@ def _collect_statistics_for_llm(analytics, pipeline, country: str = None, indica
             statistics["regional_summary"] = regional_summary
     else:
         # Mortality-specific statistics collection
+        # For Mortality, we have maternal_analytics and child_analytics
+        maternal_analytics = None
+        child_analytics = None
+        
+        if hasattr(st.session_state, 'maternal_analytics') and st.session_state.maternal_analytics is not None:
+            maternal_analytics = st.session_state.maternal_analytics
+        if hasattr(st.session_state, 'child_analytics') and st.session_state.child_analytics is not None:
+            child_analytics = st.session_state.child_analytics
+        
         if country:
             # Country-specific statistics
-            stats = analytics.get_country_statistics(country)
-            statistics["country_stats"] = stats
+            stats = {}
+            
+            # Get maternal mortality stats
+            if maternal_analytics:
+                try:
+                    latest_year = maternal_analytics.get_latest_year()
+                    mmr_data = maternal_analytics.get_top_mmr_countries(n=100, year=latest_year, ascending=False)
+                    country_mmr = mmr_data[mmr_data['country_clean'] == country]
+                    if len(country_mmr) > 0:
+                        stats['maternal_mortality_ratio'] = {
+                            'value': float(country_mmr.iloc[0]['mmr']),
+                            'year': int(latest_year)
+                        }
+                except Exception as e:
+                    pass
+            
+            # Get child mortality stats
+            if child_analytics:
+                try:
+                    latest_year = child_analytics.get_latest_year('Under-five mortality rate')
+                    summary = child_analytics.get_mortality_summary(latest_year)
+                    top_data = child_analytics.get_top_mortality_countries(
+                        indicator='Under-five mortality rate', n=100, year=latest_year, ascending=False
+                    )
+                    country_data = top_data[top_data['country_clean'] == country]
+                    if len(country_data) > 0:
+                        stats['under_five_mortality_rate'] = {
+                            'value': float(country_data.iloc[0]['value']),
+                            'year': int(latest_year)
+                        }
+                except Exception as e:
+                    pass
+            
+            if stats:
+                statistics["country_stats"] = stats
             
             # Get projections for the country
-            try:
-                proj_analysis = analytics.analyze_projections(country)
-                statistics["projections"] = proj_analysis
-            except:
-                pass
+            if child_analytics:
+                try:
+                    projection = child_analytics.project_to_2030(
+                        indicator='Under-five mortality rate',
+                        country=country,
+                        method='log_linear'
+                    )
+                    if 'error' not in projection:
+                        statistics["projections"] = {
+                            'under_five_mortality_rate': projection
+                        }
+                except:
+                    pass
             
             # Add trend analysis for key indicators
             trend_analyses = {}
-            try:
-                # Get indicators from pipeline if available, otherwise use default key indicators
-                if hasattr(pipeline, 'get_indicators'):
-                    indicators = pipeline.get_indicators()
-                else:
-                    # Default key indicators for mortality
+            if child_analytics:
+                try:
                     indicators = ['Under-five mortality rate', 'Infant mortality rate', 'Neonatal mortality rate']
-                
-                for indicator in indicators[:3]:  # Top 3 indicators
-                    try:
-                        if hasattr(analytics, 'get_trend_analysis'):
-                            trend_analysis = analytics.get_trend_analysis(country, indicator)
-                            if "error" not in trend_analysis:
-                                trend_analyses[indicator] = trend_analysis
-                    except:
-                        pass
-                
-                if trend_analyses:
-                    statistics["trend_analyses"] = trend_analyses
-            except:
-                pass
+                    for indicator in indicators[:3]:
+                        try:
+                            trend_data = child_analytics.get_mortality_over_time(country, indicator)
+                            if len(trend_data) > 0:
+                                trend_analyses[indicator] = {
+                                    'years': trend_data['year'].tolist(),
+                                    'values': trend_data['value'].tolist()
+                                }
+                        except:
+                            pass
+                    
+                    if trend_analyses:
+                        statistics["trend_analyses"] = trend_analyses
+                except:
+                    pass
         else:
             # Regional statistics
-            regional_summary = analytics.get_regional_summary()
-            statistics["regional_summary"] = regional_summary
+            regional_summary = {}
+            
+            if maternal_analytics:
+                try:
+                    latest_year = maternal_analytics.get_latest_year()
+                    summary = maternal_analytics.get_mmr_summary(latest_year)
+                    regional_summary['maternal_mortality'] = summary
+                except:
+                    pass
+            
+            if child_analytics:
+                try:
+                    latest_year = child_analytics.get_latest_year('Under-five mortality rate')
+                    summary = child_analytics.get_mortality_summary(latest_year)
+                    regional_summary['child_mortality'] = summary
+                except:
+                    pass
+            
+            if regional_summary:
+                statistics["regional_summary"] = regional_summary
             
             # Regional projections
-            try:
-                proj_analysis = analytics.analyze_projections()
-                statistics["projections"] = proj_analysis
-            except:
-                pass
+            if child_analytics:
+                try:
+                    projection = child_analytics.project_to_2030(
+                        indicator='Under-five mortality rate',
+                        country=None,
+                        method='log_linear'
+                    )
+                    if 'error' not in projection:
+                        statistics["projections"] = {
+                            'under_five_mortality_rate': projection
+                        }
+                except:
+                    pass
         
             # Get top countries for key indicators with values
             top_countries = {}
-            try:
-                # Get indicators from pipeline if available, otherwise use default key indicators
-                if hasattr(pipeline, 'get_indicators'):
-                    indicators = pipeline.get_indicators()
-                else:
-                    # Default key indicators for mortality
-                    indicators = ['Under-five mortality rate', 'Infant mortality rate', 'Neonatal mortality rate', 'Maternal mortality ratio']
-                
-                for indicator in indicators[:5]:  # Top 5 indicators
-                    try:
-                        if hasattr(analytics, 'get_top_countries_by_indicator'):
-                            top_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=False)
-                            bottom_df = analytics.get_top_countries_by_indicator(indicator, top_n=5, ascending=True)
+            if child_analytics:
+                try:
+                    indicators = ['Under-five mortality rate', 'Infant mortality rate', 'Neonatal mortality rate']
+                    latest_year = child_analytics.get_latest_year('Under-five mortality rate')
+                    
+                    for indicator in indicators[:3]:
+                        try:
+                            # Use child_analytics to get top countries
+                            top_data = child_analytics.get_top_mortality_countries(
+                                indicator=indicator, n=5, year=latest_year, ascending=False
+                            )
+                            bottom_data = child_analytics.get_top_mortality_countries(
+                                indicator=indicator, n=5, year=latest_year, ascending=True
+                            )
                             
-                            top_countries[indicator] = {
-                                "top": {
-                                    "countries": top_df['country'].tolist() if len(top_df) > 0 else [],
-                                    "values": top_df['value'].tolist() if len(top_df) > 0 else []
-                                },
-                                "bottom": {
-                                    "countries": bottom_df['country'].tolist() if len(bottom_df) > 0 else [],
-                                    "values": bottom_df['value'].tolist() if len(bottom_df) > 0 else []
+                            if len(top_data) > 0 or len(bottom_data) > 0:
+                                top_countries[indicator] = {
+                                    "top": {
+                                        "countries": top_data['country_clean'].tolist() if len(top_data) > 0 else [],
+                                        "values": top_data['value'].tolist() if len(top_data) > 0 else []
+                                    },
+                                    "bottom": {
+                                        "countries": bottom_data['country_clean'].tolist() if len(bottom_data) > 0 else [],
+                                        "values": bottom_data['value'].tolist() if len(bottom_data) > 0 else []
+                                    }
                                 }
-                            }
-                    except:
-                        pass
-                
-                if top_countries:
-                    statistics["top_countries"] = top_countries
-            except:
-                pass
+                        except:
+                            pass
+                    
+                    if top_countries:
+                        statistics["top_countries"] = top_countries
+                except:
+                    pass
     
     # Add SDG targets context
     statistics["sdg_targets"] = {
@@ -3571,18 +3646,34 @@ def render_reports_page():
         return
     
     # Get analytics and pipeline based on health topic
-    if health_topic == "Tuberculosis" and hasattr(st.session_state, 'tb_analytics') and st.session_state.tb_analytics is not None:
-        analytics = st.session_state.tb_analytics
-        pipeline = st.session_state.tb_pipeline
-    elif hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
-        analytics = st.session_state.analytics
-        pipeline = st.session_state.pipeline
+    analytics = None
+    pipeline = None
+    
+    if health_topic == "Tuberculosis":
+        if hasattr(st.session_state, 'tb_analytics') and st.session_state.tb_analytics is not None:
+            analytics = st.session_state.tb_analytics
+            pipeline = st.session_state.tb_pipeline
+        elif hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
+            analytics = st.session_state.analytics
+            pipeline = st.session_state.pipeline
+    elif health_topic == "Mortality":
+        # For Mortality, we use maternal_analytics and mortality_pipeline
+        if hasattr(st.session_state, 'maternal_analytics') and st.session_state.maternal_analytics is not None:
+            analytics = st.session_state.maternal_analytics
+            pipeline = st.session_state.mortality_pipeline
+        elif hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
+            # Fallback to old structure if available
+            analytics = st.session_state.analytics
+            pipeline = st.session_state.pipeline
     else:
-        st.error(f"Analytics system not initialized for {health_topic}. {get_translation('please_initialize', current_lang)}")
-        return
+        # Try generic analytics
+        if hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
+            analytics = st.session_state.analytics
+            pipeline = st.session_state.pipeline
     
     if analytics is None or pipeline is None:
-        st.error(f"Analytics or Pipeline object is None. {get_translation('please_initialize', current_lang)}")
+        st.error(f"Analytics system not initialized for {health_topic}. {get_translation('please_initialize', current_lang)}")
+        st.info("**Please initialize the system from the sidebar first.**")
         return
     
     st.markdown(f"### {get_translation('generate_llm_report', current_lang)}")
