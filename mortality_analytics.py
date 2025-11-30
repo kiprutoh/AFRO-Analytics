@@ -417,14 +417,13 @@ class ChildMortalityAnalytics:
             if self.child_afro is not None and 'indicator' in self.child_afro.columns:
                 self.child_afro['indicator_standard'] = self.child_afro['indicator']
         
-        # UNICEF/UNIGME Indicator Definitions
+        # UNICEF/UNIGME Indicator Definitions (only UN IGME indicators)
         self.indicator_definitions = {
-            'Infant mortality rate': 'Deaths per 1,000 live births in the first year of life (UNICEF/UNIGME)',
-            'Under-five mortality rate': 'Deaths per 1,000 live births before age 5 (UNICEF/UNIGME)',
-            'Child mortality rate (aged 1-4 years)': 'Deaths per 1,000 children aged 1-4 years (UNICEF/UNIGME)',
-            'Infant deaths': 'Number of deaths in the first year of life',
-            'Under-five deaths': 'Number of deaths before age 5',
-            'Child deaths (aged 1-4 years)': 'Number of deaths among children aged 1-4 years'
+            'Under-five mortality rate': 'Deaths per 1,000 live births before age 5 (UN IGME)',
+            'Infant mortality rate': 'Deaths per 1,000 live births in the first year of life (UN IGME)',
+            'Neonatal mortality rate': 'Deaths per 1,000 live births in the first 28 days (UN IGME)',
+            'Mortality rate 1-59 months': 'Deaths per 1,000 children aged 1-59 months (UN IGME)',
+            'Mortality rate age 1-11 months': 'Deaths per 1,000 children aged 1-11 months (UN IGME)'
         }
         
     def get_latest_year(self, indicator: str = 'Under-five mortality rate') -> int:
@@ -448,11 +447,13 @@ class ChildMortalityAnalytics:
         Returns:
             Dictionary with summary statistics
         """
-        # Focus on key rate indicators (not counts)
+        # Focus on UN IGME indicators only
         key_indicators = [
             'Under-five mortality rate',
-            'Infant mortality rate', 
-            'Child mortality rate (aged 1-4 years)'
+            'Infant mortality rate',
+            'Neonatal mortality rate',
+            'Mortality rate 1-59 months',
+            'Mortality rate age 1-11 months'
         ]
         
         if year is None:
@@ -476,11 +477,13 @@ class ChildMortalityAnalytics:
             
             if len(data_year) > 0:
                 values = data_year['value'].values
-                # Create consistent key names
+                # Create consistent key names (UN IGME indicators only)
                 indicator_key_map = {
                     'Under-five mortality rate': 'under_five_mortality_rate',
                     'Infant mortality rate': 'infant_mortality_rate',
-                    'Child mortality rate (aged 1-4 years)': 'child_mortality_rate_aged_1_4_years'
+                    'Neonatal mortality rate': 'neonatal_mortality_rate',
+                    'Mortality rate 1-59 months': 'mortality_rate_1_59_months',
+                    'Mortality rate age 1-11 months': 'mortality_rate_age_1_11_months'
                 }
                 indicator_key = indicator_key_map.get(indicator, indicator.lower().replace(' ', '_').replace('-', '_').replace('(', '').replace(')', '').replace(',', '').replace(' ', ''))
                 
@@ -690,9 +693,193 @@ class ChildMortalityAnalytics:
             'key_indicators': [
                 'Under-five mortality rate',
                 'Infant mortality rate',
-                'Child mortality rate (aged 1-4 years)'
+                'Neonatal mortality rate',
+                'Mortality rate 1-59 months',
+                'Mortality rate age 1-11 months'
             ],
             'sex_categories': sorted(self.child_afro['sex'].unique().tolist()),
             'indicator_definitions': self.indicator_definitions,
             'definition_source': 'UNICEF/UNIGME'
         }
+    
+    def get_sdg_targets(self) -> Dict[str, float]:
+        """
+        Get SDG 2030 targets for child mortality indicators
+        
+        Returns:
+            Dictionary mapping indicator names to target values
+        """
+        return {
+            'Under-five mortality rate': 25.0,  # per 1,000 live births
+            'Infant mortality rate': 12.0,  # per 1,000 live births (approximate)
+            'Neonatal mortality rate': 12.0,  # per 1,000 live births
+            'Mortality rate 1-59 months': 13.0,  # per 1,000 (derived: 25 - 12)
+            'Mortality rate age 1-11 months': 1.0  # per 1,000 (approximate)
+        }
+    
+    def project_to_2030(self, indicator: str, country: Optional[str] = None, 
+                       method: str = 'linear') -> Dict:
+        """
+        Project mortality indicator to 2030 using different methods
+        
+        Args:
+            indicator: Mortality indicator name
+            country: Optional country name (None for regional)
+            method: Projection method ('linear', 'exponential', 'log_linear')
+            
+        Returns:
+            Dictionary with projection results
+        """
+        # Use standard indicator name if available, otherwise use original
+        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        
+        # Get historical data
+        if country:
+            data = self.child_afro[
+                (self.child_afro[indicator_col] == indicator) &
+                (self.child_afro['country_clean'] == country) &
+                (self.child_afro['sex'] == 'Total')
+            ].copy()
+        else:
+            # Regional aggregate (mean)
+            data = self.child_afro[
+                (self.child_afro[indicator_col] == indicator) &
+                (self.child_afro['sex'] == 'Total')
+            ].copy()
+            if len(data) > 0:
+                data = data.groupby('year')['value'].mean().reset_index()
+                data['country_clean'] = 'AFRO Region'
+        
+        if len(data) < 3:
+            return {
+                'error': 'Insufficient data for projection (need at least 3 data points)',
+                'current_value': None,
+                'current_year': None,
+                'projected_2030': None,
+                'target_2030': None,
+                'gap': None,
+                'required_annual_reduction': None,
+                'on_track': False
+            }
+        
+        # Sort by year
+        data = data.sort_values('year')
+        data = data.dropna(subset=['value', 'year'])
+        
+        if len(data) < 3:
+            return {
+                'error': 'Insufficient valid data points',
+                'current_value': None,
+                'current_year': None,
+                'projected_2030': None,
+                'target_2030': None,
+                'gap': None,
+                'required_annual_reduction': None,
+                'on_track': False
+            }
+        
+        # Get latest value
+        latest_idx = data['year'].idxmax()
+        current_value = float(data.loc[latest_idx, 'value'])
+        current_year = int(data.loc[latest_idx, 'year'])
+        
+        # Get SDG target
+        targets = self.get_sdg_targets()
+        target_2030 = targets.get(indicator, None)
+        
+        # Project to 2030
+        years = data['year'].values
+        values = data['value'].values
+        
+        if method == 'linear':
+            # Linear regression
+            if SKLEARN_AVAILABLE:
+                model = LinearRegression()
+                model.fit(years.reshape(-1, 1), values)
+                projected_2030 = float(model.predict([[2030]])[0])
+            else:
+                # Simple linear interpolation
+                slope = (values[-1] - values[0]) / (years[-1] - years[0])
+                projected_2030 = current_value + slope * (2030 - current_year)
+        
+        elif method == 'exponential':
+            # Exponential decay (assuming mortality decreases)
+            if SCIPY_AVAILABLE and np.all(values > 0):
+                try:
+                    log_values = np.log(values)
+                    coeffs = np.polyfit(years, log_values, 1)
+                    projected_2030 = float(np.exp(coeffs[0] * 2030 + coeffs[1]))
+                except:
+                    # Fallback to linear
+                    slope = (values[-1] - values[0]) / (years[-1] - years[0])
+                    projected_2030 = current_value + slope * (2030 - current_year)
+            else:
+                # Fallback to linear
+                slope = (values[-1] - values[0]) / (years[-1] - years[0])
+                projected_2030 = current_value + slope * (2030 - current_year)
+        
+        elif method == 'log_linear':
+            # Log-linear (constant proportional rate of change)
+            if len(values) >= 2 and values[0] > 0 and current_value > 0:
+                n_years = current_year - years[0]
+                if n_years > 0:
+                    aarr = (1 - (current_value / values[0]) ** (1 / n_years)) * 100
+                    # Project using AARR
+                    years_to_2030 = 2030 - current_year
+                    projected_2030 = current_value * ((1 - aarr / 100) ** years_to_2030)
+                else:
+                    projected_2030 = current_value
+            else:
+                projected_2030 = current_value
+        else:
+            projected_2030 = current_value
+        
+        # Ensure non-negative
+        projected_2030 = max(0, projected_2030)
+        
+        # Calculate gap and required reduction
+        if target_2030 is not None:
+            gap = projected_2030 - target_2030
+            years_to_2030 = 2030 - current_year
+            if years_to_2030 > 0 and current_value > target_2030:
+                # Required AARR to reach target
+                required_aarr = (1 - (target_2030 / current_value) ** (1 / years_to_2030)) * 100
+            else:
+                required_aarr = 0
+            on_track = projected_2030 <= target_2030
+        else:
+            gap = None
+            required_aarr = None
+            on_track = None
+        
+        return {
+            'current_value': current_value,
+            'current_year': current_year,
+            'projected_2030': projected_2030,
+            'target_2030': target_2030,
+            'gap': gap,
+            'required_annual_reduction': required_aarr,
+            'on_track': on_track,
+            'method': method,
+            'historical_years': years.tolist(),
+            'historical_values': values.tolist()
+        }
+    
+    def get_projection_comparison(self, indicator: str, country: Optional[str] = None) -> Dict:
+        """
+        Compare projections using different methods
+        
+        Args:
+            indicator: Mortality indicator
+            country: Optional country name
+            
+        Returns:
+            Dictionary with projections from all methods
+        """
+        methods = ['linear', 'exponential', 'log_linear']
+        results = {}
+        
+        for method in methods:
+            results[method] = self.project_to_2030(indicator, country, method)
+        
+        return results

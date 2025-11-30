@@ -2711,11 +2711,11 @@ def render_child_mortality_section():
         """, unsafe_allow_html=True)
     
     with col3:
-        nmr_median = summary.get('child_mortality_rate_aged_1_4_years_median', 0)
+        nmr_median = summary.get('neonatal_mortality_rate_median', 0)
         st.markdown(f"""
         <div class="stat-card">
             <div class="stat-value">{nmr_median:.1f}</div>
-            <div class="stat-label">Child Mortality (1-4 years)</div>
+            <div class="stat-label">Neonatal Mortality Rate</div>
         </div>
         """, unsafe_allow_html=True)
     
@@ -2732,13 +2732,25 @@ def render_child_mortality_section():
     # Indicator selection - show all available indicators
     st.markdown("---")
     
-    # Get all available indicators from the data
+    # Get all available indicators from UN IGME data only
+    # UN IGME 2024 indicators: Under-five mortality rate, Infant mortality rate, 
+    # Neonatal mortality rate, Mortality rate 1-59 months, Mortality rate age 1-11 months
+    un_igme_indicators = [
+        'Under-five mortality rate',
+        'Infant mortality rate',
+        'Neonatal mortality rate',
+        'Mortality rate 1-59 months',
+        'Mortality rate age 1-11 months'
+    ]
+    
     if child_analytics.child_afro is not None and len(child_analytics.child_afro) > 0:
-        # Get all unique indicators, prioritizing rate indicators
-        all_indicators = sorted(child_analytics.child_afro['indicator'].unique().tolist())
-        rate_indicators = [ind for ind in all_indicators if 'rate' in ind.lower()]
-        count_indicators = [ind for ind in all_indicators if 'rate' not in ind.lower()]
-        available_indicators = rate_indicators + count_indicators
+        # Get only UN IGME indicators that exist in the data
+        all_indicators = child_analytics.child_afro['indicator'].unique().tolist()
+        available_indicators = [ind for ind in un_igme_indicators if ind in all_indicators]
+        
+        # Sort by priority (Under-five first, then others)
+        priority_order = {ind: i for i, ind in enumerate(un_igme_indicators)}
+        available_indicators = sorted(available_indicators, key=lambda x: priority_order.get(x, 999))
         
         # Create display names (capitalize first letter of each word)
         indicator_display = {ind: ' '.join(word.capitalize() for word in ind.split()) for ind in available_indicators}
@@ -2757,11 +2769,13 @@ def render_child_mortality_section():
             key="child_mortality_indicator"
         )
     else:
-        # Fallback to key indicators if data not loaded
+        # Fallback to UN IGME indicators if data not loaded
         indicator_options = {
             'Under-five mortality rate': 'Under-five Mortality Rate',
             'Infant mortality rate': 'Infant Mortality Rate',
-            'Child mortality rate (aged 1-4 years)': 'Child Mortality Rate (1-4 years)'
+            'Neonatal mortality rate': 'Neonatal Mortality Rate',
+            'Mortality rate 1-59 months': 'Mortality Rate 1-59 Months',
+            'Mortality rate age 1-11 months': 'Mortality Rate Age 1-11 Months'
         }
         selected_indicator = st.selectbox(
             "Select Indicator",
@@ -5012,7 +5026,9 @@ def render_child_mortality_visualizer():
     indicator_options = {
         'Under-five mortality rate': 'Under-five Mortality Rate',
         'Infant mortality rate': 'Infant Mortality Rate',
-        'Child mortality rate (aged 1-4 years)': 'Child Mortality Rate (1-4 years)'
+        'Neonatal mortality rate': 'Neonatal Mortality Rate',
+        'Mortality rate 1-59 months': 'Mortality Rate 1-59 Months',
+        'Mortality rate age 1-11 months': 'Mortality Rate Age 1-11 Months'
     }
     
     selected_indicator = st.selectbox(
