@@ -878,9 +878,25 @@ def initialize_system(indicator_type: str = "Mortality"):
                         st.session_state.maternal_chart_gen = maternal_chart_gen
                         st.session_state.child_chart_gen = child_chart_gen
                         
-                        # Botpress chatbot - no initialization needed (embedded via iframe)
-                        st.session_state.rdhub_chatbot = None
-                        st.session_state.chatbot = None
+                        # Initialize unified Mortality chatbot with both analytics
+                        try:
+                            from unified_chatbot import UnifiedMortalityChatbot
+                            unified_chatbot = UnifiedMortalityChatbot(
+                                maternal_analytics=maternal_analytics,
+                                child_analytics=child_analytics,
+                                maternal_chart_gen=maternal_chart_gen,
+                                child_chart_gen=child_chart_gen
+                            )
+                            st.session_state.chatbot = unified_chatbot
+                        except Exception as e:
+                            # Fallback to old chatbot if unified doesn't work
+                            try:
+                                from chatbot import MortalityChatbot
+                                mortality_chatbot = MortalityChatbot(maternal_analytics)
+                                st.session_state.chatbot = mortality_chatbot
+                            except Exception as e2:
+                                st.warning(f"Could not initialize Mortality chatbot: {str(e2)}")
+                                st.session_state.chatbot = None
                         
                         st.success("✓ Mortality data loaded successfully!")
                         st.session_state.data_loaded = True
@@ -3406,27 +3422,120 @@ def render_chatbot_page():
     # Display topic-specific help text
     st.markdown(get_topic_content(health_topic, "chatbot_help", current_lang))
     
-    # Botpress Chatbot Integration
-    st.markdown("""
-    <div style="margin-top: 2rem; margin-bottom: 2rem;">
-        <h3 style="color: #0066CC; margin-bottom: 1rem;">💬 Chat with Regional Health Data Hub Assistant</h3>
-        <p style="color: #666; margin-bottom: 1rem;">
-            Use the chat widget below to ask questions about health data, get insights, and explore analytics.
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+    # Custom Chatbot Integration - Uses website analytics and data
+    if not st.session_state.data_loaded:
+        st.warning(f"{get_translation('initialize_system', current_lang)}")
+        st.info("**Please initialize the system from the sidebar to enable the chatbot.**")
+        return
     
-    # Embed Botpress webchat using iframe
-    st.markdown(f"""
-    <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        <iframe 
-            src="{BOTPRESS_CHATBOT_URL}"
-            style="width: 100%; height: 100%; border: none;"
-            allow="microphone; camera"
-            title="Regional Health Data Hub Assistant">
-        </iframe>
-    </div>
-    """, unsafe_allow_html=True)
+    # Get appropriate chatbot based on health topic
+    chatbot = None
+    if health_topic == "Tuberculosis":
+        # Try to get TB chatbot
+        if hasattr(st.session_state, 'tb_chatbot') and st.session_state.tb_chatbot is not None:
+            chatbot = st.session_state.tb_chatbot
+        elif hasattr(st.session_state, 'analytics') and st.session_state.analytics is not None:
+            # Create TB chatbot if analytics available
+            try:
+                from tb_chatbot import TBChatbot
+                from tb_interactive_visualizer import TBInteractiveVisualizer
+                visualizer = TBInteractiveVisualizer(st.session_state.analytics) if hasattr(st.session_state, 'analytics') else None
+                chatbot = TBChatbot(st.session_state.analytics, visualizer)
+            except Exception as e:
+                st.warning(f"Could not initialize TB chatbot: {str(e)}")
+    else:
+        # Try to get Mortality chatbot
+        if hasattr(st.session_state, 'chatbot') and st.session_state.chatbot is not None:
+            chatbot = st.session_state.chatbot
+        elif hasattr(st.session_state, 'maternal_analytics') and st.session_state.maternal_analytics is not None:
+            # Create unified Mortality chatbot if analytics available
+            try:
+                from unified_chatbot import UnifiedMortalityChatbot
+                chatbot = UnifiedMortalityChatbot(
+                    maternal_analytics=st.session_state.maternal_analytics,
+                    child_analytics=st.session_state.get('child_analytics'),
+                    maternal_chart_gen=st.session_state.get('maternal_chart_gen'),
+                    child_chart_gen=st.session_state.get('child_chart_gen')
+                )
+            except Exception as e:
+                # Fallback to old chatbot
+                try:
+                    from chatbot import MortalityChatbot
+                    chatbot = MortalityChatbot(st.session_state.maternal_analytics)
+                except Exception as e2:
+                    st.warning(f"Could not initialize Mortality chatbot: {str(e2)}")
+    
+    if chatbot is None:
+        st.error("Chatbot not available. Please ensure the system is initialized and data is loaded.")
+        return
+    
+    # Initialize chat history if not exists
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    # Display chat history
+    for message in st.session_state.chat_history:
+        if message["role"] == "user":
+            with st.chat_message("user"):
+                st.write(message["content"])
+        else:
+            with st.chat_message("assistant"):
+                # Handle response format (dict with text and chart, or string)
+                if isinstance(message["content"], dict):
+                    st.write(message["content"].get("text", ""))
+                    
+                    # Display single chart
+                    if message["content"].get("chart"):
+                        st.plotly_chart(message["content"]["chart"], use_container_width=True, key=f"chatbot_chart_{len(st.session_state.chat_history)}")
+                    
+                    # Display multiple charts if available
+                    if message["content"].get("charts"):
+                        for i, chart in enumerate(message["content"]["charts"]):
+                            st.plotly_chart(chart, use_container_width=True, key=f"chatbot_chart_{len(st.session_state.chat_history)}_{i}")
+                else:
+                    st.write(message["content"])
+    
+    # Chat input
+    user_query = st.chat_input("Ask a question about the data...")
+    
+    if user_query:
+        # Add user message to history
+        st.session_state.chat_history.append({
+            "role": "user",
+            "content": user_query
+        })
+        
+        # Get response from chatbot (uses analytics from website)
+        with st.spinner("Analyzing data and generating response..."):
+            try:
+                response = chatbot.process_query(user_query)
+            except Exception as e:
+                response = {
+                    "text": f"I encountered an error: {str(e)}\n\nPlease try rephrasing your question.",
+                    "chart": None
+                }
+        
+        # Handle response format
+        if isinstance(response, dict):
+            response_content = response
+        else:
+            # Backward compatibility: convert string to dict format
+            response_content = {"text": str(response), "chart": None, "charts": []}
+        
+        # Add assistant response to history
+        st.session_state.chat_history.append({
+            "role": "assistant",
+            "content": response_content
+        })
+        
+        # Rerun to display new messages
+        st.rerun()
+    
+    # Clear chat history button
+    if st.session_state.chat_history:
+        if st.button("🔄 Clear Chat History", use_container_width=True, help="Clear all chat messages"):
+            st.session_state.chat_history = []
+            st.rerun()
     
 
 
