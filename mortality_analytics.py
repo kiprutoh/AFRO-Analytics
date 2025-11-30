@@ -98,8 +98,17 @@ class MortalityDataPipeline:
             child_data = pd.read_csv(self.un_igme_path, low_memory=False)
             # UN IGME file is already optimized and cleaned
             if 'iso' in child_data.columns:
+                # Normalize column names to lowercase for consistency
+                child_data = child_data.rename(columns={
+                    'Indicator': 'indicator',
+                    'Sex': 'sex',
+                    'Wealth Quintile': 'wealth_quintile'
+                })
                 child_data['iso3'] = child_data['iso']
                 child_data['country_clean'] = child_data.get('country_clean', child_data.get('country', ''))
+                # Ensure 'indicator' column exists (normalize from 'Indicator')
+                if 'indicator' not in child_data.columns and 'Indicator' in child_data.columns:
+                    child_data['indicator'] = child_data['Indicator']
                 # Already has indicator, year, value columns
                 print(f"  Loaded {len(child_data):,} records from UN IGME 2024")
                 self.child_afro = child_data.copy()
@@ -403,6 +412,15 @@ class ChildMortalityAnalytics:
         self.pipeline = pipeline
         self.child_afro = pipeline.child_afro
         
+        # Normalize column names if needed (UN IGME uses 'Indicator' and 'Sex' with capitals)
+        if self.child_afro is not None and len(self.child_afro) > 0:
+            # Normalize 'Indicator' to 'indicator' if needed
+            if 'Indicator' in self.child_afro.columns and 'indicator' not in self.child_afro.columns:
+                self.child_afro['indicator'] = self.child_afro['Indicator']
+            # Normalize 'Sex' to 'sex' if needed
+            if 'Sex' in self.child_afro.columns and 'sex' not in self.child_afro.columns:
+                self.child_afro['sex'] = self.child_afro['Sex']
+        
         # Normalize indicator names to match data
         if self.child_afro is not None and len(self.child_afro) > 0 and 'indicator' in self.child_afro.columns:
             # Map actual indicator names in data to standard names
@@ -428,13 +446,34 @@ class ChildMortalityAnalytics:
         
     def get_latest_year(self, indicator: str = 'Under-five mortality rate') -> int:
         """Get the most recent year in the dataset for a specific indicator"""
-        # Use standard indicator name if available, otherwise use original
-        indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
+        if self.child_afro is None or len(self.child_afro) == 0:
+            return 2023
         
-        indicator_data = self.child_afro[
-            (self.child_afro[indicator_col] == indicator) &
-            (self.child_afro['sex'] == 'Total')
-        ]
+        # Check for indicator column (handle both 'indicator' and 'Indicator')
+        indicator_col = None
+        if 'indicator_standard' in self.child_afro.columns:
+            indicator_col = 'indicator_standard'
+        elif 'indicator' in self.child_afro.columns:
+            indicator_col = 'indicator'
+        elif 'Indicator' in self.child_afro.columns:
+            indicator_col = 'Indicator'
+        
+        if indicator_col is None:
+            return 2023
+        
+        # Check for sex column (handle both 'sex' and 'Sex')
+        sex_col = 'sex' if 'sex' in self.child_afro.columns else ('Sex' if 'Sex' in self.child_afro.columns else None)
+        
+        if sex_col:
+            indicator_data = self.child_afro[
+                (self.child_afro[indicator_col] == indicator) &
+                (self.child_afro[sex_col] == 'Total')
+            ]
+        else:
+            indicator_data = self.child_afro[
+                (self.child_afro[indicator_col] == indicator)
+            ]
+        
         return int(indicator_data['year'].max()) if len(indicator_data) > 0 else 2023
     
     def get_mortality_summary(self, year: Optional[int] = None) -> Dict:

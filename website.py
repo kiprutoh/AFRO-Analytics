@@ -3418,13 +3418,19 @@ def render_chatbot_page():
     """, unsafe_allow_html=True)
     
     # Embed Botpress webchat using script tags
-    st.markdown(f"""
-    <div id="botpress-chatbot-container" style="width: 100%; min-height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        <!-- Botpress Chatbot will be injected here -->
-    </div>
+    # Note: Streamlit's st.markdown doesn't execute scripts, so we use components.html or iframe
+    # Using iframe approach for better compatibility
+    botpress_iframe_url = f"https://cdn.botpress.cloud/webchat/v3.4/shareable.html?configUrl=https://files.bpcontent.cloud/2025/11/09/06/20251109063717-8SHN5C4I.js"
     
-    <script src="{BOTPRESS_INJECT_SCRIPT}"></script>
-    <script src="{BOTPRESS_CONFIG_SCRIPT}" defer></script>
+    st.markdown(f"""
+    <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <iframe 
+            src="{botpress_iframe_url}"
+            style="width: 100%; height: 100%; border: none;"
+            allow="microphone; camera"
+            title="Regional Health Data Hub Assistant">
+        </iframe>
+    </div>
     """, unsafe_allow_html=True)
     
 
