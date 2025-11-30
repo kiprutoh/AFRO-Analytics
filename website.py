@@ -2740,13 +2740,16 @@ def render_child_mortality_section():
         # Create display names (capitalize first letter of each word)
         indicator_display = {ind: ' '.join(word.capitalize() for word in ind.split()) for ind in available_indicators}
         
+        # Create indicator_options for consistency with rest of code
+        indicator_options = indicator_display
+        
         # Default to Under-five mortality rate if available
         default_indicator = 'Under-five mortality rate' if 'Under-five mortality rate' in available_indicators else available_indicators[0] if available_indicators else None
         
         selected_indicator = st.selectbox(
             "Select Indicator",
             options=available_indicators,
-            format_func=lambda x: indicator_display.get(x, x),
+            format_func=lambda x: indicator_options.get(x, x),
             index=available_indicators.index(default_indicator) if default_indicator and default_indicator in available_indicators else 0,
             key="child_mortality_indicator"
         )
