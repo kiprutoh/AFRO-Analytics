@@ -18,8 +18,9 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 
-# Botpress chatbot integration
-BOTPRESS_CHATBOT_URL = "https://cdn.botpress.cloud/webchat/v3.3/shareable.html?configUrl=https://files.bpcontent.cloud/2025/11/09/06/20251109063717-AGMWRARO.json"
+# Botpress chatbot integration - Script-based
+BOTPRESS_INJECT_SCRIPT = "https://cdn.botpress.cloud/webchat/v3.4/inject.js"
+BOTPRESS_CONFIG_SCRIPT = "https://files.bpcontent.cloud/2025/11/09/06/20251109063717-8SHN5C4I.js"
 from tb_interactive_visualizer import TBInteractiveVisualizer
 from tb_burden_analytics import TBBurdenAnalytics
 from tb_burden_chart_generator import TBBurdenChartGenerator
@@ -858,7 +859,9 @@ def initialize_system(indicator_type: str = "Mortality"):
                     import os
                     if os.path.exists(maternal_path) and os.path.exists(child_path) and os.path.exists(lookup_path):
                         # Initialize unified pipeline
-                        pipeline = MortalityDataPipeline(maternal_path, child_path, lookup_path)
+                        # Use optimized UN IGME 2024.csv if available
+                        un_igme_path = 'UN IGME 2024.csv' if os.path.exists('UN IGME 2024.csv') else None
+                        pipeline = MortalityDataPipeline(maternal_path, child_path, lookup_path, un_igme_path=un_igme_path)
                         pipeline.load_data()
                         
                         # Initialize separate analytics
@@ -2767,13 +2770,14 @@ def render_child_mortality_section():
             key="child_mortality_indicator"
         )
     
-    # Tabs matching TB Notifications format
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    # Tabs matching TB Notifications format + Projections
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🔴 High Burden Countries",
         "🟢 Low Burden Countries",
         "📈 Temporal Trends",
         "👥 Sex Disaggregation",
-        "⚖️ Equity Analysis"
+        "⚖️ Equity Analysis",
+        "🎯 SDG 2030 Projections"
     ])
     
     with tab1:
@@ -2892,6 +2896,191 @@ def render_child_mortality_section():
                 st.metric("Ratio (Max/Min)", f"{equity_measures['ratio_max_to_min']:.1f}x" if equity_measures['ratio_max_to_min'] else "N/A")
             with col4:
                 st.metric("Coeff. of Variation", f"{equity_measures['coefficient_of_variation']:.1f}%" if equity_measures['coefficient_of_variation'] else "N/A")
+    
+    with tab6:
+        st.markdown("### 🎯 SDG 2030 Projections & Targets")
+        st.markdown("""
+        <div class="info-box" style="margin-bottom: 2rem;">
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>SDG Target 3.2:</strong> By 2030, end preventable deaths of newborns and children under 5 years of age
+                <br><strong>Targets:</strong> Reduce neonatal mortality to ≤12 per 1,000 live births | Reduce under-five mortality to ≤25 per 1,000 live births
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Country selection for projections
+        col1, col2 = st.columns(2)
+        with col1:
+            projection_country = st.selectbox(
+                "Select Country (or Regional)",
+                options=['AFRO Region'] + child_analytics.get_country_list(),
+                key="projection_country"
+            )
+        
+        with col2:
+            projection_method = st.selectbox(
+                "Projection Method",
+                options=['linear', 'exponential', 'log_linear'],
+                format_func=lambda x: {
+                    'linear': 'Linear Trend',
+                    'exponential': 'Exponential Decay',
+                    'log_linear': 'Log-Linear (AARR)'
+                }[x],
+                key="projection_method"
+            )
+        
+        # Get projections
+        country_for_proj = None if projection_country == 'AFRO Region' else projection_country
+        projection = child_analytics.project_to_2030(
+            indicator=selected_indicator,
+            country=country_for_proj,
+            method=projection_method
+        )
+        
+        if 'error' in projection:
+            st.error(projection['error'])
+        else:
+            # Display projection results
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    "Current Value (2024)",
+                    f"{projection['current_value']:.1f}",
+                    help=f"Latest value in {projection['current_year']}"
+                )
+            
+            with col2:
+                st.metric(
+                    "Projected 2030",
+                    f"{projection['projected_2030']:.1f}",
+                    delta=f"{projection['projected_2030'] - projection['current_value']:.1f}",
+                    delta_color="inverse" if projection['projected_2030'] < projection['current_value'] else "normal"
+                )
+            
+            with col3:
+                target = projection.get('target_2030')
+                if target:
+                    gap = projection.get('gap', 0)
+                    st.metric(
+                        "SDG Target 2030",
+                        f"{target:.1f}",
+                        delta=f"{gap:.1f}",
+                        delta_color="normal" if gap <= 0 else "inverse",
+                        help="Gap to target (negative = on track)"
+                    )
+                else:
+                    st.metric("SDG Target 2030", "N/A")
+            
+            with col4:
+                on_track = projection.get('on_track')
+                if on_track is not None:
+                    status = "✅ On Track" if on_track else "⚠️ Off Track"
+                    st.metric("Status", status)
+                else:
+                    st.metric("Status", "N/A")
+            
+            # Show what needs to be done
+            if projection.get('required_annual_reduction') is not None:
+                st.markdown("---")
+                st.markdown("### 📊 Required Actions to Reach Target")
+                
+                required_aarr = projection['required_annual_reduction']
+                current_val = projection['current_value']
+                target_val = projection['target_2030']
+                
+                if required_aarr > 0:
+                    st.warning(f"""
+                    **Required Average Annual Rate of Reduction (AARR): {required_aarr:.2f}%**
+                    
+                    To reach the SDG target of {target_val:.1f} by 2030 from the current value of {current_val:.1f}, 
+                    {projection_country} needs to reduce {selected_indicator} by an average of **{required_aarr:.2f}% per year**.
+                    
+                    **Current trajectory:** Projected to reach {projection['projected_2030']:.1f} by 2030 (gap: {gap:.1f})
+                    """)
+                else:
+                    st.success(f"""
+                    **On Track!** {projection_country} is projected to meet or exceed the SDG target.
+                    Current trajectory: {projection['projected_2030']:.1f} (target: {target_val:.1f})
+                    """)
+            
+            # Comparison of all methods
+            st.markdown("---")
+            st.markdown("### 📈 Projection Method Comparison")
+            
+            all_projections = child_analytics.get_projection_comparison(
+                indicator=selected_indicator,
+                country=country_for_proj
+            )
+            
+            # Create comparison table
+            comparison_data = []
+            for method, proj_data in all_projections.items():
+                if 'error' not in proj_data:
+                    comparison_data.append({
+                        'Method': {
+                            'linear': 'Linear Trend',
+                            'exponential': 'Exponential Decay',
+                            'log_linear': 'Log-Linear (AARR)'
+                        }[method],
+                        'Projected 2030': f"{proj_data['projected_2030']:.1f}",
+                        'Gap to Target': f"{proj_data.get('gap', 0):.1f}" if proj_data.get('target_2030') else "N/A",
+                        'On Track': "✅" if proj_data.get('on_track') else "⚠️" if proj_data.get('on_track') is False else "N/A"
+                    })
+            
+            if comparison_data:
+                import pandas as pd
+                comp_df = pd.DataFrame(comparison_data)
+                st.dataframe(comp_df, use_container_width=True, hide_index=True)
+            
+            # Projection chart (if chart generator supports it)
+            st.markdown("---")
+            st.markdown("### 📊 Historical Trend & Projection")
+            
+            # Create simple projection visualization
+            if 'historical_years' in projection and 'historical_values' in projection:
+                import plotly.graph_objects as go
+                
+                fig = go.Figure()
+                
+                # Historical data
+                fig.add_trace(go.Scatter(
+                    x=projection['historical_years'],
+                    y=projection['historical_values'],
+                    mode='lines+markers',
+                    name='Historical Data',
+                    line=dict(color='#0066CC', width=2)
+                ))
+                
+                # Projection line
+                if projection['current_year'] < 2030:
+                    fig.add_trace(go.Scatter(
+                        x=[projection['current_year'], 2030],
+                        y=[projection['current_value'], projection['projected_2030']],
+                        mode='lines+markers',
+                        name=f'Projection ({projection_method})',
+                        line=dict(color='#ff6b6b', width=2, dash='dash')
+                    ))
+                
+                # Target line
+                if projection.get('target_2030'):
+                    fig.add_trace(go.Scatter(
+                        x=[projection['historical_years'][0], 2030],
+                        y=[projection['target_2030'], projection['target_2030']],
+                        mode='lines',
+                        name='SDG Target 2030',
+                        line=dict(color='#28a745', width=2, dash='dot')
+                    ))
+                
+                fig.update_layout(
+                    title=f"{selected_indicator} - Historical Trend & 2030 Projection ({projection_country})",
+                    xaxis_title="Year",
+                    yaxis_title=indicator_options[selected_indicator],
+                    hovermode='x unified',
+                    height=500
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
 
 
 def render_dashboard_page():
@@ -3214,18 +3403,14 @@ def render_chatbot_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Embed Botpress webchat
-    botpress_url = BOTPRESS_CHATBOT_URL
-    
+    # Embed Botpress webchat using script tags
     st.markdown(f"""
-    <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-        <iframe 
-            src="{botpress_url}"
-            style="width: 100%; height: 100%; border: none;"
-            allow="microphone; camera"
-            title="Regional Health Data Hub Assistant">
-        </iframe>
+    <div id="botpress-chatbot-container" style="width: 100%; min-height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <!-- Botpress Chatbot will be injected here -->
     </div>
+    
+    <script src="{BOTPRESS_INJECT_SCRIPT}"></script>
+    <script src="{BOTPRESS_CONFIG_SCRIPT}" defer></script>
     """, unsafe_allow_html=True)
     
 
