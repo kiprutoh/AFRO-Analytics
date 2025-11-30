@@ -109,6 +109,9 @@ class MortalityDataPipeline:
                 # Ensure 'indicator' column exists (normalize from 'Indicator')
                 if 'indicator' not in child_data.columns and 'Indicator' in child_data.columns:
                     child_data['indicator'] = child_data['Indicator']
+                # Round years to integers (UN IGME has decimal years like 2023.2, 2023.5)
+                if 'year' in child_data.columns:
+                    child_data['year'] = child_data['year'].round().astype(int)
                 # Already has indicator, year, value columns
                 print(f"  Loaded {len(child_data):,} records from UN IGME 2024")
                 self.child_afro = child_data.copy()
@@ -474,7 +477,20 @@ class ChildMortalityAnalytics:
                 (self.child_afro[indicator_col] == indicator)
             ]
         
-        return int(indicator_data['year'].max()) if len(indicator_data) > 0 else 2023
+        if len(indicator_data) > 0:
+            # Round years first (in case they're still decimal)
+            indicator_data_years = indicator_data['year'].round().astype(int)
+            max_year = int(indicator_data_years.max())
+            
+            # Find the latest year with sufficient data (at least 5 countries)
+            for year in sorted(indicator_data_years.unique(), reverse=True):
+                year_data = indicator_data[indicator_data_years == year]
+                if year_data['country_clean'].nunique() >= 5:
+                    return int(year)
+            
+            # If no year has 5+ countries, return the max year anyway
+            return max_year
+        return 2023
     
     def get_mortality_summary(self, year: Optional[int] = None) -> Dict:
         """
@@ -508,9 +524,11 @@ class ChildMortalityAnalytics:
         indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
         
         for indicator in key_indicators:
+            # Round years for comparison (UN IGME has decimal years)
+            child_afro_years = self.child_afro['year'].round().astype(int)
             data_year = self.child_afro[
                 (self.child_afro[indicator_col] == indicator) &
-                (self.child_afro['year'] == year) &
+                (child_afro_years == year) &
                 (self.child_afro['sex'] == 'Total')
             ].copy()
             
@@ -558,9 +576,11 @@ class ChildMortalityAnalytics:
         # Use standard indicator name if available
         indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
         
+        # Round years for comparison (UN IGME has decimal years)
+        child_afro_years = self.child_afro['year'].round().astype(int)
         data_year = self.child_afro[
             (self.child_afro[indicator_col] == indicator) &
-            (self.child_afro['year'] == year) &
+            (child_afro_years == year) &
             (self.child_afro['sex'] == 'Total')
         ].copy()
         
@@ -607,9 +627,11 @@ class ChildMortalityAnalytics:
         # Use standard indicator name if available
         indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
         
+        # Round years for comparison (UN IGME has decimal years)
+        child_afro_years = self.child_afro['year'].round().astype(int)
         sex_data = self.child_afro[
             (self.child_afro[indicator_col] == indicator) &
-            (self.child_afro['year'] == year) &
+            (child_afro_years == year) &
             (self.child_afro['sex'].isin(['Female', 'Male', 'Total']))
         ][['country_clean', 'iso3', 'sex', 'value', 'year']].copy()
         
@@ -639,9 +661,11 @@ class ChildMortalityAnalytics:
         # Use standard indicator name if available
         indicator_col = 'indicator_standard' if 'indicator_standard' in self.child_afro.columns else 'indicator'
         
+        # Round years for comparison (UN IGME has decimal years)
+        child_afro_years = self.child_afro['year'].round().astype(int)
         data_year = self.child_afro[
             (self.child_afro[indicator_col] == indicator) &
-            (self.child_afro['year'] == year) &
+            (child_afro_years == year) &
             (self.child_afro['sex'] == 'Total') &
             (self.child_afro['value'].notna())
         ].copy()

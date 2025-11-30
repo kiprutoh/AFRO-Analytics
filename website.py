@@ -18,9 +18,8 @@ from tb_analytics import TBAnalytics
 from tb_chatbot import TBChatbot
 from tb_chart_generator import TBChartGenerator
 
-# Botpress chatbot integration - Script-based
-BOTPRESS_INJECT_SCRIPT = "https://cdn.botpress.cloud/webchat/v3.4/inject.js"
-BOTPRESS_CONFIG_SCRIPT = "https://files.bpcontent.cloud/2025/11/09/06/20251109063717-8SHN5C4I.js"
+# Botpress chatbot integration
+BOTPRESS_CHATBOT_URL = "https://cdn.botpress.cloud/webchat/v3.3/shareable.html?configUrl=https://files.bpcontent.cloud/2025/11/09/06/20251109063717-AGMWRARO.json"
 from tb_interactive_visualizer import TBInteractiveVisualizer
 from tb_burden_analytics import TBBurdenAnalytics
 from tb_burden_chart_generator import TBBurdenChartGenerator
@@ -3417,15 +3416,11 @@ def render_chatbot_page():
     </div>
     """, unsafe_allow_html=True)
     
-    # Embed Botpress webchat using script tags
-    # Note: Streamlit's st.markdown doesn't execute scripts, so we use components.html or iframe
-    # Using iframe approach for better compatibility
-    botpress_iframe_url = f"https://cdn.botpress.cloud/webchat/v3.4/shareable.html?configUrl=https://files.bpcontent.cloud/2025/11/09/06/20251109063717-8SHN5C4I.js"
-    
+    # Embed Botpress webchat using iframe
     st.markdown(f"""
     <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
         <iframe 
-            src="{botpress_iframe_url}"
+            src="{BOTPRESS_CHATBOT_URL}"
             style="width: 100%; height: 100%; border: none;"
             allow="microphone; camera"
             title="Regional Health Data Hub Assistant">
