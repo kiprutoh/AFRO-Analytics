@@ -40,14 +40,28 @@ def get_analytics_navigator(api_key: Optional[str] = None) -> Agent:
     # Use OpenRouter model (supports multiple providers)
     model_name = os.getenv("OPENROUTER_MODEL", "openrouter/anthropic/claude-3.5-sonnet")
     
-    if api_key:
-        model = OpenRouterModel(model_name, api_key=api_key)
-    else:
-        # Try to get from environment or session state
+    # Get API key from parameter, environment, or session state
+    if not api_key:
         api_key = os.getenv("OPENROUTER_API_KEY") or st.session_state.get("openrouter_api_key")
-        if not api_key:
-            raise ValueError("OpenRouter API key is required. Set OPENROUTER_API_KEY environment variable or provide in session state.")
-        model = OpenRouterModel(model_name, api_key=api_key)
+    
+    if not api_key:
+        raise ValueError("OpenRouter API key is required. Set OPENROUTER_API_KEY environment variable or provide in session state.")
+    
+    # OpenRouterModel reads API key from OPENROUTER_API_KEY environment variable
+    # Temporarily set it if not already set
+    original_key = os.environ.get("OPENROUTER_API_KEY")
+    os.environ["OPENROUTER_API_KEY"] = api_key
+    
+    try:
+        # OpenRouterModel reads from environment variable, not constructor parameter
+        model = OpenRouterModel(model_name)
+    finally:
+        # Restore original key if it existed
+        if original_key:
+            os.environ["OPENROUTER_API_KEY"] = original_key
+        elif "OPENROUTER_API_KEY" in os.environ:
+            # Only delete if we set it (not if it was already there)
+            pass  # Keep it set for the model to use
     
     # Create agent with system instructions
     agent = Agent(

@@ -3429,10 +3429,17 @@ def render_chatbot_page():
             st.info("Please set your OpenRouter API key in the sidebar settings or as OPENROUTER_API_KEY environment variable.")
             return
         
-        # Initialize agent
-        if 'navigator_agent' not in st.session_state:
+        # Initialize agent (recreate if API key changed)
+        current_api_key = api_key
+        if ('navigator_agent' not in st.session_state or 
+            st.session_state.get('navigator_api_key') != current_api_key):
             with st.spinner("Initializing AI Analytics Navigator..."):
-                st.session_state.navigator_agent = get_analytics_navigator(api_key)
+                try:
+                    st.session_state.navigator_agent = get_analytics_navigator(api_key)
+                    st.session_state.navigator_api_key = current_api_key
+                except Exception as e:
+                    st.error(f"Failed to initialize AI Analytics Navigator: {str(e)}")
+                    return
         
         navigator = st.session_state.navigator_agent
         
