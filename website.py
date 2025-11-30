@@ -3359,7 +3359,7 @@ def render_dashboard_page():
 
 
 def render_chatbot_page():
-    """Render the chatbot page with AI Analytics Navigator"""
+    """Render the chatbot page"""
     # Get current health topic and language
     health_topic = st.session_state.get("indicator_type", "Mortality")
     selected_language = st.session_state.get("selected_language", "English")
@@ -3380,7 +3380,7 @@ def render_chatbot_page():
     # Use translations
     current_lang = st.session_state.get("selected_language", "English")
     
-    st.markdown(f'<h2 class="section-header">🧭 AI Analytics Navigator</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="section-header">{get_translation("chatbot", current_lang)}</h2>', unsafe_allow_html=True)
     
     # Beautiful chatbot introduction
     st.markdown("""
@@ -3391,132 +3391,42 @@ def render_chatbot_page():
                 box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
         <div style="text-align: center; color: white;">
             <h2 style="color: white; margin-bottom: 1rem; font-size: 2rem;">
-                🧭 AI Analytics Navigator
+                🤖 Regional Health Data Hub Assistant
             </h2>
             <p style="font-size: 1.1rem; margin-bottom: 0.5rem; opacity: 0.95;">
-                Your intelligent guide to navigating and analyzing health data
+                Your intelligent companion for exploring health data
             </p>
             <p style="font-size: 0.95rem; opacity: 0.85; margin: 0;">
-                Ask questions about data availability, get statistics, explore trends, and discover insights
+                Ask questions about trends, comparisons, statistics, and get instant insights with visualizations
             </p>
         </div>
     </div>
     """, unsafe_allow_html=True)
     
-    # Check if system is initialized
-    if not st.session_state.data_loaded:
-        st.warning("⚠️ Please initialize the system from the sidebar to enable AI Analytics Navigator.")
-        st.info("""
-        **What you can do with AI Analytics Navigator:**
-        - 📊 Get statistics for specific countries
-        - 📈 Explore available indicators and data
-        - 🔍 Find top/bottom countries by indicators
-        - 📋 Get regional summaries
-        - 💡 Get suggestions for data exploration
-        """)
-        return
+    # Display topic-specific help text
+    st.markdown(get_topic_content(health_topic, "chatbot_help", current_lang))
     
-    # Initialize AI Analytics Navigator
-    try:
-        from ai_analytics_navigator import get_analytics_navigator, create_navigator_dependencies
-        import nest_asyncio
-        nest_asyncio.apply()  # Required for Streamlit + async
-        
-        # Get API key
-        api_key = st.session_state.get("openrouter_api_key") or os.getenv("OPENROUTER_API_KEY")
-        if not api_key:
-            st.error("⚠️ OpenRouter API key is required for AI Analytics Navigator.")
-            st.info("Please set your OpenRouter API key in the sidebar settings or as OPENROUTER_API_KEY environment variable.")
-            return
-        
-        # Initialize agent (recreate if API key changed)
-        current_api_key = api_key
-        if ('navigator_agent' not in st.session_state or 
-            st.session_state.get('navigator_api_key') != current_api_key):
-            with st.spinner("Initializing AI Analytics Navigator..."):
-                try:
-                    st.session_state.navigator_agent = get_analytics_navigator(api_key)
-                    st.session_state.navigator_api_key = current_api_key
-                except Exception as e:
-                    st.error(f"Failed to initialize AI Analytics Navigator: {str(e)}")
-                    return
-        
-        navigator = st.session_state.navigator_agent
-        
-        # Initialize chat history
-        if 'navigator_history' not in st.session_state:
-            st.session_state.navigator_history = []
-        
-        # Display chat history
-        for message in st.session_state.navigator_history:
-            if message["role"] == "user":
-                with st.chat_message("user"):
-                    st.write(message["content"])
-            else:
-                with st.chat_message("assistant"):
-                    st.write(message["content"]["answer"])
-                    
-                    if message["content"].get("suggested_actions"):
-                        st.markdown("**💡 Suggested Actions:**")
-                        for action in message["content"]["suggested_actions"]:
-                            st.markdown(f"- {action}")
-                    
-                    if message["content"].get("data_summary"):
-                        st.info(f"📊 {message['content']['data_summary']}")
-        
-        # Chat input
-        user_query = st.chat_input("Ask the AI Analytics Navigator...")
-        
-        if user_query:
-            # Add user message
-            st.session_state.navigator_history.append({
-                "role": "user",
-                "content": user_query
-            })
-            
-            # Get dependencies
-            deps = create_navigator_dependencies()
-            
-            # Get response from navigator
-            with st.spinner("🧭 Navigating data and generating response..."):
-                try:
-                    import asyncio
-                    result = asyncio.run(navigator.run(user_query, deps=deps))
-                    response = result.output
-                except Exception as e:
-                    from ai_analytics_navigator import NavigatorResponse
-                    response = NavigatorResponse(
-                        answer=f"I encountered an error: {str(e)}\n\nPlease try rephrasing your question or ensure the system is properly initialized.",
-                        suggested_actions=["Check system initialization", "Try a different question"],
-                        needs_chart=False
-                    )
-            
-            # Add assistant response
-            st.session_state.navigator_history.append({
-                "role": "assistant",
-                "content": {
-                    "answer": response.answer,
-                    "suggested_actions": response.suggested_actions,
-                    "data_summary": response.data_summary,
-                    "needs_chart": response.needs_chart
-                }
-            })
-            
-            st.rerun()
-        
-        # Clear chat button
-        if st.session_state.navigator_history:
-            if st.button("🔄 Clear Chat History", use_container_width=True):
-                st.session_state.navigator_history = []
-                st.rerun()
+    # Botpress Chatbot Integration
+    st.markdown("""
+    <div style="margin-top: 2rem; margin-bottom: 2rem;">
+        <h3 style="color: #0066CC; margin-bottom: 1rem;">💬 Chat with Regional Health Data Hub Assistant</h3>
+        <p style="color: #666; margin-bottom: 1rem;">
+            Use the chat widget below to ask questions about health data, get insights, and explore analytics.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    except ImportError as e:
-        st.error(f"⚠️ AI Analytics Navigator dependencies not available: {str(e)}")
-        st.info("Please ensure pydantic-ai is installed: `pip install pydantic-ai`")
-    except Exception as e:
-        st.error(f"⚠️ Error initializing AI Analytics Navigator: {str(e)}")
-        import traceback
-        st.code(traceback.format_exc())
+    # Embed Botpress webchat using iframe
+    st.markdown(f"""
+    <div style="width: 100%; height: 600px; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+        <iframe 
+            src="{BOTPRESS_CHATBOT_URL}"
+            style="width: 100%; height: 100%; border: none;"
+            allow="microphone; camera"
+            title="Regional Health Data Hub Assistant">
+        </iframe>
+    </div>
+    """, unsafe_allow_html=True)
     
 
 
@@ -5850,78 +5760,6 @@ def main():
         render_visualizer_page()
     elif st.session_state.current_page == 'About':
         render_about_page()
-    
-    # Add Botpress bubble to all pages (floating in bottom right)
-    add_botpress_bubble()
-
-
-def add_botpress_bubble():
-    """Add Botpress chatbot as floating bubble in bottom right"""
-    st.markdown(f"""
-    <div id="botpress-bubble-container" onclick="toggleBotpressChat()" style="
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 10000;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 24px;
-    ">
-        💬
-    </div>
-    <div id="botpress-chat-widget" style="
-        position: fixed;
-        bottom: 90px;
-        right: 20px;
-        width: 380px;
-        height: 600px;
-        border-radius: 15px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        z-index: 10001;
-        display: none;
-        overflow: hidden;
-        background: white;
-    ">
-        <iframe 
-            src="{BOTPRESS_CHATBOT_URL}"
-            style="width: 100%; height: 100%; border: none;"
-            allow="microphone; camera"
-            title="Botpress Chatbot">
-        </iframe>
-    </div>
-    <script>
-        function toggleBotpressChat() {{
-            const widget = document.getElementById('botpress-chat-widget');
-            const bubble = document.getElementById('botpress-bubble-container');
-            if (widget.style.display === 'none' || widget.style.display === '') {{
-                widget.style.display = 'block';
-                bubble.style.transform = 'scale(1.1)';
-            }} else {{
-                widget.style.display = 'none';
-                bubble.style.transform = 'scale(1)';
-            }}
-        }}
-        
-        // Close widget when clicking outside
-        document.addEventListener('click', function(event) {{
-            const widget = document.getElementById('botpress-chat-widget');
-            const bubble = document.getElementById('botpress-bubble-container');
-            if (widget && !widget.contains(event.target) && !bubble.contains(event.target)) {{
-                widget.style.display = 'none';
-                bubble.style.transform = 'scale(1)';
-            }}
-        }});
-    </script>
-    """, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
