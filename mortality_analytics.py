@@ -7,13 +7,24 @@ Uses UNICEF/UNIGME definitions and standard column structure
 
 import pandas as pd
 import numpy as np
+import os
 from typing import Dict, List, Optional, Tuple
+try:
+    from scipy import stats
+    SCIPY_AVAILABLE = True
+except ImportError:
+    SCIPY_AVAILABLE = False
+try:
+    from sklearn.linear_model import LinearRegression
+    SKLEARN_AVAILABLE = True
+except ImportError:
+    SKLEARN_AVAILABLE = False
 
 
 class MortalityDataPipeline:
     """Unified data pipeline for both Maternal and Child Mortality"""
     
-    def __init__(self, maternal_data_path: str, child_data_path: str, country_lookup_path: str):
+    def __init__(self, maternal_data_path: str, child_data_path: str, country_lookup_path: str, un_igme_path: Optional[str] = None):
         """
         Initialize Mortality Data Pipeline
         
@@ -21,10 +32,12 @@ class MortalityDataPipeline:
             maternal_data_path: Path to maternal Mortality CSV
             child_data_path: Path to Child Mortality CSV (UNICEF format)
             country_lookup_path: Path to AFRO countries lookup CSV
+            un_igme_path: Optional path to UN IGME 2024.csv (optimized)
         """
         self.maternal_data_path = maternal_data_path
         self.child_data_path = child_data_path
         self.country_lookup_path = country_lookup_path
+        self.un_igme_path = un_igme_path
         self.maternal_afro = None
         self.child_afro = None
         self.afro_countries = None
@@ -78,9 +91,21 @@ class MortalityDataPipeline:
         print(f"  Maternal: {self.maternal_afro['country_clean'].nunique()} countries, "
               f"years {int(self.maternal_afro['year'].min())}-{int(self.maternal_afro['year'].max())}")
         
-        # Load Child Mortality data - handle both UNICEF format and clean format
+        # Load Child Mortality data - prioritize UN IGME 2024 if available
         print("Loading Child Mortality data...")
-        child_data = pd.read_csv(self.child_data_path, low_memory=False)
+        if self.un_igme_path and os.path.exists(self.un_igme_path):
+            print("  Using optimized UN IGME 2024.csv")
+            child_data = pd.read_csv(self.un_igme_path, low_memory=False)
+            # UN IGME file is already optimized and cleaned
+            if 'iso' in child_data.columns:
+                child_data['iso3'] = child_data['iso']
+                child_data['country_clean'] = child_data.get('country_clean', child_data.get('country', ''))
+                # Already has indicator, year, value columns
+                print(f"  Loaded {len(child_data):,} records from UN IGME 2024")
+                self.child_afro = child_data.copy()
+                return self
+        else:
+            child_data = pd.read_csv(self.child_data_path, low_memory=False)
         
         # Check if file is in clean format (has 'iso', 'country', 'indicator' columns) or UNICEF format
         if 'iso' in child_data.columns and 'country' in child_data.columns and 'indicator' in child_data.columns:
